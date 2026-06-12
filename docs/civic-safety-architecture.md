@@ -129,9 +129,19 @@ Two payload types, both closed shapes (no index signatures):
 
 ## §9 Open questions (tracked, not yet designed)
 
-* Auto-resolution / escalation for sessions stuck in ACTIVE with no responder
-  acceptance (currently they wait for human resolution).
+Resolved since first draft: stuck-ACTIVE escalation (ESCALATION_RAISED
+self-loop, single re-alert), responder no-show recovery (RESPONDER_WITHDREW
+with arrival-timeout sweep), capability-token auth for all three roles,
+per-session PIN enrollment, and restart-safe persistence with chain-verified
+rehydration (SQLite standing in for Postgres+KMS).
+
+Still open:
+
 * Duress semantics on the resolve flow (coerced "I'm safe"): likely a duress
   variant of resolve mirroring the cancel design.
-* Production KMS adapter and key-destruction attestation.
+* Production KMS adapter and key-destruction attestation; production Postgres
+  adapter for the SessionRepository port.
+* Real SMS/push delivery with acknowledgment and retry (Notifier is a stub).
 * Offline/SMS-fallback trigger paths for low-connectivity areas.
+* Contact-side consent (contacts currently never opt in to receiving alerts).
+* i18n (Hindi + regional languages), accessibility, real map tiles.
