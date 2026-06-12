@@ -65,6 +65,16 @@ export class SessionController {
     return this.sessions.getDispatchLocation(id, responderId);
   }
 
+  @Get(':id/contact-view')
+  contactView(@Param('id') id: string) {
+    return this.sessions.contactView(id);
+  }
+
+  @Get(':id/responder-view/:responderId')
+  responderView(@Param('id') id: string, @Param('responderId') responderId: string) {
+    return this.sessions.responderView(id, responderId);
+  }
+
   @Post(':id/arrival')
   arrival(@Param('id') id: string, @Body() body: { responderId: string; code: string }) {
     return this.sessions.verifyArrival(id, body.responderId, body.code);

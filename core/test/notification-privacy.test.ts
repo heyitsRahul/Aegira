@@ -63,7 +63,15 @@ describe('responder offers never carry identity (invariant 6)', () => {
         'kind',
         'sentAt',
         'sessionId',
+        'to',
       ]);
+    }
+  });
+
+  it('the routing address is a responder id, never a phone number', async () => {
+    const { notifier } = await dispatchedRig();
+    for (const offer of notifier.responderOffers) {
+      expect(offer.to).toMatch(/^responder-/);
     }
   });
 });

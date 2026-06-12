@@ -37,6 +37,8 @@ export interface ContactAlertPayload {
 export interface ResponderOfferPayload {
   readonly kind: 'responder_offer';
   readonly sessionId: string;
+  /** Routing only: the responder id this offer is addressed to. */
+  readonly to: string;
   readonly alias: string;
   readonly coarseCell: string;
   readonly category: SessionCategory;

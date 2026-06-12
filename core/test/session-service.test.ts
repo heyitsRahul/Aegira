@@ -262,6 +262,67 @@ describe('close, purge, and crypto-shred (invariant 7)', () => {
   });
 });
 
+describe('role-scoped views', () => {
+  it('contacts see the real state, name, and live location', async () => {
+    const { service } = buildRig();
+    const { sessionId } = service.trigger(TRIGGER_FIXTURE);
+    await service.confirm(sessionId);
+    const view = service.contactView(sessionId);
+    expect(view.state).toBe('ACTIVE');
+    expect(view.helpseekerDisplayName).toBe(TRIGGER_FIXTURE.displayName);
+    expect(view.location?.lat).toBeCloseTo(TRIGGER_FIXTURE.location.lat);
+    expect(view.duress).toBe(false);
+  });
+
+  it('contacts see through the duress mask — that is who the mask is not for', async () => {
+    const { service } = buildRig();
+    const { sessionId } = service.trigger(TRIGGER_FIXTURE);
+    await service.cancel(sessionId, TEST_CONFIG.pins.duress);
+    const view = service.contactView(sessionId);
+    expect(view.state).toBe('ACTIVE');
+    expect(view.duress).toBe(true);
+    // ...while the coerced device still sees a convincing cancel.
+    expect(service.clientStatus(sessionId).state).toBe('CANCELLED');
+  });
+
+  it('after purge the contact view has no location and no name left to show', async () => {
+    const { service, clock } = buildRig();
+    const { sessionId } = service.trigger(TRIGGER_FIXTURE);
+    await service.cancel(sessionId, TEST_CONFIG.pins.safe);
+    clock.advance(HOUR);
+    await service.evaluateTimers(clock.now());
+    clock.advance(7 * DAY);
+    await service.evaluateTimers(clock.now());
+    const view = service.contactView(sessionId);
+    expect(view.state).toBe('PURGED');
+    expect(view.location).toBeNull();
+    expect(view.helpseekerDisplayName).toBe('');
+  });
+
+  it('responder view is offer-gated, identity-free, and location-free pre-acceptance', async () => {
+    const { service } = buildRig();
+    const { sessionId } = service.trigger(TRIGGER_FIXTURE);
+    await service.confirm(sessionId);
+    await service.dispatch(sessionId, ROSTER_FIXTURE);
+
+    expect(() => service.responderView(sessionId, 'responder-far')).toThrow(
+      ResponderNotAuthorizedError,
+    );
+
+    const before = service.responderView(sessionId, 'responder-a');
+    expect(before.location).toBeNull();
+    expect(before.alias).toMatch(/^helpseeker-/);
+    expect(JSON.stringify(before)).not.toContain(TRIGGER_FIXTURE.displayName);
+
+    service.accept(sessionId, 'responder-a');
+    expect(service.responderView(sessionId, 'responder-a').location?.lat).toBeCloseTo(
+      TRIGGER_FIXTURE.location.lat,
+    );
+    // The other offered responder still gets no location.
+    expect(service.responderView(sessionId, 'responder-b').location).toBeNull();
+  });
+});
+
 describe('event log hygiene (invariant 1 + conventions)', () => {
   it('no event in the durable log ever contains identity or coordinates', async () => {
     const { service, clock } = buildRig();

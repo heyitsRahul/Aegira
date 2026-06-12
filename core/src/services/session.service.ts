@@ -50,6 +50,31 @@ export interface ClientStatus {
   state: SessionState;
 }
 
+/**
+ * What a trusted contact's app sees. Contacts get the REAL state and the
+ * live location — they are the helpseeker's chosen circle, and the duress
+ * mask exists only to fool whoever holds the helpseeker's device.
+ */
+export interface ContactView {
+  sessionId: string;
+  state: SessionState;
+  duress: boolean;
+  category: SessionCategory;
+  helpseekerDisplayName: string;
+  location: PreciseLocation | null;
+}
+
+/** What an offered/accepted responder's app sees. Identity-free. */
+export interface ResponderView {
+  sessionId: string;
+  state: SessionState;
+  alias: string;
+  category: SessionCategory;
+  coarseCell: string;
+  /** Precise location only for the accepted responder while DISPATCHED. */
+  location: PreciseLocation | null;
+}
+
 interface SessionPii {
   userId: string;
   displayName: string;
@@ -201,6 +226,62 @@ export class SessionService {
     return { state: record.aggregate.state, events: record.aggregate.events };
   }
 
+  /** Live view for the helpseeker's trusted contacts (real state). */
+  contactView(sessionId: string): ContactView {
+    const record = this.mustGet(sessionId);
+    const state = record.aggregate.state;
+    const live =
+      state === 'PENDING' || state === 'ACTIVE' || state === 'DISPATCHED' || state === 'ARRIVED';
+    let location: PreciseLocation | null = null;
+    let displayName = '';
+    if (!this.crypto.isShredded(sessionId) && record.encryptedPii !== null) {
+      const pii = JSON.parse(this.crypto.decrypt(record.encryptedPii)) as SessionPii;
+      displayName = pii.displayName;
+      if (live && record.encryptedLocations.length > 0) {
+        const latest = record.encryptedLocations[record.encryptedLocations.length - 1];
+        location = JSON.parse(this.crypto.decrypt(latest)) as PreciseLocation;
+      }
+    }
+    return {
+      sessionId,
+      state,
+      duress: record.duressActivatedAtIso !== null,
+      category: record.category,
+      helpseekerDisplayName: displayName,
+      location,
+    };
+  }
+
+  /**
+   * Live view for a responder who received an offer. Real state (the
+   * duress mask is only for the coerced device), but identity-free:
+   * alias and coarse cell, with precise location only post-acceptance.
+   */
+  responderView(sessionId: string, responderId: string): ResponderView {
+    const record = this.mustGet(sessionId);
+    if (!record.offeredResponderIds.has(responderId)) {
+      throw new ResponderNotAuthorizedError();
+    }
+    const state = record.aggregate.state;
+    let location: PreciseLocation | null = null;
+    if (
+      state === 'DISPATCHED' &&
+      record.acceptedResponderId === responderId &&
+      record.encryptedLocations.length > 0
+    ) {
+      const latest = record.encryptedLocations[record.encryptedLocations.length - 1];
+      location = JSON.parse(this.crypto.decrypt(latest)) as PreciseLocation;
+    }
+    return {
+      sessionId,
+      state,
+      alias: record.alias,
+      category: record.category,
+      coarseCell: record.coarseCell,
+      location,
+    };
+  }
+
   recordLocation(sessionId: string, lat: number, lng: number): void {
     const record = this.mustGet(sessionId);
     const state = record.aggregate.state;
@@ -236,6 +317,7 @@ export class SessionService {
       await this.notifier.sendResponderOffer({
         kind: 'responder_offer',
         sessionId,
+        to: candidate.responderId,
         alias: record.alias,
         coarseCell: record.coarseCell,
         category: record.category,
