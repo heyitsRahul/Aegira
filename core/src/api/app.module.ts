@@ -2,11 +2,21 @@ import { Module } from '@nestjs/common';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { SessionCrypto } from '../crypto/shredder';
-import { openDatabase, SqliteKeyVault, SqliteSessionRepository } from '../persistence/sqlite';
+import {
+  openDatabase,
+  SqliteKeyVault,
+  SqliteRegistrationStore,
+  SqliteSessionRepository,
+} from '../persistence/sqlite';
 import { MatchingService } from '../services/matching.service';
 import { StubNotifier } from '../services/notification.service';
+import { RegistrationService } from '../services/registration.service';
 import { SessionService, SessionServiceConfig } from '../services/session.service';
-import { DevController } from './dev.controller';
+import { CompositeNotifier, SmsNotifier, StubSmsTransport } from '../services/sms';
+import { SmsGatewayService } from '../services/sms-gateway.service';
+import { DevController, OUTBOX, SMS_TRANSPORT } from './dev.controller';
+import { GATEWAY_SECRET, GatewayController, SMS_GATEWAY } from './gateway.controller';
+import { LiteController, REGISTRATIONS } from './lite.controller';
 import { ResponderRegistry } from './responder-registry';
 import {
   NOTIFIER,
@@ -18,10 +28,11 @@ import { SystemClock } from './system-clock';
 
 /**
  * Dev wiring. SQLite (Node's built-in driver) stands in for Postgres+KMS:
- * sessions and key material survive restarts, the event chain is verified
- * on rehydration, and crypto-shredding works across processes. The stub
- * notifier stands in for SMS/push. Fallback PINs: safe=1234, duress=9999;
- * the app enrolls per-user PINs at trigger time.
+ * sessions, registrations, and key material survive restarts, the event
+ * chain is verified on rehydration, and crypto-shredding works across
+ * processes. Notifications fan out to the app stub AND the SMS stub, so
+ * every channel sees the same closed payloads. Fallback PINs: safe=1234,
+ * duress=9999; both UIs enroll per-user PINs.
  * Set SAHAY_DB=:memory: for an ephemeral run.
  */
 const DEV_CONFIG: SessionServiceConfig = {
@@ -34,7 +45,10 @@ const DEV_CONFIG: SessionServiceConfig = {
   maxArrivalAttempts: 5,
   maxResponderOffers: 3,
   pins: { safe: '1234', duress: '9999' },
+  publicBaseUrl: process.env.SAHAY_BASE_URL ?? 'http://localhost:3000',
 };
+
+const DEV_GATEWAY_SECRET = 'dev-gateway-secret';
 
 function buildResponderRegistry(): ResponderRegistry {
   const registry = new ResponderRegistry();
@@ -49,32 +63,43 @@ function buildResponderRegistry(): ResponderRegistry {
   return registry;
 }
 
-function buildSessionService(notifier: StubNotifier): SessionService {
+function buildWiring() {
   const dbPath = process.env.SAHAY_DB ?? join(__dirname, '..', '..', 'var', 'sahay.db');
   if (dbPath !== ':memory:') {
     mkdirSync(join(__dirname, '..', '..', 'var'), { recursive: true });
   }
   const db = openDatabase(dbPath);
-  return new SessionService(
-    new SystemClock(),
+  const clock = new SystemClock();
+  const appOutbox = new StubNotifier();
+  const smsTransport = new StubSmsTransport();
+  const notifier = new CompositeNotifier(appOutbox, new SmsNotifier(smsTransport));
+  const registry = buildResponderRegistry();
+  const sessions = new SessionService(
+    clock,
     new SessionCrypto(new SqliteKeyVault(db)),
     notifier,
     new MatchingService(5),
     DEV_CONFIG,
     new SqliteSessionRepository(db),
   );
+  const registrations = new RegistrationService(new SqliteRegistrationStore(db), clock);
+  const gateway = new SmsGatewayService(sessions, registrations, () => registry.all());
+  return { appOutbox, smsTransport, registry, sessions, registrations, gateway };
 }
 
+const wiring = buildWiring();
+
 @Module({
-  controllers: [SessionController, DevController],
+  controllers: [SessionController, DevController, GatewayController, LiteController],
   providers: [
-    { provide: NOTIFIER, useValue: new StubNotifier() },
-    { provide: RESPONDER_REGISTRY, useFactory: buildResponderRegistry },
-    {
-      provide: SESSION_SERVICE,
-      useFactory: (notifier: StubNotifier) => buildSessionService(notifier),
-      inject: [NOTIFIER],
-    },
+    { provide: NOTIFIER, useValue: wiring.appOutbox },
+    { provide: OUTBOX, useValue: wiring.appOutbox },
+    { provide: SMS_TRANSPORT, useValue: wiring.smsTransport },
+    { provide: RESPONDER_REGISTRY, useValue: wiring.registry },
+    { provide: SESSION_SERVICE, useValue: wiring.sessions },
+    { provide: REGISTRATIONS, useValue: wiring.registrations },
+    { provide: SMS_GATEWAY, useValue: wiring.gateway },
+    { provide: GATEWAY_SECRET, useValue: DEV_GATEWAY_SECRET },
   ],
 })
 export class AppModule {}

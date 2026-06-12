@@ -39,6 +39,11 @@ export interface SessionServiceConfig {
   maxResponderOffers: number;
   /** Fallback PINs for dev wiring; real sessions enroll their own. */
   pins: { safe: string; duress: string };
+  /**
+   * Base URL for contact live-links. Points at /lite/c/... so the link in
+   * an alert SMS opens on any browser, however old.
+   */
+  publicBaseUrl: string;
 }
 
 export interface TriggerInput {
@@ -49,6 +54,11 @@ export interface TriggerInput {
   category: SessionCategory;
   /** Per-user PINs enrolled for this session; falls back to config. */
   pins?: { safe: string; duress: string };
+  /**
+   * Pre-hashed PINs (sha256 hex) for channels that enrolled them earlier,
+   * e.g. SMS registration. Mutually exclusive with `pins`.
+   */
+  pinHashes?: { safe: string; duress: string };
 }
 
 export interface TriggerReceipt {
@@ -109,6 +119,8 @@ interface StoredSession {
   encryptedPii: EncryptedBlob | null;
   encryptedLocations: EncryptedBlob[];
   encryptedContactToken: EncryptedBlob | null;
+  /** sha256 of each contact address — reply-routing index, not identity. */
+  contactRefs: string[];
   /** Set when a duress PIN faked a cancel; drives the masked client view. */
   duressActivatedAtIso: string | null;
   offeredResponderIds: Set<string>;
@@ -164,12 +176,24 @@ function validateTrigger(input: TriggerInput): void {
   if (!VALID_CATEGORIES.includes(input.category)) {
     throw new InvalidInputError('unknown category');
   }
+  if (input.pins !== undefined && input.pinHashes !== undefined) {
+    throw new InvalidInputError('provide pins or pinHashes, not both');
+  }
   if (input.pins !== undefined) {
     const pinShape = /^\d{4,6}$/;
     if (!pinShape.test(input.pins.safe) || !pinShape.test(input.pins.duress)) {
       throw new InvalidInputError('pins must be 4-6 digits');
     }
     if (input.pins.safe === input.pins.duress) {
+      throw new InvalidInputError('safe and duress pins must differ');
+    }
+  }
+  if (input.pinHashes !== undefined) {
+    const hashShape = /^[0-9a-f]{64}$/;
+    if (!hashShape.test(input.pinHashes.safe) || !hashShape.test(input.pinHashes.duress)) {
+      throw new InvalidInputError('pin hashes must be sha256 hex');
+    }
+    if (input.pinHashes.safe === input.pinHashes.duress) {
       throw new InvalidInputError('safe and duress pins must differ');
     }
   }
@@ -204,6 +228,7 @@ export class SessionService {
         encryptedPii: snapshot.encryptedPii,
         encryptedLocations: [...snapshot.encryptedLocations],
         encryptedContactToken: snapshot.encryptedContactToken,
+        contactRefs: snapshot.contactRefs ?? [],
         duressActivatedAtIso: snapshot.duressActivatedAtIso,
         offeredResponderIds: new Set(snapshot.offeredResponderIds),
         acceptedResponderId: snapshot.acceptedResponderId,
@@ -271,7 +296,9 @@ export class SessionService {
 
     const seekerToken = randomBytes(24).toString('hex');
     const contactToken = randomBytes(24).toString('hex');
-    const pins = input.pins ?? this.config.pins;
+    const fallbackPins = input.pins ?? this.config.pins;
+    const pinSafeHash = input.pinHashes?.safe ?? sha256(fallbackPins.safe);
+    const pinDuressHash = input.pinHashes?.duress ?? sha256(fallbackPins.duress);
     const pii: SessionPii = {
       userId: input.userId,
       displayName: input.displayName,
@@ -299,6 +326,7 @@ export class SessionService {
       encryptedPii: this.crypto.encrypt(sessionId, JSON.stringify(pii)),
       encryptedLocations: [this.crypto.encrypt(sessionId, JSON.stringify(initialLocation))],
       encryptedContactToken: this.crypto.encrypt(sessionId, contactToken),
+      contactRefs: input.contacts.map((c) => sha256(c.address)),
       duressActivatedAtIso: null,
       offeredResponderIds: new Set(),
       acceptedResponderId: null,
@@ -306,8 +334,8 @@ export class SessionService {
       arrivalAttempts: 0,
       seekerTokenHash: sha256(seekerToken),
       contactTokenHash: sha256(contactToken),
-      pinSafeHash: sha256(pins.safe),
-      pinDuressHash: sha256(pins.duress),
+      pinSafeHash,
+      pinDuressHash,
     };
     this.sessions.set(sessionId, record);
     this.persist(record);
@@ -390,6 +418,38 @@ export class SessionService {
   opsView(sessionId: string): { state: SessionState; events: readonly SessionEvent[] } {
     const record = this.mustGet(sessionId);
     return { state: record.aggregate.state, events: record.aggregate.events };
+  }
+
+  /**
+   * Most recent session for a user (by genesis time), masked or not.
+   * Channel gateways use this to route STATUS/CANCEL/SAFE commands; the
+   * caller still goes through clientStatus, so the duress mask holds.
+   */
+  latestSessionIdForUser(userId: string): string | null {
+    const userRef = sha256(userId);
+    let latest: { id: string; at: number } | null = null;
+    for (const record of this.sessions.values()) {
+      if (record.userRef !== userRef) {
+        continue;
+      }
+      const at = Date.parse(record.aggregate.events[0].at);
+      if (latest === null || at > latest.at) {
+        latest = { id: record.aggregate.sessionId, at };
+      }
+    }
+    return latest?.id ?? null;
+  }
+
+  /** Sessions a contact (by hashed address) can currently dispatch for. */
+  dispatchableSessionIdsForContact(contactAddress: string): string[] {
+    const ref = sha256(contactAddress);
+    const out: string[] = [];
+    for (const record of this.sessions.values()) {
+      if (record.contactRefs.includes(ref) && record.aggregate.state === 'ACTIVE') {
+        out.push(record.aggregate.sessionId);
+      }
+    }
+    return out;
   }
 
   /** Live view for the helpseeker's trusted contacts (real state). */
@@ -679,7 +739,7 @@ export class SessionService {
         to: contact.address,
         helpseekerDisplayName: pii.displayName,
         category: record.category,
-        liveSessionLink: `https://app.sahay.example/live/${sessionId}?t=${contactToken}`,
+        liveSessionLink: `${this.config.publicBaseUrl}/lite/c/${sessionId}?t=${contactToken}`,
         duress: flags.duress,
         escalation: flags.escalation,
         sentAt,
@@ -697,6 +757,7 @@ export class SessionService {
       encryptedPii: record.encryptedPii,
       encryptedLocations: [...record.encryptedLocations],
       encryptedContactToken: record.encryptedContactToken,
+      contactRefs: [...record.contactRefs],
       duressActivatedAtIso: record.duressActivatedAtIso,
       offeredResponderIds: [...record.offeredResponderIds],
       acceptedResponderId: record.acceptedResponderId,

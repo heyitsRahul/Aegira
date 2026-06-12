@@ -18,6 +18,8 @@ export interface SessionSnapshot {
   encryptedPii: EncryptedBlob | null;
   encryptedLocations: EncryptedBlob[];
   encryptedContactToken: EncryptedBlob | null;
+  /** sha256 of each contact address — reply-routing index, not identity. */
+  contactRefs: string[];
   duressActivatedAtIso: string | null;
   offeredResponderIds: string[];
   acceptedResponderId: string | null;

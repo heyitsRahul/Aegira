@@ -18,6 +18,7 @@ export const TEST_CONFIG: SessionServiceConfig = {
   maxArrivalAttempts: 3,
   maxResponderOffers: 3,
   pins: { safe: '1234', duress: '9999' },
+  publicBaseUrl: 'http://localhost:3000',
 };
 
 export interface TestRig {

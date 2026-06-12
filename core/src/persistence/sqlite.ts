@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { KeyDestroyedError, KeyNotFoundError, KeyVault } from '../crypto/shredder';
+import { RegistrationRecord, RegistrationStore } from '../services/registration.service';
 import { SessionRepository, SessionSnapshot } from './session-repository';
 
 /**
@@ -25,6 +26,12 @@ export function openDatabase(path: string): DatabaseSync {
       material  BLOB,
       destroyed INTEGER NOT NULL DEFAULT 0
     );
+    -- retention_class: durable (account-class SMS registrations, consent v2;
+    -- deliberately contains no location — see migrations/0008)
+    CREATE TABLE IF NOT EXISTS registrations (
+      phone_ref TEXT PRIMARY KEY,
+      record    TEXT NOT NULL
+    );
   `);
   return db;
 }
@@ -46,6 +53,30 @@ export class SqliteSessionRepository implements SessionRepository {
       snapshot: string;
     }>;
     return rows.map((r) => JSON.parse(r.snapshot) as SessionSnapshot);
+  }
+}
+
+export class SqliteRegistrationStore implements RegistrationStore {
+  constructor(private readonly db: DatabaseSync) {}
+
+  save(record: RegistrationRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO registrations (phone_ref, record) VALUES (?, ?)
+         ON CONFLICT(phone_ref) DO UPDATE SET record = excluded.record`,
+      )
+      .run(record.phoneRef, JSON.stringify(record));
+  }
+
+  get(phoneRef: string): RegistrationRecord | undefined {
+    const row = this.db
+      .prepare('SELECT record FROM registrations WHERE phone_ref = ?')
+      .get(phoneRef) as { record: string } | undefined;
+    return row === undefined ? undefined : (JSON.parse(row.record) as RegistrationRecord);
+  }
+
+  delete(phoneRef: string): void {
+    this.db.prepare('DELETE FROM registrations WHERE phone_ref = ?').run(phoneRef);
   }
 }
 

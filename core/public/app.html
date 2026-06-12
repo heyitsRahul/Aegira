@@ -3,7 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
 <title>Sahay</title>
+<script>
+// Older browsers (Opera Mini, KaiOS, old stock Android) lack what this
+// app needs; hand them the zero-JS version instead of a blank screen.
+if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
+  window.location.replace('/lite');
+}
+</script>
+<noscript><meta http-equiv="refresh" content="0;url=/lite"></noscript>
 <style>
   :root {
     --bg:#0b0e14; --panel:#141926; --panel2:#1b2233; --edge:#28304226;
@@ -226,7 +239,9 @@ function renderLanding() {
     <div class="card tap" onclick="go('responder')"><div class="role-card">
       <div class="ico">🏃</div><div><b>I'm a verified responder</b>
       <div class="sub">Accept dispatches. You never see who — only a session alias and an area.</div></div></div></div>
-    <div class="foot">Demo wiring: PINs safe 1234 / duress 9999 · ops console at <a href="/console">/console</a></div>`;
+    <div class="foot">No smartphone? <a href="/lite">basic web version</a> works on any browser,
+      and the whole flow runs over <a href="/phone">SMS</a> for phones with no browser at all.<br>
+      Demo wiring: PINs safe 1234 / duress 9999 · ops console at <a href="/console">/console</a></div>`;
 }
 
 /* --------------------------- seeker: screens --------------------------- */

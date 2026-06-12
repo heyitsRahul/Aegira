@@ -12,9 +12,17 @@ export const CONSENT_RECORD: Readonly<Record<string, string>> = Object.freeze({
     'session alias being shared with verified responders; (3) your exact ' +
     'location being shared with the one responder you accept; (4) all of ' +
     'this data being destroyed when the session is purged.',
+  v2:
+    'By registering for Sahay over SMS you consent to: (1) Sahay storing ' +
+    'your name, your trusted contact numbers, and hashed PINs until you ' +
+    'text STOP; (2) emergency sessions being triggered by texting SOS, ' +
+    'using your approximate network location at that moment only; (3) the ' +
+    'session terms of consent v1 applying to every session you trigger. ' +
+    'No location is stored with your registration.',
 });
 
 export const CURRENT_CONSENT_VERSION = 'v1';
+export const SMS_REGISTRATION_CONSENT_VERSION = 'v2';
 
 export function consentText(version: string): string {
   const text = CONSENT_RECORD[version];
