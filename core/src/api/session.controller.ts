@@ -4,6 +4,7 @@ import { ResponderRegistry } from './responder-registry';
 
 export const SESSION_SERVICE = 'SESSION_SERVICE';
 export const RESPONDER_REGISTRY = 'RESPONDER_REGISTRY';
+export const NOTIFIER = 'NOTIFIER';
 
 /**
  * Thin HTTP surface: every route is a single delegation to the service.

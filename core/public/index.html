@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sahay — Dev Console</title>
+<style>
+  :root {
+    --bg: #0e1117; --panel: #161b24; --edge: #2a3140; --ink: #e8ebf0;
+    --dim: #8b93a3; --red: #e5484d; --green: #46a758; --amber: #f5a623;
+    --blue: #4f8ef7; --purple: #9d6bff;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink); padding: 20px;
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 18px; margin-bottom: 2px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 1180px; }
+  .phone {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 18px;
+    padding: 14px; min-height: 460px; display: flex; flex-direction: column;
+  }
+  .phone h2 { font-size: 13px; letter-spacing: .4px; text-transform: uppercase; color: var(--dim); }
+  .phone .who { font-size: 15px; margin: 2px 0 10px; }
+  .chip {
+    display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 11px;
+    font-weight: 600; letter-spacing: .5px; border: 1px solid var(--edge); color: var(--dim);
+  }
+  .chip.PENDING   { color: var(--amber);  border-color: var(--amber); }
+  .chip.ACTIVE    { color: var(--red);    border-color: var(--red); }
+  .chip.DISPATCHED{ color: var(--blue);   border-color: var(--blue); }
+  .chip.ARRIVED   { color: var(--purple); border-color: var(--purple); }
+  .chip.RESOLVED, .chip.CLOSED { color: var(--green); border-color: var(--green); }
+  .chip.CANCELLED { color: var(--dim); }
+  .chip.PURGED    { color: var(--dim); text-decoration: line-through; }
+  button {
+    font: inherit; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer;
+    background: #232a38; color: var(--ink); width: 100%; margin-top: 8px;
+  }
+  button:hover { filter: brightness(1.15); }
+  button:disabled { opacity: .35; cursor: default; }
+  .sos {
+    background: var(--red); height: 110px; border-radius: 16px; font-size: 22px;
+    font-weight: 800; letter-spacing: 2px;
+  }
+  .ghost { background: transparent; border: 1px solid var(--edge); }
+  .note { color: var(--dim); font-size: 12px; margin-top: 8px; }
+  .bubble {
+    background: #1d2433; border: 1px solid var(--edge); border-radius: 12px;
+    padding: 10px 12px; margin-top: 8px; font-size: 13px;
+  }
+  .bubble.duress { border-color: var(--red); background: #2a151a; }
+  .bubble .tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--dim); }
+  .bubble.duress .tag { color: var(--red); }
+  .code {
+    font: 700 30px/1 ui-monospace, Menlo, monospace; letter-spacing: 6px;
+    text-align: center; padding: 12px; background: #0b0e14; border-radius: 12px; margin-top: 10px;
+  }
+  input {
+    font: inherit; width: 100%; margin-top: 8px; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--edge); background: #0b0e14; color: var(--ink); text-align: center;
+    letter-spacing: 4px;
+  }
+  .truth {
+    max-width: 1180px; margin-top: 14px; background: var(--panel);
+    border: 1px dashed var(--red); border-radius: 14px; padding: 14px;
+  }
+  .truth h2 { font-size: 13px; color: var(--red); text-transform: uppercase; letter-spacing: .4px; }
+  .truth .events { font: 12px/1.7 ui-monospace, Menlo, monospace; color: var(--dim); margin-top: 8px; }
+  .truth .events b { color: var(--ink); }
+  .spacer { flex: 1; }
+  .countnum { font: 800 40px/1 ui-monospace, Menlo, monospace; text-align: center; color: var(--amber); margin: 10px 0 2px; }
+  .hidden { display: none !important; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .invariant { font-size: 11px; color: var(--dim); border-left: 2px solid var(--edge); padding-left: 8px; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1>Sahay — dev console</h1>
+  <div class="sub">One page playing three phones. The dashed panel at the bottom is the server's
+    private truth — in production nothing below the dashed line is ever client-visible.</div>
+
+  <div class="grid">
+    <!-- ============ HELPSEEKER ============ -->
+    <div class="phone">
+      <h2>Phone 1 — helpseeker</h2>
+      <div class="who">Meera Krishnan <span id="hs-chip" class="chip">no session</span></div>
+
+      <div id="hs-idle">
+        <button class="sos" onclick="trigger()">SOS</button>
+        <div class="note">Triggers a PENDING session with a 30s cancel window. Consent v1 is
+          recorded in the genesis event.</div>
+      </div>
+
+      <div id="hs-pending" class="hidden">
+        <div class="countnum" id="countdown">30</div>
+        <div class="note" style="text-align:center">activating…</div>
+        <button onclick="confirmNow()">I need help now</button>
+        <input id="pin" placeholder="PIN to cancel" maxlength="4" inputmode="numeric">
+        <button class="ghost" onclick="cancelSession()">Cancel</button>
+        <div class="note">Safe PIN <b>1234</b> cancels. Duress PIN <b>9999</b> pretends to —
+          try it with someone “watching over your shoulder”.</div>
+      </div>
+
+      <div id="hs-live" class="hidden">
+        <div class="note">Trusted contacts have been alerted. Location is recorded encrypted,
+          inside this session only.</div>
+        <div id="hs-code-wrap" class="hidden">
+          <div class="note" style="margin-top:14px">Show this code to the responder when they
+            arrive — it is how arrival is verified:</div>
+          <div class="code" id="hs-code">······</div>
+        </div>
+        <button id="hs-resolve" onclick="resolveSession()">I am safe — resolve</button>
+      </div>
+
+      <div id="hs-cancelled" class="hidden">
+        <div class="note" style="margin-top:20px;text-align:center;font-size:14px">Session cancelled.</div>
+        <div class="invariant">What this phone shows is identical whether the cancel was real
+          or duress — including how the status ages over the following days (invariant 4).</div>
+      </div>
+
+      <div class="spacer"></div>
+      <button class="ghost" onclick="resetDemo()">↻ new demo</button>
+    </div>
+
+    <!-- ============ CONTACT ============ -->
+    <div class="phone">
+      <h2>Phone 2 — trusted contact</h2>
+      <div class="who">Arjun (Meera's brother)</div>
+      <div id="contact-inbox"><div class="note">No alerts. Contacts hear nothing until a
+        session activates — a cancelled PENDING session never notifies anyone.</div></div>
+      <div id="contact-actions" class="hidden">
+        <button onclick="dispatchResponders()">Dispatch verified responders</button>
+        <div class="note">Matching is deterministic and explainable — no model decides who
+          gets sent (invariant 9).</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="invariant">The alert carries a session link, never raw coordinates: an SMS
+        at rest must not contain a position.</div>
+    </div>
+
+    <!-- ============ RESPONDER ============ -->
+    <div class="phone">
+      <h2>Phone 3 — responder</h2>
+      <div class="who">Asha (verified responder)</div>
+      <div id="resp-inbox"><div class="note">No offers.</div></div>
+      <div id="resp-actions" class="hidden">
+        <button onclick="acceptOffer()">Accept</button>
+      </div>
+      <div id="resp-dispatched" class="hidden">
+        <button onclick="revealLocation()">Reveal precise location</button>
+        <div id="resp-loc" class="bubble hidden"></div>
+        <input id="arrival-code" placeholder="code from helpseeker" maxlength="6" inputmode="numeric">
+        <button onclick="verifyArrival()">Verify arrival</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="invariant">Pre-acceptance Asha sees only an alias and a ~1&nbsp;km cell.
+        Name, number, and exact position never appear in her notification (invariant 6).</div>
+    </div>
+  </div>
+
+  <!-- ============ SERVER TRUTH ============ -->
+  <div class="truth">
+    <h2>Server truth — ops only, never client-visible</h2>
+    <div id="truth-state" class="note">no session</div>
+    <div class="events" id="truth-events"></div>
+  </div>
+
+<script>
+const TRIGGER_BODY = {
+  userId: 'u1', displayName: 'Meera Krishnan',
+  contacts: [{ id: 'c1', address: '+91-98765-43210' }],
+  location: { lat: 12.9716, lng: 77.5946 }, category: 'personal_safety',
+};
+let sessionId = null;
+let countdownLeft = 30;
+let accepted = false;
+
+const $ = (id) => document.getElementById(id);
+const show = (id, on) => $(id).classList.toggle('hidden', !on);
+const post = (path, body) => fetch(path, { method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then((r) => r.json());
+
+async function trigger() {
+  const r = await post('/sessions', TRIGGER_BODY);
+  sessionId = r.sessionId;
+  countdownLeft = Math.round(r.activationCountdownMs / 1000);
+  accepted = false;
+  show('hs-idle', false); show('hs-pending', true);
+}
+const confirmNow = () => post(`/sessions/${sessionId}/confirm`);
+async function cancelSession() {
+  const r = await post(`/sessions/${sessionId}/cancel`, { pin: $('pin').value });
+  if (r.error) alert(r.error);
+}
+const dispatchResponders = () => post(`/sessions/${sessionId}/dispatch`);
+async function acceptOffer() {
+  await post(`/sessions/${sessionId}/accept`, { responderId: 'responder-asha' });
+  accepted = true;
+}
+async function revealLocation() {
+  const r = await fetch(`/sessions/${sessionId}/dispatch-location/responder-asha`).then((x) => x.json());
+  const el = $('resp-loc'); el.classList.remove('hidden');
+  el.innerHTML = r.error ? r.error :
+    `<span class="tag">PRECISE LOCATION (accepted responder only)</span><br>${r.lat}, ${r.lng}`;
+}
+async function verifyArrival() {
+  const r = await post(`/sessions/${sessionId}/arrival`,
+    { responderId: 'responder-asha', code: $('arrival-code').value });
+  if (r.error) alert(r.error);
+}
+async function resolveSession() {
+  const r = await post(`/sessions/${sessionId}/resolve`);
+  if (r.error) alert(r.error);
+}
+function resetDemo() { location.reload(); }
+
+setInterval(() => {
+  if (countdownLeft > 0 && !$('hs-pending').classList.contains('hidden')) {
+    countdownLeft -= 1; $('countdown').textContent = countdownLeft;
+  }
+}, 1000);
+
+async function poll() {
+  if (!sessionId) return;
+
+  // Helpseeker phone: the (possibly masked) client status.
+  const status = await fetch(`/sessions/${sessionId}`).then((r) => r.json());
+  const chip = $('hs-chip'); chip.textContent = status.state; chip.className = `chip ${status.state}`;
+  const live = ['ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(status.state);
+  if (live) { show('hs-pending', false); show('hs-live', true); }
+  if (['CANCELLED', 'CLOSED', 'PURGED'].includes(status.state)) {
+    show('hs-pending', false); show('hs-live', false); show('hs-cancelled', true);
+  }
+  if (status.state === 'RESOLVED') { show('hs-live', false); }
+  if (status.state === 'DISPATCHED') {
+    const c = await fetch(`/sessions/${sessionId}/arrival-code`).then((r) => r.json());
+    if (c.code) { show('hs-code-wrap', true); $('hs-code').textContent = c.code; }
+  }
+
+  // Contact + responder phones read the notifier outbox.
+  const outbox = await fetch('/dev/outbox').then((r) => r.json());
+  const alerts = outbox.contactAlerts.filter((a) => a.sessionId === sessionId);
+  if (alerts.length) {
+    $('contact-inbox').innerHTML = alerts.map((a) => `
+      <div class="bubble ${a.duress ? 'duress' : ''}">
+        <span class="tag">${a.duress ? '⚠ DURESS SIGNALLED — cancel was coerced' : 'EMERGENCY ALERT'}</span><br>
+        ${a.helpseekerDisplayName} needs help (${a.category.replace('_', ' ')}).<br>
+        <a href="${a.liveSessionLink}" style="color:var(--blue)" onclick="return false">live session →</a>
+      </div>`).join('');
+  }
+  const offers = outbox.responderOffers.filter((o) => o.sessionId === sessionId);
+  if (offers.length) {
+    const o = offers[0];
+    $('resp-inbox').innerHTML = `
+      <div class="bubble">
+        <span class="tag">DISPATCH OFFER</span><br>
+        <b>${o.alias}</b> needs help (${o.category.replace('_', ' ')})<br>
+        area: <b>${o.coarseCell}</b> (~1 km) — that is all you get until you accept.
+      </div>`;
+  }
+
+  // Server truth panel: real state + hash-chained event log.
+  const truth = await fetch(`/dev/sessions/${sessionId}/truth`).then((r) => r.json());
+  if (!truth.error) {
+    const masked = truth.state !== status.state;
+    $('truth-state').innerHTML =
+      `real state: <b class="chip ${truth.state}">${truth.state}</b>` +
+      (masked ? ` &nbsp;← the helpseeker's phone is being shown <b>${status.state}</b>. The lie is deliberate.` : '');
+    $('truth-events').innerHTML = truth.events.map((e) =>
+      `<b>#${e.seq} ${e.type}</b> ${JSON.stringify(e.data)} <span style="opacity:.5">${e.hash.slice(0, 12)}…</span>`
+    ).join('<br>');
+    $('contact-actions').classList.toggle('hidden',
+      !(truth.state === 'ACTIVE' && alerts.length > 0));
+    $('resp-actions').classList.toggle('hidden', !(offers.length && truth.state === 'ACTIVE'));
+    show('resp-dispatched', accepted && truth.state === 'DISPATCHED');
+  }
+}
+setInterval(() => { poll().catch(() => {}); }, 1000);
+</script>
+</body>
+</html>

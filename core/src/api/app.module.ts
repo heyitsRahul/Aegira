@@ -3,8 +3,14 @@ import { InMemoryKeyVault, SessionCrypto } from '../crypto/shredder';
 import { MatchingService } from '../services/matching.service';
 import { StubNotifier } from '../services/notification.service';
 import { SessionService, SessionServiceConfig } from '../services/session.service';
+import { DevController } from './dev.controller';
 import { ResponderRegistry } from './responder-registry';
-import { RESPONDER_REGISTRY, SESSION_SERVICE, SessionController } from './session.controller';
+import {
+  NOTIFIER,
+  RESPONDER_REGISTRY,
+  SESSION_SERVICE,
+  SessionController,
+} from './session.controller';
 import { SystemClock } from './system-clock';
 
 /**
@@ -39,19 +45,21 @@ function buildResponderRegistry(): ResponderRegistry {
 }
 
 @Module({
-  controllers: [SessionController],
+  controllers: [SessionController, DevController],
   providers: [
+    { provide: NOTIFIER, useValue: new StubNotifier() },
     { provide: RESPONDER_REGISTRY, useFactory: buildResponderRegistry },
     {
       provide: SESSION_SERVICE,
-      useFactory: () =>
+      useFactory: (notifier: StubNotifier) =>
         new SessionService(
           new SystemClock(),
           new SessionCrypto(new InMemoryKeyVault()),
-          new StubNotifier(),
+          notifier,
           new MatchingService(5),
           DEV_CONFIG,
         ),
+      inject: [NOTIFIER],
     },
   ],
 })
