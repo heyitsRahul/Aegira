@@ -47,3 +47,33 @@ export class LocationRejectedError extends DomainError {
     super(`location updates are not accepted in state ${state}`);
   }
 }
+
+/** Missing or wrong capability token. Maps to 401. */
+export class NotAuthenticatedError extends DomainError {
+  constructor() {
+    super('authentication required');
+  }
+}
+
+export class InvalidInputError extends DomainError {
+  constructor(reason: string) {
+    super(`invalid input: ${reason}`);
+  }
+}
+
+/**
+ * One live session per user. Duress-masked sessions deliberately do NOT
+ * count — blocking a new trigger after a "successful cancel" would reveal
+ * to a coercer that the cancel was fake (invariant 4).
+ */
+export class ActiveSessionExistsError extends DomainError {
+  constructor() {
+    super('an emergency session is already live for this user');
+  }
+}
+
+export class ArrivalCodeLockedError extends DomainError {
+  constructor() {
+    super('too many wrong arrival codes; verification is locked for this dispatch');
+  }
+}

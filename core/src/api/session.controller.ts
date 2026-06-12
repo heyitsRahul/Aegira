@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Param, Post, Query } from '@nestjs/common';
 import { SessionService, TriggerInput } from '../services/session.service';
 import { ResponderRegistry } from './responder-registry';
 
@@ -6,11 +6,17 @@ export const SESSION_SERVICE = 'SESSION_SERVICE';
 export const RESPONDER_REGISTRY = 'RESPONDER_REGISTRY';
 export const NOTIFIER = 'NOTIFIER';
 
+const bearer = (header: string | undefined): string | null =>
+  header?.startsWith('Bearer ') ? header.slice(7) : null;
+
 /**
- * Thin HTTP surface: every route is a single delegation to the service.
+ * Thin HTTP surface: every route authorizes, then delegates — no other
+ * logic. Capability model:
+ *  - seeker routes:    Authorization: Bearer <seekerToken from trigger>
+ *  - contact routes:   ?t=<token embedded in the alert's live link>
+ *  - responder routes: x-responder-token header, checked by the registry
  * Deliberately absent (invariant 5): any route that enumerates sessions
- * by area or time. Sessions are only addressable by id, by their own
- * participants.
+ * by area or time. Sessions are only addressable by id.
  */
 @Controller('sessions')
 export class SessionController {
@@ -25,63 +31,113 @@ export class SessionController {
   }
 
   @Post(':id/confirm')
-  confirm(@Param('id') id: string) {
+  confirm(@Param('id') id: string, @Headers('authorization') auth?: string) {
+    this.sessions.authorizeSeeker(id, bearer(auth));
     return this.sessions.confirm(id);
   }
 
   @Post(':id/cancel')
-  cancel(@Param('id') id: string, @Body() body: { pin: string }) {
+  cancel(
+    @Param('id') id: string,
+    @Body() body: { pin: string },
+    @Headers('authorization') auth?: string,
+  ) {
+    this.sessions.authorizeSeeker(id, bearer(auth));
     return this.sessions.cancel(id, body.pin);
   }
 
   @Get(':id')
-  status(@Param('id') id: string) {
+  status(@Param('id') id: string, @Headers('authorization') auth?: string) {
+    this.sessions.authorizeSeeker(id, bearer(auth));
     return this.sessions.clientStatus(id);
   }
 
   @Post(':id/location')
-  location(@Param('id') id: string, @Body() body: { lat: number; lng: number }) {
+  location(
+    @Param('id') id: string,
+    @Body() body: { lat: number; lng: number },
+    @Headers('authorization') auth?: string,
+  ) {
+    this.sessions.authorizeSeeker(id, bearer(auth));
     this.sessions.recordLocation(id, body.lat, body.lng);
     return { recorded: true };
   }
 
   @Post(':id/dispatch')
-  dispatch(@Param('id') id: string) {
+  dispatch(
+    @Param('id') id: string,
+    @Headers('authorization') auth?: string,
+    @Query('t') contactToken?: string,
+  ) {
+    this.sessions.authorizeSeekerOrContact(id, bearer(auth), contactToken ?? null);
     return this.sessions.dispatch(id, this.responders.all());
   }
 
-  @Post(':id/accept')
-  accept(@Param('id') id: string, @Body() body: { responderId: string }) {
-    return this.sessions.accept(id, body.responderId);
-  }
-
   @Get(':id/arrival-code')
-  arrivalCode(@Param('id') id: string) {
+  arrivalCode(@Param('id') id: string, @Headers('authorization') auth?: string) {
+    this.sessions.authorizeSeeker(id, bearer(auth));
     return { code: this.sessions.getArrivalCode(id) };
   }
 
-  @Get(':id/dispatch-location/:responderId')
-  dispatchLocation(@Param('id') id: string, @Param('responderId') responderId: string) {
-    return this.sessions.getDispatchLocation(id, responderId);
-  }
-
   @Get(':id/contact-view')
-  contactView(@Param('id') id: string) {
+  contactView(@Param('id') id: string, @Query('t') token?: string) {
+    this.sessions.authorizeContact(id, token ?? null);
     return this.sessions.contactView(id);
   }
 
   @Get(':id/responder-view/:responderId')
-  responderView(@Param('id') id: string, @Param('responderId') responderId: string) {
+  responderView(
+    @Param('id') id: string,
+    @Param('responderId') responderId: string,
+    @Headers('x-responder-token') token?: string,
+  ) {
+    this.responders.authenticate(responderId, token);
     return this.sessions.responderView(id, responderId);
   }
 
+  @Get(':id/dispatch-location/:responderId')
+  dispatchLocation(
+    @Param('id') id: string,
+    @Param('responderId') responderId: string,
+    @Headers('x-responder-token') token?: string,
+  ) {
+    this.responders.authenticate(responderId, token);
+    return this.sessions.getDispatchLocation(id, responderId);
+  }
+
+  @Post(':id/accept')
+  accept(
+    @Param('id') id: string,
+    @Body() body: { responderId: string },
+    @Headers('x-responder-token') token?: string,
+  ) {
+    this.responders.authenticate(body.responderId, token);
+    return this.sessions.accept(id, body.responderId);
+  }
+
+  @Post(':id/withdraw')
+  withdraw(
+    @Param('id') id: string,
+    @Body() body: { responderId: string },
+    @Headers('x-responder-token') token?: string,
+  ) {
+    this.responders.authenticate(body.responderId, token);
+    return this.sessions.withdraw(id, body.responderId);
+  }
+
   @Post(':id/arrival')
-  arrival(@Param('id') id: string, @Body() body: { responderId: string; code: string }) {
+  arrival(
+    @Param('id') id: string,
+    @Body() body: { responderId: string; code: string },
+    @Headers('x-responder-token') token?: string,
+  ) {
+    this.responders.authenticate(body.responderId, token);
     return this.sessions.verifyArrival(id, body.responderId, body.code);
   }
 
   @Post(':id/resolve')
-  resolve(@Param('id') id: string) {
+  resolve(@Param('id') id: string, @Headers('authorization') auth?: string) {
+    this.sessions.authorizeSeeker(id, bearer(auth));
     return this.sessions.resolve(id);
   }
 }

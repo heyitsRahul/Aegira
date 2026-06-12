@@ -13,6 +13,9 @@ export const TEST_CONFIG: SessionServiceConfig = {
   closeAfterResolveMs: 24 * 60 * 60 * 1000,
   closeAfterCancelMs: 60 * 60 * 1000,
   purgeAfterCloseMs: 7 * 24 * 60 * 60 * 1000,
+  escalationAfterMs: 10 * 60 * 1000,
+  responderArrivalTimeoutMs: 20 * 60 * 1000,
+  maxArrivalAttempts: 3,
   maxResponderOffers: 3,
   pins: { safe: '1234', duress: '9999' },
 };

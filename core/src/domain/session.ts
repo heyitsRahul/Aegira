@@ -39,21 +39,16 @@ function computeEventHash(event: Omit<SessionEvent, 'hash'>): string {
  * behavior means a new event appended through the state machine.
  */
 export class SessionAggregate {
-  private readonly _events: SessionEvent[] = [];
+  private readonly _events: SessionEvent[];
   private _state: SessionState;
 
-  private constructor(sessionId: string, at: string, data: Record<string, unknown>) {
-    this._state = 'PENDING';
-    this._events.push(
-      SessionAggregate.seal({
-        seq: 0,
-        sessionId,
-        type: 'TRIGGERED',
-        at,
-        data: Object.freeze({ ...data }),
-        prevHash: GENESIS_PREV_HASH,
-      }),
-    );
+  private constructor(events: SessionEvent[]) {
+    this._events = events;
+    let state: SessionState = 'PENDING';
+    for (const event of events.slice(1)) {
+      state = transition(state, event.type);
+    }
+    this._state = state;
   }
 
   /** Creates a session in PENDING with its TRIGGERED genesis event. */
@@ -62,7 +57,29 @@ export class SessionAggregate {
     at: string;
     data: Record<string, unknown>;
   }): SessionAggregate {
-    return new SessionAggregate(params.sessionId, params.at, params.data);
+    return new SessionAggregate([
+      SessionAggregate.seal({
+        seq: 0,
+        sessionId: params.sessionId,
+        type: 'TRIGGERED',
+        at: params.at,
+        data: Object.freeze({ ...params.data }),
+        prevHash: GENESIS_PREV_HASH,
+      }),
+    ]);
+  }
+
+  /**
+   * Rebuilds an aggregate from a persisted event log. The hash chain is
+   * verified first — a store that was tampered with refuses to load.
+   */
+  static rehydrate(events: readonly SessionEvent[]): SessionAggregate {
+    if (!SessionAggregate.verifyEvents(events)) {
+      throw new Error('session event chain failed verification; refusing to rehydrate');
+    }
+    return new SessionAggregate(
+      events.map((e) => Object.freeze({ ...e, data: Object.freeze({ ...e.data }) })),
+    );
   }
 
   private static seal(event: Omit<SessionEvent, 'hash'>): SessionEvent {

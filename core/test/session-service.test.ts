@@ -84,7 +84,7 @@ describe('duress (invariant 4) — responses lie by design', () => {
   it('duress cancel returns a response identical in shape and content to a real cancel', async () => {
     const { service } = buildRig();
     const safe = service.trigger(TRIGGER_FIXTURE);
-    const duress = service.trigger(TRIGGER_FIXTURE);
+    const duress = service.trigger({ ...TRIGGER_FIXTURE, userId: 'user-78' });
 
     const safeResponse = await service.cancel(safe.sessionId, TEST_CONFIG.pins.safe);
     const duressResponse = await service.cancel(duress.sessionId, TEST_CONFIG.pins.duress);
@@ -96,7 +96,7 @@ describe('duress (invariant 4) — responses lie by design', () => {
   it('client status stays indistinguishable from a real cancel over time', async () => {
     const { service, clock } = buildRig();
     const safe = service.trigger(TRIGGER_FIXTURE);
-    const duress = service.trigger(TRIGGER_FIXTURE);
+    const duress = service.trigger({ ...TRIGGER_FIXTURE, userId: 'user-78' });
     await service.cancel(safe.sessionId, TEST_CONFIG.pins.safe);
     await service.cancel(duress.sessionId, TEST_CONFIG.pins.duress);
 

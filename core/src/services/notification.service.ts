@@ -21,10 +21,15 @@ export interface ContactAlertPayload {
   readonly to: string;
   readonly helpseekerDisplayName: string;
   readonly category: SessionCategory;
-  /** Session-scoped live view link; location only exists behind it. */
+  /**
+   * Session-scoped live view link carrying the contact capability token;
+   * location only exists behind it.
+   */
   readonly liveSessionLink: string;
   /** True when activation was signalled under duress. */
   readonly duress: boolean;
+  /** True when this is a re-alert because no responder accepted in time. */
+  readonly escalation: boolean;
   readonly sentAt: string;
 }
 

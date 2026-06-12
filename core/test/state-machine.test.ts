@@ -20,8 +20,10 @@ const EXPECTED: ReadonlyArray<[SessionState, SessionEventType, SessionState]> = 
   ['PENDING', 'CANCEL_CONFIRMED', 'CANCELLED'],
   ['ACTIVE', 'RESPONDER_ACCEPTED', 'DISPATCHED'],
   ['ACTIVE', 'SESSION_RESOLVED', 'RESOLVED'],
+  ['ACTIVE', 'ESCALATION_RAISED', 'ACTIVE'],
   ['DISPATCHED', 'RESPONDER_ARRIVED', 'ARRIVED'],
   ['DISPATCHED', 'SESSION_RESOLVED', 'RESOLVED'],
+  ['DISPATCHED', 'RESPONDER_WITHDREW', 'ACTIVE'],
   ['ARRIVED', 'SESSION_RESOLVED', 'RESOLVED'],
   ['RESOLVED', 'SESSION_CLOSED', 'CLOSED'],
   ['CANCELLED', 'SESSION_CLOSED', 'CLOSED'],
@@ -33,9 +35,9 @@ function expectedTarget(from: SessionState, event: SessionEventType): SessionSta
 }
 
 describe('state machine — exhaustive transition coverage', () => {
-  it('covers all 8 states and 8 event types', () => {
+  it('covers all 8 states and 10 event types', () => {
     expect(ALL_STATES).toHaveLength(8);
-    expect(ALL_EVENT_TYPES).toHaveLength(8);
+    expect(ALL_EVENT_TYPES).toHaveLength(10);
   });
 
   for (const from of ALL_STATES) {
@@ -80,6 +82,15 @@ describe('state machine — structural invariants', () => {
 
   it('TRIGGERED is genesis-only: never legal as a transition', () => {
     expect(legalTransitions().filter((t) => t.event === 'TRIGGERED')).toHaveLength(0);
+  });
+
+  it('a withdrawal returns to ACTIVE so the session can be re-dispatched', () => {
+    expect(transition('DISPATCHED', 'RESPONDER_WITHDREW')).toBe('ACTIVE');
+  });
+
+  it('escalation is a self-loop on ACTIVE, never a new capability', () => {
+    expect(transition('ACTIVE', 'ESCALATION_RAISED')).toBe('ACTIVE');
+    expect(legalTransitions().filter((t) => t.event === 'ESCALATION_RAISED')).toHaveLength(1);
   });
 
   it('every non-terminal state has a path to PURGED', () => {

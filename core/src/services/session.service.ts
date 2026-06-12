@@ -1,10 +1,14 @@
-import { createHash, randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { CURRENT_CONSENT_VERSION } from '../domain/consent';
 import {
+  ActiveSessionExistsError,
+  ArrivalCodeLockedError,
   CancelNotAllowedError,
   InvalidArrivalCodeError,
+  InvalidInputError,
   InvalidPinError,
   LocationRejectedError,
+  NotAuthenticatedError,
   ResponderNotAuthorizedError,
   SessionNotFoundError,
 } from '../domain/errors';
@@ -13,6 +17,11 @@ import { SessionAggregate } from '../domain/session';
 import { IllegalTransitionError } from '../domain/state-machine';
 import { Clock, PreciseLocation, SessionCategory, SessionEvent, SessionState } from '../domain/types';
 import { EncryptedBlob, SessionCrypto } from '../crypto/shredder';
+import {
+  InMemorySessionRepository,
+  SessionRepository,
+  SessionSnapshot,
+} from '../persistence/session-repository';
 import { MatchCandidate, MatchingService, ResponderProfile } from './matching.service';
 import { Notifier } from './notification.service';
 
@@ -22,7 +31,13 @@ export interface SessionServiceConfig {
   closeAfterResolveMs: number;
   closeAfterCancelMs: number;
   purgeAfterCloseMs: number;
+  /** ACTIVE with no acceptance for this long → contacts re-alerted once. */
+  escalationAfterMs: number;
+  /** DISPATCHED with no arrival for this long → automatic withdrawal. */
+  responderArrivalTimeoutMs: number;
+  maxArrivalAttempts: number;
   maxResponderOffers: number;
+  /** Fallback PINs for dev wiring; real sessions enroll their own. */
   pins: { safe: string; duress: string };
 }
 
@@ -32,12 +47,16 @@ export interface TriggerInput {
   contacts: ReadonlyArray<{ id: string; address: string }>;
   location: { lat: number; lng: number };
   category: SessionCategory;
+  /** Per-user PINs enrolled for this session; falls back to config. */
+  pins?: { safe: string; duress: string };
 }
 
 export interface TriggerReceipt {
   sessionId: string;
   state: SessionState;
   activationCountdownMs: number;
+  /** Capability token for the triggering device. Returned exactly once. */
+  seekerToken: string;
 }
 
 export interface CancelResponse {
@@ -86,13 +105,74 @@ interface StoredSession {
   alias: string;
   coarseCell: string;
   category: SessionCategory;
+  userRef: string;
   encryptedPii: EncryptedBlob | null;
   encryptedLocations: EncryptedBlob[];
+  encryptedContactToken: EncryptedBlob | null;
   /** Set when a duress PIN faked a cancel; drives the masked client view. */
   duressActivatedAtIso: string | null;
   offeredResponderIds: Set<string>;
   acceptedResponderId: string | null;
   arrivalCode: string | null;
+  arrivalAttempts: number;
+  seekerTokenHash: string;
+  contactTokenHash: string;
+  pinSafeHash: string;
+  pinDuressHash: string;
+}
+
+const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
+
+/** Constant-time comparison of a presented secret against a stored hash. */
+function matchesHash(presented: string | null | undefined, storedHash: string): boolean {
+  if (typeof presented !== 'string' || presented.length === 0) {
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(sha256(presented), 'hex'), Buffer.from(storedHash, 'hex'));
+}
+
+const LIVE_STATES: readonly SessionState[] = ['PENDING', 'ACTIVE', 'DISPATCHED', 'ARRIVED'];
+const VALID_CATEGORIES: readonly SessionCategory[] = [
+  'personal_safety',
+  'medical',
+  'accident',
+  'other',
+];
+
+function validateTrigger(input: TriggerInput): void {
+  if (typeof input.displayName !== 'string' || input.displayName.trim().length === 0) {
+    throw new InvalidInputError('displayName is required');
+  }
+  if (typeof input.userId !== 'string' || input.userId.trim().length === 0) {
+    throw new InvalidInputError('userId is required');
+  }
+  if (!Array.isArray(input.contacts) || input.contacts.length === 0 || input.contacts.length > 5) {
+    throw new InvalidInputError('between 1 and 5 trusted contacts are required');
+  }
+  for (const contact of input.contacts) {
+    if (typeof contact?.address !== 'string' || contact.address.trim().length === 0) {
+      throw new InvalidInputError('every contact needs an address');
+    }
+  }
+  const { lat, lng } = input.location ?? {};
+  if (typeof lat !== 'number' || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+    throw new InvalidInputError('location.lat must be a number in [-90, 90]');
+  }
+  if (typeof lng !== 'number' || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+    throw new InvalidInputError('location.lng must be a number in [-180, 180]');
+  }
+  if (!VALID_CATEGORIES.includes(input.category)) {
+    throw new InvalidInputError('unknown category');
+  }
+  if (input.pins !== undefined) {
+    const pinShape = /^\d{4,6}$/;
+    if (!pinShape.test(input.pins.safe) || !pinShape.test(input.pins.duress)) {
+      throw new InvalidInputError('pins must be 4-6 digits');
+    }
+    if (input.pins.safe === input.pins.duress) {
+      throw new InvalidInputError('safe and duress pins must differ');
+    }
+  }
 }
 
 /**
@@ -100,7 +180,8 @@ interface StoredSession {
  * the injected Clock for event stamping, and ALL timer behavior runs
  * through the explicit evaluateTimers(now) sweep so it is fully testable
  * with a manual clock. Every state change goes through the aggregate's
- * state machine.
+ * state machine, and every mutation is written through to the repository,
+ * which rehydrates (with chain verification) on boot.
  */
 export class SessionService {
   private readonly sessions = new Map<string, StoredSession>();
@@ -111,13 +192,86 @@ export class SessionService {
     private readonly notifier: Notifier,
     private readonly matching: MatchingService,
     private readonly config: SessionServiceConfig,
-  ) {}
+    private readonly repository: SessionRepository = new InMemorySessionRepository(),
+  ) {
+    for (const snapshot of this.repository.loadAll()) {
+      this.sessions.set(snapshot.sessionId, {
+        aggregate: SessionAggregate.rehydrate(snapshot.events),
+        alias: snapshot.alias,
+        coarseCell: snapshot.coarseCell,
+        category: snapshot.category,
+        userRef: snapshot.userRef,
+        encryptedPii: snapshot.encryptedPii,
+        encryptedLocations: [...snapshot.encryptedLocations],
+        encryptedContactToken: snapshot.encryptedContactToken,
+        duressActivatedAtIso: snapshot.duressActivatedAtIso,
+        offeredResponderIds: new Set(snapshot.offeredResponderIds),
+        acceptedResponderId: snapshot.acceptedResponderId,
+        arrivalCode: snapshot.arrivalCode,
+        arrivalAttempts: snapshot.arrivalAttempts,
+        seekerTokenHash: snapshot.seekerTokenHash,
+        contactTokenHash: snapshot.contactTokenHash,
+        pinSafeHash: snapshot.pinSafeHash,
+        pinDuressHash: snapshot.pinDuressHash,
+      });
+    }
+  }
+
+  /* ------------------------- authorization ------------------------- */
+
+  authorizeSeeker(sessionId: string, token: string | null): void {
+    const record = this.mustGet(sessionId);
+    if (!matchesHash(token, record.seekerTokenHash)) {
+      throw new NotAuthenticatedError();
+    }
+  }
+
+  authorizeContact(sessionId: string, token: string | null): void {
+    const record = this.mustGet(sessionId);
+    if (!matchesHash(token, record.contactTokenHash)) {
+      throw new NotAuthenticatedError();
+    }
+  }
+
+  authorizeSeekerOrContact(
+    sessionId: string,
+    seekerToken: string | null,
+    contactToken: string | null,
+  ): void {
+    const record = this.mustGet(sessionId);
+    if (
+      !matchesHash(seekerToken, record.seekerTokenHash) &&
+      !matchesHash(contactToken, record.contactTokenHash)
+    ) {
+      throw new NotAuthenticatedError();
+    }
+  }
+
+  /* --------------------------- lifecycle --------------------------- */
 
   trigger(input: TriggerInput): TriggerReceipt {
+    validateTrigger(input);
+    const userRef = sha256(input.userId);
+    // One live session per user — but duress-masked sessions don't count:
+    // refusing a new trigger after a "successful" cancel would expose the
+    // mask to a coercer (invariant 4).
+    for (const existing of this.sessions.values()) {
+      if (
+        existing.userRef === userRef &&
+        existing.duressActivatedAtIso === null &&
+        LIVE_STATES.includes(existing.aggregate.state)
+      ) {
+        throw new ActiveSessionExistsError();
+      }
+    }
+
     const sessionId = randomUUID();
     const at = this.clock.now().toISOString();
     this.crypto.provisionSession(sessionId);
 
+    const seekerToken = randomBytes(24).toString('hex');
+    const contactToken = randomBytes(24).toString('hex');
+    const pins = input.pins ?? this.config.pins;
     const pii: SessionPii = {
       userId: input.userId,
       displayName: input.displayName,
@@ -138,22 +292,31 @@ export class SessionService {
         at,
         data: { category: input.category, consentVersion: CURRENT_CONSENT_VERSION },
       }),
-      alias: `helpseeker-${createHash('sha256').update(sessionId).digest('hex').slice(0, 8)}`,
+      alias: `helpseeker-${sha256(sessionId).slice(0, 8)}`,
       coarseCell: cellId(toCell(input.location.lat, input.location.lng)),
       category: input.category,
+      userRef,
       encryptedPii: this.crypto.encrypt(sessionId, JSON.stringify(pii)),
       encryptedLocations: [this.crypto.encrypt(sessionId, JSON.stringify(initialLocation))],
+      encryptedContactToken: this.crypto.encrypt(sessionId, contactToken),
       duressActivatedAtIso: null,
       offeredResponderIds: new Set(),
       acceptedResponderId: null,
       arrivalCode: null,
+      arrivalAttempts: 0,
+      seekerTokenHash: sha256(seekerToken),
+      contactTokenHash: sha256(contactToken),
+      pinSafeHash: sha256(pins.safe),
+      pinDuressHash: sha256(pins.duress),
     };
     this.sessions.set(sessionId, record);
+    this.persist(record);
 
     return {
       sessionId,
       state: record.aggregate.state,
       activationCountdownMs: this.config.activationCountdownMs,
+      seekerToken,
     };
   }
 
@@ -163,7 +326,8 @@ export class SessionService {
     record.aggregate.apply('ACTIVATED', this.clock.now().toISOString(), {
       reason: 'confirmed',
     });
-    await this.notifyContacts(record, false);
+    this.persist(record);
+    await this.notifyContacts(record, { duress: false, escalation: false });
     return this.clientStatus(sessionId);
   }
 
@@ -179,14 +343,16 @@ export class SessionService {
       throw new CancelNotAllowedError();
     }
     const at = this.clock.now().toISOString();
-    if (pin === this.config.pins.safe) {
+    if (matchesHash(pin, record.pinSafeHash)) {
       record.aggregate.apply('CANCEL_CONFIRMED', at, { reason: 'user_cancelled' });
+      this.persist(record);
       return { status: 'cancelled', sessionId };
     }
-    if (pin === this.config.pins.duress) {
+    if (matchesHash(pin, record.pinDuressHash)) {
       record.aggregate.apply('ACTIVATED', at, { reason: 'duress' });
       record.duressActivatedAtIso = at;
-      await this.notifyContacts(record, true);
+      this.persist(record);
+      await this.notifyContacts(record, { duress: true, escalation: false });
       return { status: 'cancelled', sessionId };
     }
     throw new InvalidPinError();
@@ -230,14 +396,12 @@ export class SessionService {
   contactView(sessionId: string): ContactView {
     const record = this.mustGet(sessionId);
     const state = record.aggregate.state;
-    const live =
-      state === 'PENDING' || state === 'ACTIVE' || state === 'DISPATCHED' || state === 'ARRIVED';
     let location: PreciseLocation | null = null;
     let displayName = '';
     if (!this.crypto.isShredded(sessionId) && record.encryptedPii !== null) {
       const pii = JSON.parse(this.crypto.decrypt(record.encryptedPii)) as SessionPii;
       displayName = pii.displayName;
-      if (live && record.encryptedLocations.length > 0) {
+      if (LIVE_STATES.includes(state) && record.encryptedLocations.length > 0) {
         const latest = record.encryptedLocations[record.encryptedLocations.length - 1];
         location = JSON.parse(this.crypto.decrypt(latest)) as PreciseLocation;
       }
@@ -285,7 +449,7 @@ export class SessionService {
   recordLocation(sessionId: string, lat: number, lng: number): void {
     const record = this.mustGet(sessionId);
     const state = record.aggregate.state;
-    if (state !== 'PENDING' && state !== 'ACTIVE' && state !== 'DISPATCHED' && state !== 'ARRIVED') {
+    if (!LIVE_STATES.includes(state)) {
       throw new LocationRejectedError(state);
     }
     const ping: PreciseLocation = {
@@ -295,6 +459,7 @@ export class SessionService {
       capturedAt: this.clock.now().toISOString(),
     };
     record.encryptedLocations.push(this.crypto.encrypt(sessionId, JSON.stringify(ping)));
+    this.persist(record);
   }
 
   /**
@@ -324,6 +489,7 @@ export class SessionService {
         sentAt,
       });
     }
+    this.persist(record);
     return candidates;
   }
 
@@ -337,7 +503,35 @@ export class SessionService {
     });
     record.acceptedResponderId = responderId;
     record.arrivalCode = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    record.arrivalAttempts = 0;
+    this.persist(record);
     return { sessionId, state: record.aggregate.state };
+  }
+
+  /**
+   * Voluntary withdrawal by the accepted responder. The session returns
+   * to ACTIVE for re-dispatch; the withdrawn responder loses the offer
+   * and cannot re-accept.
+   */
+  withdraw(sessionId: string, responderId: string): ClientStatus {
+    const record = this.mustGet(sessionId);
+    if (record.aggregate.state !== 'DISPATCHED' || record.acceptedResponderId !== responderId) {
+      throw new ResponderNotAuthorizedError();
+    }
+    this.applyWithdrawal(record, responderId, 'responder_withdrew');
+    return { sessionId, state: record.aggregate.state };
+  }
+
+  private applyWithdrawal(record: StoredSession, responderId: string, reason: string): void {
+    record.aggregate.apply('RESPONDER_WITHDREW', this.clock.now().toISOString(), {
+      responderId,
+      reason,
+    });
+    record.offeredResponderIds.delete(responderId);
+    record.acceptedResponderId = null;
+    record.arrivalCode = null;
+    record.arrivalAttempts = 0;
+    this.persist(record);
   }
 
   /** Shown on the helpseeker's screen; the responder reads it in person. */
@@ -368,10 +562,16 @@ export class SessionService {
     if (record.aggregate.state !== 'DISPATCHED' || record.acceptedResponderId !== responderId) {
       throw new ResponderNotAuthorizedError();
     }
+    if (record.arrivalAttempts >= this.config.maxArrivalAttempts) {
+      throw new ArrivalCodeLockedError();
+    }
     if (record.arrivalCode !== code) {
+      record.arrivalAttempts += 1;
+      this.persist(record);
       throw new InvalidArrivalCodeError();
     }
     record.aggregate.apply('RESPONDER_ARRIVED', this.clock.now().toISOString(), { responderId });
+    this.persist(record);
     return { sessionId, state: record.aggregate.state };
   }
 
@@ -380,6 +580,7 @@ export class SessionService {
     record.aggregate.apply('SESSION_RESOLVED', this.clock.now().toISOString(), {
       reason: 'helpseeker_confirmed_safe',
     });
+    this.persist(record);
     return { sessionId, state: record.aggregate.state };
   }
 
@@ -396,17 +597,43 @@ export class SessionService {
         case 'PENDING':
           if (sinceLastEvent >= this.config.activationCountdownMs) {
             record.aggregate.apply('ACTIVATED', nowIso, { reason: 'countdown_elapsed' });
-            await this.notifyContacts(record, false);
+            this.persist(record);
+            await this.notifyContacts(record, { duress: false, escalation: false });
+          }
+          break;
+        case 'ACTIVE':
+          if (
+            sinceLastEvent >= this.config.escalationAfterMs &&
+            !record.aggregate.events.some((e) => e.type === 'ESCALATION_RAISED')
+          ) {
+            record.aggregate.apply('ESCALATION_RAISED', nowIso, {
+              reason: 'no_responder_accepted',
+            });
+            this.persist(record);
+            await this.notifyContacts(record, {
+              duress: record.duressActivatedAtIso !== null,
+              escalation: true,
+            });
+          }
+          break;
+        case 'DISPATCHED':
+          if (
+            sinceLastEvent >= this.config.responderArrivalTimeoutMs &&
+            record.acceptedResponderId !== null
+          ) {
+            this.applyWithdrawal(record, record.acceptedResponderId, 'arrival_timeout');
           }
           break;
         case 'RESOLVED':
           if (sinceLastEvent >= this.config.closeAfterResolveMs) {
             record.aggregate.apply('SESSION_CLOSED', nowIso, { reason: 'auto_close_after_resolve' });
+            this.persist(record);
           }
           break;
         case 'CANCELLED':
           if (sinceLastEvent >= this.config.closeAfterCancelMs) {
             record.aggregate.apply('SESSION_CLOSED', nowIso, { reason: 'auto_close_after_cancel' });
+            this.persist(record);
           }
           break;
         case 'CLOSED':
@@ -429,14 +656,20 @@ export class SessionService {
     record.aggregate.apply('DATA_PURGED', atIso, { method: 'crypto-shred' });
     record.encryptedPii = null;
     record.encryptedLocations.length = 0;
+    record.encryptedContactToken = null;
     record.arrivalCode = null;
+    this.persist(record);
   }
 
-  private async notifyContacts(record: StoredSession, duress: boolean): Promise<void> {
-    if (record.encryptedPii === null) {
+  private async notifyContacts(
+    record: StoredSession,
+    flags: { duress: boolean; escalation: boolean },
+  ): Promise<void> {
+    if (record.encryptedPii === null || record.encryptedContactToken === null) {
       return;
     }
     const pii = JSON.parse(this.crypto.decrypt(record.encryptedPii)) as SessionPii;
+    const contactToken = this.crypto.decrypt(record.encryptedContactToken);
     const sessionId = record.aggregate.sessionId;
     const sentAt = this.clock.now().toISOString();
     for (const contact of pii.contacts) {
@@ -446,11 +679,36 @@ export class SessionService {
         to: contact.address,
         helpseekerDisplayName: pii.displayName,
         category: record.category,
-        liveSessionLink: `https://app.sahay.example/live/${sessionId}`,
-        duress,
+        liveSessionLink: `https://app.sahay.example/live/${sessionId}?t=${contactToken}`,
+        duress: flags.duress,
+        escalation: flags.escalation,
         sentAt,
       });
     }
+  }
+
+  private persist(record: StoredSession): void {
+    const snapshot: SessionSnapshot = {
+      sessionId: record.aggregate.sessionId,
+      alias: record.alias,
+      coarseCell: record.coarseCell,
+      category: record.category,
+      userRef: record.userRef,
+      encryptedPii: record.encryptedPii,
+      encryptedLocations: [...record.encryptedLocations],
+      encryptedContactToken: record.encryptedContactToken,
+      duressActivatedAtIso: record.duressActivatedAtIso,
+      offeredResponderIds: [...record.offeredResponderIds],
+      acceptedResponderId: record.acceptedResponderId,
+      arrivalCode: record.arrivalCode,
+      arrivalAttempts: record.arrivalAttempts,
+      seekerTokenHash: record.seekerTokenHash,
+      contactTokenHash: record.contactTokenHash,
+      pinSafeHash: record.pinSafeHash,
+      pinDuressHash: record.pinDuressHash,
+      events: [...record.aggregate.events],
+    };
+    this.repository.save(snapshot);
   }
 
   private mustGet(sessionId: string): StoredSession {

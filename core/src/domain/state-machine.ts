@@ -23,10 +23,16 @@ const TRANSITION_TABLE: Readonly<
   ACTIVE: {
     RESPONDER_ACCEPTED: 'DISPATCHED',
     SESSION_RESOLVED: 'RESOLVED',
+    // Self-loop: records that contacts were re-alerted because nobody
+    // accepted. An event, not a state, so the timeline stays auditable.
+    ESCALATION_RAISED: 'ACTIVE',
   },
   DISPATCHED: {
     RESPONDER_ARRIVED: 'ARRIVED',
     SESSION_RESOLVED: 'RESOLVED',
+    // A no-show or withdrawal returns the session to ACTIVE so it can be
+    // re-dispatched instead of hanging forever.
+    RESPONDER_WITHDREW: 'ACTIVE',
   },
   ARRIVED: {
     SESSION_RESOLVED: 'RESOLVED',
@@ -59,7 +65,9 @@ export const ALL_EVENT_TYPES: readonly SessionEventType[] = [
   'ACTIVATED',
   'CANCEL_CONFIRMED',
   'RESPONDER_ACCEPTED',
+  'RESPONDER_WITHDREW',
   'RESPONDER_ARRIVED',
+  'ESCALATION_RAISED',
   'SESSION_RESOLVED',
   'SESSION_CLOSED',
   'DATA_PURGED',

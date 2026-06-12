@@ -15,7 +15,14 @@ async function bootstrap(): Promise<void> {
   // calls it every second with the real one.
   const sessions = app.get<SessionService>(SESSION_SERVICE);
   const clock = new SystemClock();
-  setInterval(() => void sessions.evaluateTimers(clock.now()), 1000);
+  const sweep = setInterval(() => void sessions.evaluateTimers(clock.now()), 1000);
+
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      clearInterval(sweep);
+      void app.close().then(() => process.exit(0));
+    });
+  }
 
   await app.listen(Number(process.env.PORT ?? 3000));
 }

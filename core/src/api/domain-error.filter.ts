@@ -1,9 +1,13 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
 import type { Response } from 'express';
 import {
+  ActiveSessionExistsError,
+  ArrivalCodeLockedError,
   CancelNotAllowedError,
   InvalidArrivalCodeError,
+  InvalidInputError,
   InvalidPinError,
+  NotAuthenticatedError,
   ResponderNotAuthorizedError,
   SessionNotFoundError,
 } from '../domain/errors';
@@ -26,9 +30,18 @@ export class DomainErrorFilter implements ExceptionFilter {
       response.status(404).json({ error: exception.message });
       return;
     }
+    if (exception instanceof NotAuthenticatedError) {
+      response.status(401).json({ error: exception.message });
+      return;
+    }
+    if (exception instanceof InvalidInputError) {
+      response.status(400).json({ error: exception.message });
+      return;
+    }
     if (
       exception instanceof InvalidPinError ||
       exception instanceof InvalidArrivalCodeError ||
+      exception instanceof ArrivalCodeLockedError ||
       exception instanceof ResponderNotAuthorizedError
     ) {
       response.status(403).json({ error: exception.message });
@@ -36,7 +49,8 @@ export class DomainErrorFilter implements ExceptionFilter {
     }
     if (
       exception instanceof CancelNotAllowedError ||
-      exception instanceof IllegalTransitionError
+      exception instanceof IllegalTransitionError ||
+      exception instanceof ActiveSessionExistsError
     ) {
       response.status(409).json({ error: exception.message });
       return;
