@@ -176,45 +176,53 @@ const TRIGGER_BODY = {
   location: { lat: 12.9716, lng: 77.5946 }, category: 'personal_safety',
 };
 let sessionId = null;
+let seekerToken = '';
 let countdownLeft = 30;
 let accepted = false;
+// Demo console plays the responder too; dev token from the seeded roster.
+const RESPONDER_TOKEN = 'asha-dev-token';
 
 const $ = (id) => document.getElementById(id);
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
-const post = (path, body) => fetch(path, { method: 'POST',
-  headers: { 'content-type': 'application/json' },
+const seekerHeaders = () => ({ authorization: 'Bearer ' + seekerToken });
+const post = (path, body, headers) => fetch(path, { method: 'POST',
+  headers: { 'content-type': 'application/json', ...(headers || {}) },
   body: body ? JSON.stringify(body) : undefined }).then((r) => r.json());
 
 async function trigger() {
   const r = await post('/sessions', TRIGGER_BODY);
   sessionId = r.sessionId;
+  seekerToken = r.seekerToken;
   countdownLeft = Math.round(r.activationCountdownMs / 1000);
   accepted = false;
   show('hs-idle', false); show('hs-pending', true);
 }
-const confirmNow = () => post(`/sessions/${sessionId}/confirm`);
+const confirmNow = () => post(`/sessions/${sessionId}/confirm`, undefined, seekerHeaders());
 async function cancelSession() {
-  const r = await post(`/sessions/${sessionId}/cancel`, { pin: $('pin').value });
+  const r = await post(`/sessions/${sessionId}/cancel`, { pin: $('pin').value }, seekerHeaders());
   if (r.error) alert(r.error);
 }
-const dispatchResponders = () => post(`/sessions/${sessionId}/dispatch`);
+const dispatchResponders = () => post(`/sessions/${sessionId}/dispatch`, undefined, seekerHeaders());
 async function acceptOffer() {
-  await post(`/sessions/${sessionId}/accept`, { responderId: 'responder-asha' });
+  await post(`/sessions/${sessionId}/accept`, { responderId: 'responder-asha' },
+    { 'x-responder-token': RESPONDER_TOKEN });
   accepted = true;
 }
 async function revealLocation() {
-  const r = await fetch(`/sessions/${sessionId}/dispatch-location/responder-asha`).then((x) => x.json());
+  const r = await fetch(`/sessions/${sessionId}/dispatch-location/responder-asha`,
+    { headers: { 'x-responder-token': RESPONDER_TOKEN } }).then((x) => x.json());
   const el = $('resp-loc'); el.classList.remove('hidden');
   el.innerHTML = r.error ? r.error :
     `<span class="tag">PRECISE LOCATION (accepted responder only)</span><br>${r.lat}, ${r.lng}`;
 }
 async function verifyArrival() {
   const r = await post(`/sessions/${sessionId}/arrival`,
-    { responderId: 'responder-asha', code: $('arrival-code').value });
+    { responderId: 'responder-asha', code: $('arrival-code').value },
+    { 'x-responder-token': RESPONDER_TOKEN });
   if (r.error) alert(r.error);
 }
 async function resolveSession() {
-  const r = await post(`/sessions/${sessionId}/resolve`);
+  const r = await post(`/sessions/${sessionId}/resolve`, undefined, seekerHeaders());
   if (r.error) alert(r.error);
 }
 function resetDemo() { location.reload(); }
@@ -229,7 +237,7 @@ async function poll() {
   if (!sessionId) return;
 
   // Helpseeker phone: the (possibly masked) client status.
-  const status = await fetch(`/sessions/${sessionId}`).then((r) => r.json());
+  const status = await fetch(`/sessions/${sessionId}`, { headers: seekerHeaders() }).then((r) => r.json());
   const chip = $('hs-chip'); chip.textContent = status.state; chip.className = `chip ${status.state}`;
   const live = ['ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(status.state);
   if (live) { show('hs-pending', false); show('hs-live', true); }
@@ -238,7 +246,7 @@ async function poll() {
   }
   if (status.state === 'RESOLVED') { show('hs-live', false); }
   if (status.state === 'DISPATCHED') {
-    const c = await fetch(`/sessions/${sessionId}/arrival-code`).then((r) => r.json());
+    const c = await fetch(`/sessions/${sessionId}/arrival-code`, { headers: seekerHeaders() }).then((r) => r.json());
     if (c.code) { show('hs-code-wrap', true); $('hs-code').textContent = c.code; }
   }
 

@@ -129,14 +129,20 @@ function toast(msg) {
   t.textContent = msg; t.style.opacity = 1;
   clearTimeout(t._h); t._h = setTimeout(() => (t.style.opacity = 0), 2600);
 }
-async function api(path, body, method) {
-  const r = await fetch(path, body !== undefined
-    ? { method: method || 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
-    : (method ? { method } : undefined));
+async function api(path, body, method, headers) {
+  const h = { ...(headers || {}) };
+  if (body !== undefined) h['content-type'] = 'application/json';
+  const r = await fetch(path, {
+    method: method || (body !== undefined ? 'POST' : 'GET'),
+    headers: h,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.error) throw new Error(j.error || ('http ' + r.status));
   return j;
 }
+const seekerAuth = () => ({ authorization: 'Bearer ' + (store.get('session', {}).token || '') });
+const responderAuth = () => ({ 'x-responder-token': store.get('responder.token', '') });
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const go = (h) => { location.hash = h; };
 const CONSENT_V1 = 'By triggering an emergency session you consent to: (1) your precise location being shared with your chosen trusted contacts for the duration of this session only; (2) your approximate (~1 km) area and a session alias being shared with verified responders; (3) your exact location being shared with the one responder you accept; (4) all of this data being destroyed when the session is purged.';
@@ -241,6 +247,10 @@ function renderOnboarding() {
     <label>YOUR NAME</label><input id="ob-name" value="Meera Krishnan">
     <label>TRUSTED CONTACT — NAME</label><input id="ob-cname" value="Arjun">
     <label>TRUSTED CONTACT — PHONE</label><input id="ob-cphone" value="+91-98765-43210">
+    <div class="row">
+      <div><label>SAFE PIN (cancels)</label><input id="ob-pin-safe" value="1234" inputmode="numeric" maxlength="6"></div>
+      <div><label>DURESS PIN (fakes it)</label><input id="ob-pin-duress" value="9999" inputmode="numeric" maxlength="6"></div>
+    </div>
     <label>CONSENT (v1)</label><div class="consent">${esc(CONSENT_V1)}</div>
     <button class="primary" onclick="saveProfile()">I consent — create my circle</button>`;
 }
@@ -248,8 +258,16 @@ function saveProfile() {
   const name = document.getElementById('ob-name').value.trim();
   const cname = document.getElementById('ob-cname').value.trim();
   const cphone = document.getElementById('ob-cphone').value.trim();
+  const pinSafe = document.getElementById('ob-pin-safe').value.trim();
+  const pinDuress = document.getElementById('ob-pin-duress').value.trim();
   if (!name || !cname || !cphone) return toast('All fields are needed');
-  store.set('profile', { name, contacts: [{ id: 'c-' + cname.toLowerCase(), name: cname, address: cphone }] });
+  if (!/^\d{4,6}$/.test(pinSafe) || !/^\d{4,6}$/.test(pinDuress)) return toast('PINs must be 4-6 digits');
+  if (pinSafe === pinDuress) return toast('Safe and duress PINs must differ');
+  store.set('profile', {
+    name,
+    contacts: [{ id: 'c-' + cname.toLowerCase(), name: cname, address: cphone }],
+    pins: { safe: pinSafe, duress: pinDuress },
+  });
   store.set('consent', 'v1');
   render();
 }
@@ -277,8 +295,9 @@ async function trigger() {
       displayName: profile.name,
       contacts: profile.contacts.map((c) => ({ id: c.id, address: c.address })),
       location: loc, category: seekerCat,
+      pins: profile.pins,
     });
-    store.set('session', { id: r.sessionId, t0: Date.now(), countdownMs: r.activationCountdownMs, loc, dispatched: false });
+    store.set('session', { id: r.sessionId, token: r.seekerToken, t0: Date.now(), countdownMs: r.activationCountdownMs, loc, dispatched: false });
     render();
   } catch (e) { toast(e.message); }
 }
@@ -288,10 +307,16 @@ function renderSeekerSession() {
   $m.innerHTML = '<div id="dyn"></div>';
   let last = '';
   routeTick = async () => {
-    const st = await api('/sessions/' + sess.id, undefined, 'GET').catch(() => null);
-    if (!st) return;
+    let st = null;
+    try {
+      st = await api('/sessions/' + sess.id, undefined, 'GET', seekerAuth());
+    } catch (e) {
+      // Stale or foreign session (e.g. server reset, missing token): let go.
+      if (/authentication|not found/.test(e.message)) { clearSession(); }
+      return;
+    }
     let code = null;
-    if (st.state === 'DISPATCHED') code = (await api(`/sessions/${sess.id}/arrival-code`, undefined, 'GET').catch(() => ({}))).code;
+    if (st.state === 'DISPATCHED') code = (await api(`/sessions/${sess.id}/arrival-code`, undefined, 'GET', seekerAuth()).catch(() => ({}))).code;
     sendPing(st.state);
     const html = seekerScreen(st.state, sess, code);
     if (html !== last && !typing()) { document.getElementById('dyn').innerHTML = html; last = html; }
@@ -335,18 +360,18 @@ function seekerScreen(state, sess, code) {
     <p class="lead center">Nobody was notified.</p>
     <button onclick="clearSession()">Back to home</button>`;
 }
-async function confirmNow() { try { await api(`/sessions/${store.get('session').id}/confirm`, {}); } catch (e) { toast(e.message); } routeTick(); }
+async function confirmNow() { try { await api(`/sessions/${store.get('session').id}/confirm`, {}, 'POST', seekerAuth()); } catch (e) { toast(e.message); } routeTick(); }
 async function cancelSession() {
   const pin = document.getElementById('pin').value;
-  try { await api(`/sessions/${store.get('session').id}/cancel`, { pin }); routeTick(); }
+  try { await api(`/sessions/${store.get('session').id}/cancel`, { pin }, 'POST', seekerAuth()); routeTick(); }
   catch (e) { toast(e.message); }
 }
 async function requestResponder() {
   const sess = store.get('session');
-  try { await api(`/sessions/${sess.id}/dispatch`, {}); sess.dispatched = true; store.set('session', sess); routeTick(); }
+  try { await api(`/sessions/${sess.id}/dispatch`, {}, 'POST', seekerAuth()); sess.dispatched = true; store.set('session', sess); routeTick(); }
   catch (e) { toast(e.message); }
 }
-async function resolveSession() { try { await api(`/sessions/${store.get('session').id}/resolve`, {}); routeTick(); } catch (e) { toast(e.message); } }
+async function resolveSession() { try { await api(`/sessions/${store.get('session').id}/resolve`, {}, 'POST', seekerAuth()); routeTick(); } catch (e) { toast(e.message); } }
 function clearSession() { store.del('session'); render(); }
 
 let lastPing = 0;
@@ -357,7 +382,7 @@ async function sendPing(state) {
   lastPing = Date.now();
   sess.loc = { lat: sess.loc.lat + (Math.random() - .5) * .0006, lng: sess.loc.lng + (Math.random() - .5) * .0006 };
   store.set('session', sess);
-  api(`/sessions/${sess.id}/location`, sess.loc).catch(() => {});
+  api(`/sessions/${sess.id}/location`, sess.loc, 'POST', seekerAuth()).catch(() => {});
 }
 
 /* ------------------------------ contact ------------------------------- */
@@ -380,22 +405,31 @@ function renderContactInbox() {
   routeTick = async () => {
     const ob = await api('/dev/outbox', undefined, 'GET');
     const mine = ob.contactAlerts.filter((a) => a.to === addr).reverse();
+    // Remember each session's contact capability token from its link.
+    const tokens = store.get('contact.tokens', {});
+    for (const a of mine) {
+      const t = new URL(a.liveSessionLink).searchParams.get('t');
+      if (t) tokens[a.sessionId] = t;
+    }
+    store.set('contact.tokens', tokens);
     const seen = new Set();
     const cards = mine.filter((a) => !seen.has(a.sessionId) && seen.add(a.sessionId)).map((a) => `
       <div class="card tap ${a.duress ? 'duress' : ''}" onclick="go('contact/${a.sessionId}')">
-        <div class="k">${a.duress ? '⚠ DURESS — THE CANCEL WAS COERCED' : 'EMERGENCY ALERT'}</div>
+        <div class="k">${a.duress ? '⚠ DURESS — THE CANCEL WAS COERCED'
+          : a.escalation ? '⏳ ESCALATION — STILL NO RESPONDER' : 'EMERGENCY ALERT'}</div>
         <b>${esc(a.helpseekerDisplayName)}</b> needs help · ${CATS[a.category] || a.category}<br>
         <span style="color:var(--dim);font-size:12px">${new Date(a.sentAt).toLocaleTimeString()}</span></div>`).join('');
     if (cards && cards !== last) { document.getElementById('dyn').innerHTML = cards; last = cards; }
   };
   routeTick();
 }
+const contactToken = (sid) => store.get('contact.tokens', {})[sid] || '';
 
 function renderContactSession(sid) {
   $m.innerHTML = `<div id="dyn"><p class="lead">loading…</p></div>`;
   let last = '';
   routeTick = async () => {
-    const v = await api(`/sessions/${sid}/contact-view`, undefined, 'GET').catch(() => null);
+    const v = await api(`/sessions/${sid}/contact-view?t=${contactToken(sid)}`, undefined, 'GET').catch(() => null);
     if (!v) return;
     const live = ['PENDING', 'ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(v.state);
     const html = `
@@ -413,7 +447,7 @@ function renderContactSession(sid) {
   };
   routeTick();
 }
-async function contactDispatch(sid) { try { await api(`/sessions/${sid}/dispatch`, {}); routeTick(); } catch (e) { toast(e.message); } }
+async function contactDispatch(sid) { try { await api(`/sessions/${sid}/dispatch?t=${contactToken(sid)}`, {}); routeTick(); } catch (e) { toast(e.message); } }
 
 /* ----------------------------- responder ------------------------------ */
 function renderResponderInbox() {
@@ -423,7 +457,7 @@ function renderResponderInbox() {
       <p class="lead">Verified responders only. Pick your enrolled identity.</p><div id="dyn"></div>`;
     api('/dev/roster', undefined, 'GET').then((roster) => {
       document.getElementById('dyn').innerHTML = roster.map((r) => `
-        <div class="card tap" onclick="store.set('responder.id','${r.id}');render()">
+        <div class="card tap" onclick="store.set('responder.id','${r.id}');store.set('responder.token','${r.devToken}');render()">
           <b>${esc(r.id.replace('responder-', ''))}</b>
           <div style="color:var(--dim);font-size:12px">zone ${esc(r.availabilityCell)} · ${r.verified ? '✓ verified' : 'unverified'}</div></div>`).join('');
     });
@@ -453,7 +487,7 @@ function renderResponderJob(sid) {
   $m.innerHTML = `<div id="dyn"><p class="lead">loading…</p></div>`;
   let last = '';
   routeTick = async () => {
-    const v = await api(`/sessions/${sid}/responder-view/${rid}`, undefined, 'GET').catch(() => null);
+    const v = await api(`/sessions/${sid}/responder-view/${rid}`, undefined, 'GET', responderAuth()).catch(() => null);
     if (!v) return;
     const accepted = (store.get('responder.accepted', [])).includes(sid);
     let html = `<h1>${esc(v.alias)} <span class="chip ${v.state}">${v.state}</span></h1>
@@ -469,7 +503,8 @@ function renderResponderJob(sid) {
           <a href="https://maps.google.com/?q=${v.location.lat},${v.location.lng}" target="_blank">navigate ↗</a></p>
         <label>CODE FROM THE HELP SEEKER'S SCREEN</label>
         <input id="arr-code" inputmode="numeric" maxlength="6" placeholder="······">
-        <button class="primary" onclick="verifyArrival('${sid}')">Verify arrival</button>`;
+        <button class="primary" onclick="verifyArrival('${sid}')">Verify arrival</button>
+        <button class="subtle" onclick="withdrawJob('${sid}')">I can't make it — withdraw</button>`;
     } else if (v.state === 'DISPATCHED') {
       html += `<p class="lead" style="margin-top:24px">Another responder took this one. Stand down.</p>`;
     } else if (v.state === 'ARRIVED') {
@@ -488,15 +523,22 @@ function renderResponderJob(sid) {
 }
 async function acceptJob(sid) {
   try {
-    await api(`/sessions/${sid}/accept`, { responderId: store.get('responder.id') });
+    await api(`/sessions/${sid}/accept`, { responderId: store.get('responder.id') }, 'POST', responderAuth());
     const a = store.get('responder.accepted', []); a.push(sid); store.set('responder.accepted', a);
     routeTick();
   } catch (e) { toast(e.message); }
 }
 async function verifyArrival(sid) {
   try {
-    await api(`/sessions/${sid}/arrival`, { responderId: store.get('responder.id'), code: document.getElementById('arr-code').value });
+    await api(`/sessions/${sid}/arrival`, { responderId: store.get('responder.id'), code: document.getElementById('arr-code').value }, 'POST', responderAuth());
     routeTick();
+  } catch (e) { toast(e.message); }
+}
+async function withdrawJob(sid) {
+  try {
+    await api(`/sessions/${sid}/withdraw`, { responderId: store.get('responder.id') }, 'POST', responderAuth());
+    store.set('responder.accepted', store.get('responder.accepted', []).filter((x) => x !== sid));
+    go('responder');
   } catch (e) { toast(e.message); }
 }
 
