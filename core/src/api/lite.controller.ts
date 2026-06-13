@@ -8,6 +8,7 @@ import {
 import { RegistrationService } from '../services/registration.service';
 import { SessionService } from '../services/session.service';
 import {
+  applyDial,
   cancelledPage,
   contactViewPage,
   homePage,
@@ -54,13 +55,22 @@ export class LiteController {
   @Post('register')
   register(
     @Body()
-    body: { phone?: string; name?: string; contact?: string; pinSafe?: string; pinDuress?: string },
+    body: {
+      phone?: string;
+      name?: string;
+      contact?: string;
+      pinSafe?: string;
+      pinDuress?: string;
+      dial?: string;
+    },
   ): string {
+    // Apply the chosen country dial code to nationally-typed numbers, so a
+    // user anywhere can register without typing the +code themselves.
     try {
       const record = this.registrations.register(
-        body.phone ?? '',
+        applyDial(body.phone ?? '', body.dial),
         body.name ?? '',
-        body.contact ?? '',
+        applyDial(body.contact ?? '', body.dial),
         body.pinSafe ?? '',
         body.pinDuress ?? '',
       );
@@ -77,8 +87,8 @@ export class LiteController {
   }
 
   @Post('sos')
-  sos(@Body() body: { phone?: string; area?: string; category?: string }): string {
-    const registration = this.registrations.find(body.phone ?? '');
+  sos(@Body() body: { phone?: string; area?: string; category?: string; dial?: string }): string {
+    const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
     if (registration === undefined) {
       return messagePage('Not registered', 'Register first from the home page.');
     }
@@ -105,8 +115,8 @@ export class LiteController {
   }
 
   @Post('cancel')
-  async cancel(@Body() body: { phone?: string; pin?: string }): Promise<string> {
-    const registration = this.registrations.find(body.phone ?? '');
+  async cancel(@Body() body: { phone?: string; pin?: string; dial?: string }): Promise<string> {
+    const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
     const sessionId =
       registration === undefined
         ? null
@@ -130,11 +140,12 @@ export class LiteController {
   }
 
   @Post('status')
-  status(@Body() body: { phone?: string; pin?: string }): string {
-    if (this.registrations.verifyPin(body.phone ?? '', body.pin ?? '') === 'invalid') {
+  status(@Body() body: { phone?: string; pin?: string; dial?: string }): string {
+    const phone = applyDial(body.phone ?? '', body.dial);
+    if (this.registrations.verifyPin(phone, body.pin ?? '') === 'invalid') {
       return messagePage('Wrong PIN', 'Wrong PIN.');
     }
-    const registration = this.registrations.find(body.phone ?? '');
+    const registration = this.registrations.find(phone);
     const sessionId =
       registration === undefined
         ? null
@@ -149,11 +160,12 @@ export class LiteController {
   }
 
   @Post('safe')
-  safe(@Body() body: { phone?: string; pin?: string }): string {
-    if (this.registrations.verifyPin(body.phone ?? '', body.pin ?? '') !== 'safe') {
+  safe(@Body() body: { phone?: string; pin?: string; dial?: string }): string {
+    const phone = applyDial(body.phone ?? '', body.dial);
+    if (this.registrations.verifyPin(phone, body.pin ?? '') !== 'safe') {
       return messagePage('Wrong PIN', 'Wrong PIN.');
     }
-    const registration = this.registrations.find(body.phone ?? '');
+    const registration = this.registrations.find(phone);
     const sessionId =
       registration === undefined
         ? null

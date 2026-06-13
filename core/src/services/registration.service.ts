@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { SMS_REGISTRATION_CONSENT_VERSION } from '../domain/consent';
 import { InvalidInputError } from '../domain/errors';
+import { normalizePhone } from '../domain/phone';
 import { Clock } from '../domain/types';
 
 /**
@@ -46,13 +47,8 @@ export class InMemoryRegistrationStore implements RegistrationStore {
 
 const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
 
-export function normalizePhone(raw: string): string {
-  const digits = raw.replace(/[^\d]/g, '');
-  if (digits.length < 10) {
-    throw new InvalidInputError('phone number must have at least 10 digits');
-  }
-  return digits.slice(-12);
-}
+// Re-exported so existing callers (SMS gateway) keep their import path.
+export { normalizePhone };
 
 export const phoneRefOf = (raw: string): string => sha256(normalizePhone(raw));
 

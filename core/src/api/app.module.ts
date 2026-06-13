@@ -17,6 +17,7 @@ import { SmsGatewayService } from '../services/sms-gateway.service';
 import { DevController, OUTBOX, SMS_TRANSPORT } from './dev.controller';
 import { GATEWAY_SECRET, GatewayController, SMS_GATEWAY } from './gateway.controller';
 import { LiteController, REGISTRATIONS } from './lite.controller';
+import { ReferenceController } from './reference.controller';
 import { ResponderRegistry } from './responder-registry';
 import {
   NOTIFIER,
@@ -90,7 +91,13 @@ function buildWiring() {
 const wiring = buildWiring();
 
 @Module({
-  controllers: [SessionController, DevController, GatewayController, LiteController],
+  controllers: [
+    SessionController,
+    DevController,
+    GatewayController,
+    LiteController,
+    ReferenceController,
+  ],
   providers: [
     { provide: NOTIFIER, useValue: wiring.appOutbox },
     { provide: OUTBOX, useValue: wiring.appOutbox },

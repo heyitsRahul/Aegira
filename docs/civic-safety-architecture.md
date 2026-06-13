@@ -144,4 +144,11 @@ Still open:
 * Real SMS/push delivery with acknowledgment and retry (Notifier is a stub).
 * Offline/SMS-fallback trigger paths for low-connectivity areas.
 * Contact-side consent (contacts currently never opt in to receiving alerts).
-* i18n (Hindi + regional languages), accessibility, real map tiles.
+* Real map tiles (the grid is a schematic stand-in).
+* Localized UI strings (Hindi + regional languages). The system is already
+  country-agnostic — phone numbers normalize to E.164 for every country
+  (`domain/phone.ts`), country/dial-code and official-helpline reference
+  data ships in `domain/reference.ts` with India as the detailed default and
+  112 as the universal GSM fallback, and the app honors device locale, time
+  zone, light/dark, and reduced-motion — but the copy itself is still
+  English only.

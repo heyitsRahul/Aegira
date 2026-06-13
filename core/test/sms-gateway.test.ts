@@ -14,6 +14,9 @@ import { ROSTER_FIXTURE, TEST_CONFIG } from './helpers/build-service';
 
 const SEEKER = '+91 90000 12345';
 const CONTACT = '9876543210';
+// What CONTACT normalizes to once stored (E.164). Outbound SMS is addressed
+// to this canonical form regardless of how the seeker typed the number.
+const CONTACT_E164 = '+919876543210';
 const TOWER = { lat: 12.9716, lng: 77.5946 };
 
 function buildSmsRig() {
@@ -123,7 +126,7 @@ describe('duress over SMS (invariant 4)', () => {
     const rig = await registered();
     await rig.gateway.handle(SEEKER, 'SOS', TOWER);
     await rig.gateway.handle(SEEKER, 'CANCEL 9999');
-    const toContact = rig.sms.messages.filter((m) => m.to === CONTACT);
+    const toContact = rig.sms.messages.filter((m) => m.to === CONTACT_E164);
     expect(toContact.length).toBe(1);
     expect(toContact[0].text).toContain('DURESS');
     expect(toContact[0].text).toContain('DO NOT call');
@@ -147,7 +150,7 @@ describe('the full feature-phone rescue', () => {
     await rig.service.evaluateTimers(rig.clock.now());
 
     // The contact's basic phone received a plain-text alert with a link.
-    const alert = rig.sms.messages.find((m) => m.to === CONTACT);
+    const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
     expect(alert).toBeDefined();
     expect(alert!.text).toContain('SAHAY ALERT');
     expect(alert!.text).toContain('Reply SEND');
@@ -200,7 +203,7 @@ describe('SMS wire privacy (negative assertions)', () => {
     await rig.gateway.handle(SEEKER, 'SOS', TOWER);
     rig.clock.advance(TEST_CONFIG.activationCountdownMs);
     await rig.service.evaluateTimers(rig.clock.now());
-    const alert = rig.sms.messages.find((m) => m.to === CONTACT)!;
+    const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164)!;
     expect(alert.text).toContain('/lite/c/');
     expect(alert.text).not.toMatch(/12\.9\d+/);
     expect(alert.text).not.toMatch(/77\.5\d+/);

@@ -116,6 +116,27 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
   .consent { font-size:12px; color:var(--dim); background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px; max-height:150px; overflow:auto; }
   .row { display:flex; gap:10px; } .row > * { flex:1; }
   a { color:var(--blue); }
+  /* accessibility: visible keyboard focus + comfortable tap targets */
+  button, input, select, a { min-height:44px; }
+  :focus-visible { outline:3px solid var(--blue); outline-offset:2px; }
+  .cats button { min-height:40px; }
+  .chip { min-height:0; }
+  /* official helplines — always reachable, even with no responder */
+  .help { background:#10161f; border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-top:12px; }
+  .help .k { font-size:11px; letter-spacing:1px; font-weight:700; color:var(--amber); }
+  .help .nums { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .help a { display:inline-flex; flex-direction:column; align-items:center; gap:2px; text-decoration:none;
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:7px 12px; min-width:64px; color:var(--ink); }
+  .help a b { font-size:17px; color:#ff8a8e; }
+  .help a span { font-size:10px; color:var(--dim); }
+  .cat-ico { font-size:15px; margin-right:2px; }
+  .country-row { display:flex; gap:8px; } .country-row select { flex:0 0 42%; } .country-row input { flex:1; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f7f9; --panel:#fff; --panel2:#eef1f5; --line:#d4dae3; --ink:#11151c; --dim:#5b6472; }
+    body { background:#e9ecf1; }
+    .help { background:#fff5f5; } .code, .count { color:#11151c; }
+  }
 </style>
 </head>
 <body>
@@ -159,8 +180,45 @@ const responderAuth = () => ({ 'x-responder-token': store.get('responder.token',
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const go = (h) => { location.hash = h; };
 const CONSENT_V1 = 'By triggering an emergency session you consent to: (1) your precise location being shared with your chosen trusted contacts for the duration of this session only; (2) your approximate (~1 km) area and a session alias being shared with verified responders; (3) your exact location being shared with the one responder you accept; (4) all of this data being destroyed when the session is purged.';
-const CATS = { personal_safety: 'Personal safety', medical: 'Medical', accident: 'Accident', other: 'Other' };
-const BASE = { lat: 12.9716, lng: 77.5946 }; // demo city: Bengaluru
+const CATS = {
+  personal_safety: { label: 'Personal safety', ico: '🛡️' },
+  medical:         { label: 'Medical',         ico: '➕' },
+  accident:        { label: 'Accident',        ico: '⚠️' },
+  other:           { label: 'Other',           ico: '❓' },
+};
+const catLabel = (k) => (CATS[k] ? CATS[k].label : k);
+
+// Indian demo cities for the location simulation. Real deployments read
+// the device's GPS; here the seeker picks (or we default to the first).
+const DEMO_CITIES = [
+  { id: 'bengaluru', label: 'Bengaluru — MG Road',  lat: 12.9716, lng: 77.5946 },
+  { id: 'mumbai',    label: 'Mumbai — Bandra',      lat: 19.0596, lng: 72.8295 },
+  { id: 'delhi',     label: 'Delhi — Connaught Pl', lat: 28.6315, lng: 77.2167 },
+  { id: 'chennai',   label: 'Chennai — T. Nagar',   lat: 13.0418, lng: 80.2341 },
+  { id: 'kolkata',   label: 'Kolkata — Park Street', lat: 22.5530, lng: 88.3520 },
+];
+
+// Reference data (countries + helplines) shared with every channel.
+let REF = { countries: [], defaultCountry: 'IN', helplines: {} };
+const refReady = fetch('/reference').then((r) => r.json()).then((d) => { REF = d; }).catch(() => {});
+
+function helplinesFor(country) {
+  return (REF.helplines && REF.helplines[country]) || [{ label: 'Emergency', number: '112' }];
+}
+function helplineCard(country) {
+  const c = country || (store.get('profile', {}).country) || REF.defaultCountry || 'IN';
+  const nums = helplinesFor(c).map((h) =>
+    `<a href="tel:${esc(h.number)}"><b>${esc(h.number)}</b><span>${esc(h.label)}</span></a>`).join('');
+  return `<div class="help"><div class="k">OFFICIAL HELPLINES — TAP TO CALL</div><div class="nums">${nums}</div></div>`;
+}
+function countrySelect(id, selected) {
+  const sel = selected || REF.defaultCountry || 'IN';
+  return `<select id="${id}">${(REF.countries || []).map((c) =>
+    `<option value="${c.code}"${c.code === sel ? ' selected' : ''}>${esc(c.name)} (+${esc(c.dial)})</option>`).join('')}</select>`;
+}
+// Locale-aware time — respects the user's device locale and timezone.
+const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+const phoneTail = (s) => String(s).replace(/\D/g, '').slice(-10);
 
 /* ------------------------------- map --------------------------------- */
 function mapSvg(cellId, loc, opts = {}) {
@@ -259,42 +317,61 @@ function renderOnboarding() {
     <h1>Set up your circle</h1>
     <p class="lead">Stored on this device only. The server learns it encrypted, per session,
       and forgets it cryptographically when each session is purged.</p>
-    <label>YOUR NAME</label><input id="ob-name" value="Meera Krishnan">
-    <label>TRUSTED CONTACT — NAME</label><input id="ob-cname" value="Arjun">
-    <label>TRUSTED CONTACT — PHONE</label><input id="ob-cphone" value="+91-98765-43210">
+    <label>YOUR NAME</label><input id="ob-name" value="Meera Krishnan" autocomplete="name">
+    <label>COUNTRY</label>${countrySelect('ob-country')}
+    <label>TRUSTED CONTACT — NAME</label><input id="ob-cname" value="Arjun Krishnan">
+    <label>TRUSTED CONTACT — PHONE</label>
+    <input id="ob-cphone" value="98765 43210" inputmode="tel" autocomplete="tel"
+      aria-label="trusted contact phone number">
     <div class="row">
-      <div><label>SAFE PIN (cancels)</label><input id="ob-pin-safe" value="1234" inputmode="numeric" maxlength="6"></div>
-      <div><label>DURESS PIN (fakes it)</label><input id="ob-pin-duress" value="9999" inputmode="numeric" maxlength="6"></div>
+      <div><label>SAFE PIN (cancels)</label><input id="ob-pin-safe" value="1234" inputmode="numeric" maxlength="6" type="password"></div>
+      <div><label>DURESS PIN (fakes it)</label><input id="ob-pin-duress" value="9999" inputmode="numeric" maxlength="6" type="password"></div>
     </div>
     <label>CONSENT (v1)</label><div class="consent">${esc(CONSENT_V1)}</div>
-    <button class="primary" onclick="saveProfile()">I consent — create my circle</button>`;
+    <button class="primary" onclick="saveProfile()">I consent — create my circle</button>
+    ${helplineCard()}`;
+}
+function dialOf(code) { const c = (REF.countries || []).find((x) => x.code === code); return c ? c.dial : '91'; }
+function withDial(raw, code) {
+  const t = String(raw || '').trim();
+  if (t.startsWith('+') || t.startsWith('00')) return t;
+  return '+' + dialOf(code) + t.replace(/\D/g, '').replace(/^0+/, '');
 }
 function saveProfile() {
   const name = document.getElementById('ob-name').value.trim();
+  const country = document.getElementById('ob-country').value;
   const cname = document.getElementById('ob-cname').value.trim();
-  const cphone = document.getElementById('ob-cphone').value.trim();
+  const cphoneRaw = document.getElementById('ob-cphone').value.trim();
   const pinSafe = document.getElementById('ob-pin-safe').value.trim();
   const pinDuress = document.getElementById('ob-pin-duress').value.trim();
-  if (!name || !cname || !cphone) return toast('All fields are needed');
+  if (!name || !cname || !cphoneRaw) return toast('All fields are needed');
   if (!/^\d{4,6}$/.test(pinSafe) || !/^\d{4,6}$/.test(pinDuress)) return toast('PINs must be 4-6 digits');
   if (pinSafe === pinDuress) return toast('Safe and duress PINs must differ');
   store.set('profile', {
     name,
-    contacts: [{ id: 'c-' + cname.toLowerCase(), name: cname, address: cphone }],
+    country,
+    contacts: [{ id: 'c-' + cname.toLowerCase().replace(/\s+/g, '-'), name: cname, address: withDial(cphoneRaw, country) }],
     pins: { safe: pinSafe, duress: pinDuress },
   });
   store.set('consent', 'v1');
   render();
 }
 
+let seekerCity = DEMO_CITIES[0].id;
 function renderSeekerHome(profile) {
+  const city = DEMO_CITIES.find((c) => c.id === seekerCity) || DEMO_CITIES[0];
   $m.innerHTML = `
     <h1>Hi ${esc(profile.name.split(' ')[0])}.</h1>
-    <p class="lead">Hold steady — help is one tap away. Demo location: Bengaluru.</p>
-    <div class="cats">${Object.entries(CATS).map(([k, v]) =>
-      `<button class="${k === seekerCat ? 'on' : ''}" onclick="seekerCat='${k}';render()">${v}</button>`).join('')}</div>
-    <div class="sos-wrap"><button class="sos" onclick="trigger()">SOS</button></div>
+    <p class="lead">Hold steady — help is one tap away.</p>
+    <label>WHAT IS HAPPENING?</label>
+    <div class="cats" role="group" aria-label="emergency category">${Object.entries(CATS).map(([k, v]) =>
+      `<button class="${k === seekerCat ? 'on' : ''}" aria-pressed="${k === seekerCat}" onclick="seekerCat='${k}';render()"><span class="cat-ico">${v.ico}</span>${esc(v.label)}</button>`).join('')}</div>
+    <div class="sos-wrap"><button class="sos" aria-label="Send SOS now" onclick="trigger()">SOS</button></div>
     <p class="lead center">Starts a session with a 30-second cancel window.</p>
+    <label>DEMO LOCATION (a real phone uses GPS)</label>
+    <select id="city" onchange="seekerCity=this.value">${DEMO_CITIES.map((c) =>
+      `<option value="${c.id}"${c.id === seekerCity ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select>
+    ${helplineCard(profile.country)}
     <div class="card"><div class="k">YOUR CIRCLE</div>
       ${profile.contacts.map((c) => `<div>${esc(c.name)} · ${esc(c.address)}</div>`).join('')}
     </div>
@@ -303,10 +380,11 @@ function renderSeekerHome(profile) {
 
 async function trigger() {
   const profile = store.get('profile');
-  const loc = { lat: BASE.lat + (Math.random() - .5) * .004, lng: BASE.lng + (Math.random() - .5) * .004 };
+  const city = DEMO_CITIES.find((c) => c.id === seekerCity) || DEMO_CITIES[0];
+  const loc = { lat: city.lat + (Math.random() - .5) * .004, lng: city.lng + (Math.random() - .5) * .004 };
   try {
     const r = await api('/sessions', {
-      userId: 'user-' + profile.name.toLowerCase().replace(/\s+/g, '-'),
+      userId: 'user-' + phoneTail(profile.contacts[0].address) + '-' + profile.name.toLowerCase().replace(/\s+/g, '-'),
       displayName: profile.name,
       contacts: profile.contacts.map((c) => ({ id: c.id, address: c.address })),
       location: loc, category: seekerCat,
@@ -362,6 +440,7 @@ function seekerScreen(state, sess, code) {
       ${state === 'DISPATCHED' && code ? `<p class="lead center" style="margin-top:12px">Show this code to your responder — it proves they really reached you:</p><div class="code">${code}</div>` : ''}
       ${state === 'ARRIVED' ? `<p class="lead center" style="margin-top:12px">Your responder is with you.</p>` : ''}
       <button onclick="resolveSession()">I am safe — end session</button>
+      ${helplineCard(store.get('profile', {}).country)}
       <div class="foot">Your location is being recorded encrypted, inside this session only.
         No cancel exists once a session is live — that is deliberate.</div>`;
   }
@@ -407,8 +486,8 @@ function renderContactInbox() {
     $m.innerHTML = `
       <h1>Your alert number</h1>
       <p class="lead">Alerts addressed to this number appear here. Use the number the help seeker
-        saved in their circle.</p>
-      <input id="ct-addr" value="+91-98765-43210">
+        saved in their circle — any format works.</p>
+      <input id="ct-addr" value="98765 43210" inputmode="tel" aria-label="your phone number">
       <button class="primary" onclick="store.set('contact.addr',document.getElementById('ct-addr').value.trim());render()">Start watching</button>`;
     return;
   }
@@ -419,7 +498,10 @@ function renderContactInbox() {
   let last = '';
   routeTick = async () => {
     const ob = await api('/dev/outbox', undefined, 'GET');
-    const mine = ob.contactAlerts.filter((a) => a.to === addr).reverse();
+    // Tolerant match: compare by trailing digits so format differences
+    // (+91, spaces, dashes) between seeker and contact don't hide alerts.
+    const mineTail = phoneTail(addr);
+    const mine = ob.contactAlerts.filter((a) => phoneTail(a.to) === mineTail).reverse();
     // Remember each session's contact capability token from its link.
     const tokens = store.get('contact.tokens', {});
     for (const a of mine) {
@@ -432,8 +514,8 @@ function renderContactInbox() {
       <div class="card tap ${a.duress ? 'duress' : ''}" onclick="go('contact/${a.sessionId}')">
         <div class="k">${a.duress ? '⚠ DURESS — THE CANCEL WAS COERCED'
           : a.escalation ? '⏳ ESCALATION — STILL NO RESPONDER' : 'EMERGENCY ALERT'}</div>
-        <b>${esc(a.helpseekerDisplayName)}</b> needs help · ${CATS[a.category] || a.category}<br>
-        <span style="color:var(--dim);font-size:12px">${new Date(a.sentAt).toLocaleTimeString()}</span></div>`).join('');
+        <b>${esc(a.helpseekerDisplayName)}</b> needs help · ${esc(catLabel(a.category))}<br>
+        <span style="color:var(--dim);font-size:12px">${fmtTime(a.sentAt)}</span></div>`).join('');
     if (cards && cards !== last) { document.getElementById('dyn').innerHTML = cards; last = cards; }
   };
   routeTick();
@@ -451,7 +533,7 @@ function renderContactSession(sid) {
       ${v.duress ? `<div class="card duress"><div class="k">⚠ DURESS</div>Their phone shows
         “cancelled”. Do <b>not</b> call them — the attacker may be present. Coordinate from here.</div>` : ''}
       <h1>${esc(v.helpseekerDisplayName || 'Session')} <span class="chip ${v.state}">${v.state}</span></h1>
-      <p class="lead">${CATS[v.category] || v.category}</p>
+      <p class="lead">${esc(catLabel(v.category))}</p>
       ${v.location ? mapSvg(null, v.location, { dot: true, hideCell: true }) +
         `<p class="lead center">live · ${v.location.lat.toFixed(5)}, ${v.location.lng.toFixed(5)}</p>` :
         `<p class="lead" style="margin-top:20px">${live ? 'Waiting for a location…' : 'This session has ended; its location data is gone.'}</p>`}
@@ -489,7 +571,7 @@ function renderResponderInbox() {
     const cards = mine.filter((o) => !seen.has(o.sessionId) && seen.add(o.sessionId)).map((o) => `
       <div class="card tap" onclick="go('responder/${o.sessionId}')">
         <div class="k">DISPATCH OFFER</div>
-        <b>${esc(o.alias)}</b> · ${CATS[o.category] || o.category}<br>
+        <b>${esc(o.alias)}</b> · ${esc(catLabel(o.category))}<br>
         <span style="color:var(--dim);font-size:12px">area ${esc(o.coarseCell)} (~1 km) ·
         ${new Date(o.sentAt).toLocaleTimeString()}</span></div>`).join('');
     if (cards && cards !== last) { document.getElementById('dyn').innerHTML = cards; last = cards; }
@@ -506,7 +588,7 @@ function renderResponderJob(sid) {
     if (!v) return;
     const accepted = (store.get('responder.accepted', [])).includes(sid);
     let html = `<h1>${esc(v.alias)} <span class="chip ${v.state}">${v.state}</span></h1>
-      <p class="lead">${CATS[v.category] || v.category}</p>`;
+      <p class="lead">${esc(catLabel(v.category))}</p>`;
     if (v.state === 'ACTIVE') {
       html += mapSvg(v.coarseCell, null, {}) + `
         <p class="lead center">You see an area, not an address — identity and exact position are
@@ -558,6 +640,9 @@ async function withdrawJob(sid) {
 }
 
 render();
+// Reference data (country list, helplines) arrives async; re-render once it
+// lands so the country picker and helpline cards populate.
+refReady.then(() => { if (!typing()) render(); });
 </script>
 </body>
 </html>

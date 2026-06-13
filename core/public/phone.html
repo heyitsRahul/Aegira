@@ -65,7 +65,8 @@
 <script>
 const SECRET = 'dev-gateway-secret';
 const screen = document.getElementById('screen');
-const norm = (v) => v.replace(/[^\d]/g, '').slice(-12);
+// Compare by the last 10 digits so +91 / national / spaced formats all match.
+const norm = (v) => v.replace(/[^\d]/g, '').slice(-10);
 let shown = 0;
 
 function add(kind, text, label) {

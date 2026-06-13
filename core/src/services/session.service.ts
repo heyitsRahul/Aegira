@@ -13,6 +13,7 @@ import {
   SessionNotFoundError,
 } from '../domain/errors';
 import { cellId, toCell } from '../domain/geo';
+import { normalizePhone } from '../domain/phone';
 import { SessionAggregate } from '../domain/session';
 import { IllegalTransitionError } from '../domain/state-machine';
 import { Clock, PreciseLocation, SessionCategory, SessionEvent, SessionState } from '../domain/types';
@@ -134,6 +135,19 @@ interface StoredSession {
 }
 
 const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
+
+/**
+ * Routing reference for a contact address. Phone-like addresses are
+ * normalized to E.164 first so the same contact matches across channels
+ * whatever the format; anything else (e.g. a future email) hashes as-is.
+ */
+function contactRefOf(address: string): string {
+  try {
+    return sha256(normalizePhone(address));
+  } catch {
+    return sha256(address);
+  }
+}
 
 /** Constant-time comparison of a presented secret against a stored hash. */
 function matchesHash(presented: string | null | undefined, storedHash: string): boolean {
@@ -326,7 +340,7 @@ export class SessionService {
       encryptedPii: this.crypto.encrypt(sessionId, JSON.stringify(pii)),
       encryptedLocations: [this.crypto.encrypt(sessionId, JSON.stringify(initialLocation))],
       encryptedContactToken: this.crypto.encrypt(sessionId, contactToken),
-      contactRefs: input.contacts.map((c) => sha256(c.address)),
+      contactRefs: input.contacts.map((c) => contactRefOf(c.address)),
       duressActivatedAtIso: null,
       offeredResponderIds: new Set(),
       acceptedResponderId: null,
@@ -442,7 +456,7 @@ export class SessionService {
 
   /** Sessions a contact (by hashed address) can currently dispatch for. */
   dispatchableSessionIdsForContact(contactAddress: string): string[] {
-    const ref = sha256(contactAddress);
+    const ref = contactRefOf(contactAddress);
     const out: string[] = [];
     for (const record of this.sessions.values()) {
       if (record.contactRefs.includes(ref) && record.aggregate.state === 'ACTIVE') {
