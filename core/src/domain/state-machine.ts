@@ -11,11 +11,21 @@ import { SessionEventType, SessionState } from './types';
  *  - PURGED is reachable only from CLOSED, and only via DATA_PURGED, which
  *    is emitted by the crypto-shred purge path (invariant 7).
  *  - PURGED is terminal.
- *  - TRIGGERED is genesis-only and intentionally absent from every row.
+ *  - TRIGGERED and WATCH_ARMED are genesis-only and absent from every row.
+ *  - WATCHING (timed journey check-in) ends benignly via CHECKIN_SAFE →
+ *    RESOLVED (nobody was ever alerted), or escalates to a real emergency
+ *    via WATCH_ESCALATED → ACTIVE (deadline missed, or a duress check-in).
+ *    There is deliberately NO WATCHING → CANCELLED edge: CANCELLED stays
+ *    reachable only from PENDING (invariant 3).
  */
 const TRANSITION_TABLE: Readonly<
   Record<SessionState, Partial<Readonly<Record<SessionEventType, SessionState>>>>
 > = {
+  WATCHING: {
+    CHECKIN_SAFE: 'RESOLVED',
+    WATCH_EXTENDED: 'WATCHING',
+    WATCH_ESCALATED: 'ACTIVE',
+  },
   PENDING: {
     ACTIVATED: 'ACTIVE',
     CANCEL_CONFIRMED: 'CANCELLED',
@@ -50,6 +60,7 @@ const TRANSITION_TABLE: Readonly<
 };
 
 export const ALL_STATES: readonly SessionState[] = [
+  'WATCHING',
   'PENDING',
   'ACTIVE',
   'DISPATCHED',
@@ -62,6 +73,10 @@ export const ALL_STATES: readonly SessionState[] = [
 
 export const ALL_EVENT_TYPES: readonly SessionEventType[] = [
   'TRIGGERED',
+  'WATCH_ARMED',
+  'WATCH_EXTENDED',
+  'CHECKIN_SAFE',
+  'WATCH_ESCALATED',
   'ACTIVATED',
   'CANCEL_CONFIRMED',
   'RESPONDER_ACCEPTED',

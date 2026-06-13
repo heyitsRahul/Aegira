@@ -23,6 +23,7 @@ import { RESPONDER_REGISTRY, SESSION_SERVICE } from './session.controller';
 export const REGISTRATIONS = 'REGISTRATIONS';
 
 const STATE_TEXT: Record<string, string> = {
+  WATCHING: 'Journey watch active. Mark safe when you arrive, or extend the time.',
   PENDING: 'SOS received - activating shortly. Cancel from the home page if accidental.',
   ACTIVE: 'Your circle is alerted. Help is in motion.',
   DISPATCHED: 'A verified responder is on the way.',
@@ -114,6 +115,66 @@ export class LiteController {
     }
   }
 
+  @Post('watch')
+  watch(@Body() body: { phone?: string; area?: string; minutes?: string; dial?: string }): string {
+    const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
+    if (registration === undefined) {
+      return messagePage('Not registered', 'Register first from the home page.');
+    }
+    const area = LITE_AREAS.find((a) => a.id === body.area) ?? LITE_AREAS[0];
+    const minutes = Number(body.minutes);
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      return messagePage('Pick a time', 'Choose how many minutes to be watched for.');
+    }
+    try {
+      this.sessions.startWatch(
+        {
+          userId: registration.phoneRef,
+          displayName: registration.displayName,
+          contacts: registration.contacts,
+          location: { lat: area.lat, lng: area.lng },
+          category: 'personal_safety',
+          pinHashes: { safe: registration.pinSafeHash, duress: registration.pinDuressHash },
+        },
+        Math.round(minutes * 60 * 1000),
+      );
+      return messagePage(
+        'Watch started',
+        `We are watching your journey for ${minutes} minutes. Use the STATUS form to mark ` +
+          'yourself safe or extend the time. If you do not, your circle will be alerted.',
+        true,
+      );
+    } catch (error) {
+      if (error instanceof ActiveSessionExistsError) {
+        return messagePage('Already running', 'You already have a session. Check STATUS.', true);
+      }
+      throw error;
+    }
+  }
+
+  @Post('extend')
+  extend(@Body() body: { phone?: string; pin?: string; minutes?: string; dial?: string }): string {
+    const phone = applyDial(body.phone ?? '', body.dial);
+    if (this.registrations.verifyPin(phone, body.pin ?? '') === 'invalid') {
+      return messagePage('Wrong PIN', 'Wrong PIN.');
+    }
+    const registration = this.registrations.find(phone);
+    const sessionId =
+      registration === undefined
+        ? null
+        : this.sessions.latestSessionIdForUser(registration.phoneRef);
+    const minutes = Number(body.minutes);
+    if (sessionId === null || !Number.isFinite(minutes) || minutes <= 0) {
+      return messagePage('Could not extend', 'No journey watch to extend.');
+    }
+    try {
+      this.sessions.extendWatch(sessionId, Math.round(minutes * 60 * 1000));
+      return messagePage('Extended', `Journey watch extended by ${minutes} minutes.`, true);
+    } catch {
+      return messagePage('Could not extend', 'No journey watch to extend.');
+    }
+  }
+
   @Post('cancel')
   async cancel(@Body() body: { phone?: string; pin?: string; dial?: string }): Promise<string> {
     const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
@@ -153,18 +214,19 @@ export class LiteController {
     if (sessionId === null) {
       return statusPage('No active session.', false);
     }
-    // Masked view: a duress session reads as cancelled here too.
+    // Masked view: a duress session reads as cancelled/resolved here too.
     const state = this.sessions.clientStatus(sessionId).state;
-    const live = state === 'ACTIVE' || state === 'DISPATCHED' || state === 'ARRIVED';
-    return statusPage(STATE_TEXT[state] ?? state, live);
+    const live =
+      state === 'WATCHING' ||
+      state === 'ACTIVE' ||
+      state === 'DISPATCHED' ||
+      state === 'ARRIVED';
+    return statusPage(STATE_TEXT[state] ?? state, live, state === 'WATCHING');
   }
 
   @Post('safe')
-  safe(@Body() body: { phone?: string; pin?: string; dial?: string }): string {
+  async safe(@Body() body: { phone?: string; pin?: string; dial?: string }): Promise<string> {
     const phone = applyDial(body.phone ?? '', body.dial);
-    if (this.registrations.verifyPin(phone, body.pin ?? '') !== 'safe') {
-      return messagePage('Wrong PIN', 'Wrong PIN.');
-    }
     const registration = this.registrations.find(phone);
     const sessionId =
       registration === undefined
@@ -174,6 +236,19 @@ export class LiteController {
       return messagePage('No session', 'No active session.');
     }
     const state = this.sessions.opsView(sessionId).state;
+    // On a journey watch, "mark safe" is the check-in: safe PIN ends it,
+    // duress PIN escalates, and both render this identical page (invariant 4).
+    if (state === 'WATCHING') {
+      try {
+        await this.sessions.checkInSafe(sessionId, body.pin ?? '');
+        return messagePage('Checked in safe', 'Glad you arrived. Take care.');
+      } catch {
+        return messagePage('Wrong PIN', 'Wrong PIN.');
+      }
+    }
+    if (this.registrations.verifyPin(phone, body.pin ?? '') !== 'safe') {
+      return messagePage('Wrong PIN', 'Wrong PIN.');
+    }
     if (state !== 'ACTIVE' && state !== 'DISPATCHED' && state !== 'ARRIVED') {
       return messagePage('No session', 'No active session.');
     }

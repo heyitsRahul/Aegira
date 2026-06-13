@@ -44,29 +44,47 @@ export class SessionAggregate {
 
   private constructor(events: SessionEvent[]) {
     this._events = events;
-    let state: SessionState = 'PENDING';
+    // The genesis event fixes the starting state: TRIGGERED → PENDING (an
+    // SOS), WATCH_ARMED → WATCHING (a timed journey check-in).
+    let state: SessionState = events[0].type === 'WATCH_ARMED' ? 'WATCHING' : 'PENDING';
     for (const event of events.slice(1)) {
       state = transition(state, event.type);
     }
     this._state = state;
   }
 
-  /** Creates a session in PENDING with its TRIGGERED genesis event. */
-  static trigger(params: {
-    sessionId: string;
-    at: string;
-    data: Record<string, unknown>;
-  }): SessionAggregate {
+  private static genesis(
+    type: 'TRIGGERED' | 'WATCH_ARMED',
+    params: { sessionId: string; at: string; data: Record<string, unknown> },
+  ): SessionAggregate {
     return new SessionAggregate([
       SessionAggregate.seal({
         seq: 0,
         sessionId: params.sessionId,
-        type: 'TRIGGERED',
+        type,
         at: params.at,
         data: Object.freeze({ ...params.data }),
         prevHash: GENESIS_PREV_HASH,
       }),
     ]);
+  }
+
+  /** Creates a session in PENDING with its TRIGGERED genesis event (SOS). */
+  static trigger(params: {
+    sessionId: string;
+    at: string;
+    data: Record<string, unknown>;
+  }): SessionAggregate {
+    return SessionAggregate.genesis('TRIGGERED', params);
+  }
+
+  /** Creates a session in WATCHING with its WATCH_ARMED genesis event. */
+  static watch(params: {
+    sessionId: string;
+    at: string;
+    data: Record<string, unknown>;
+  }): SessionAggregate {
+    return SessionAggregate.genesis('WATCH_ARMED', params);
   }
 
   /**
@@ -129,7 +147,7 @@ export class SessionAggregate {
 
   /** Verifies seq ordering, hash chaining, and per-event hashes. */
   static verifyEvents(events: readonly SessionEvent[]): boolean {
-    if (events.length === 0 || events[0].type !== 'TRIGGERED') {
+    if (events.length === 0 || (events[0].type !== 'TRIGGERED' && events[0].type !== 'WATCH_ARMED')) {
       return false;
     }
     let prevHash = GENESIS_PREV_HASH;

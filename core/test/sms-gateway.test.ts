@@ -209,3 +209,60 @@ describe('SMS wire privacy (negative assertions)', () => {
     expect(alert.text).not.toMatch(/77\.5\d+/);
   });
 });
+
+describe('journey watch over SMS', () => {
+  const MIN = 60 * 1000;
+
+  it('WATCH arms a watch; SAFE checks in quietly', async () => {
+    const rig = await registered();
+    const reply = await rig.gateway.handle(SEEKER, 'WATCH 20', TOWER);
+    expect(reply).toContain('20 min');
+    const sessionId = rig.service.latestSessionIdForUser(rig.registrations.find(SEEKER)!.phoneRef)!;
+    expect(rig.service.opsView(sessionId).state).toBe('WATCHING');
+    expect(rig.sms.messages.filter((m) => m.to === CONTACT_E164)).toHaveLength(0);
+
+    expect(await rig.gateway.handle(SEEKER, 'SAFE 1234')).toContain('checked in safe');
+    expect(rig.service.opsView(sessionId).state).toBe('RESOLVED');
+  });
+
+  it('WATCH needs a network position (invariant 1: nothing stored without a session)', async () => {
+    const rig = await registered();
+    expect(await rig.gateway.handle(SEEKER, 'WATCH 20')).toContain('position is unavailable');
+  });
+
+  it('a missed deadline escalates and alerts the contact with the watch wording', async () => {
+    const rig = await registered();
+    await rig.gateway.handle(SEEKER, 'WATCH 20', TOWER);
+    rig.clock.advance(20 * MIN);
+    await rig.service.evaluateTimers(rig.clock.now());
+    const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
+    expect(alert?.text).toContain('did not check in');
+    expect(alert?.text).toContain('Reply SEND');
+  });
+
+  it('EXTEND pushes the deadline out', async () => {
+    const rig = await registered();
+    await rig.gateway.handle(SEEKER, 'WATCH 20', TOWER);
+    rig.clock.advance(15 * MIN);
+    expect(await rig.gateway.handle(SEEKER, 'EXTEND 20')).toContain('extended');
+    rig.clock.advance(10 * MIN);
+    await rig.service.evaluateTimers(rig.clock.now());
+    const sessionId = rig.service.latestSessionIdForUser(rig.registrations.find(SEEKER)!.phoneRef)!;
+    expect(rig.service.opsView(sessionId).state).toBe('WATCHING');
+  });
+
+  it('SAFE on a watch is duress-safe: identical reply, silent escalation', async () => {
+    const safe = await registered();
+    await safe.gateway.handle(SEEKER, 'WATCH 20', TOWER);
+    const safeReply = await safe.gateway.handle(SEEKER, 'SAFE 1234');
+
+    const duress = await registered();
+    await duress.gateway.handle(SEEKER, 'WATCH 20', TOWER);
+    const duressReply = await duress.gateway.handle(SEEKER, 'SAFE 9999');
+
+    expect(duressReply).toBe(safeReply);
+    const sid = duress.service.latestSessionIdForUser(duress.registrations.find(SEEKER)!.phoneRef)!;
+    expect(duress.service.opsView(sid).state).toBe('ACTIVE');
+    expect(duress.sms.messages.find((m) => m.to === CONTACT_E164)?.text).toContain('DURESS');
+  });
+});

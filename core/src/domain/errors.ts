@@ -77,3 +77,10 @@ export class ArrivalCodeLockedError extends DomainError {
     super('too many wrong arrival codes; verification is locked for this dispatch');
   }
 }
+
+/** A watch-only action (check-in, extend) attempted on a non-WATCHING session. */
+export class WatchActionNotAllowedError extends DomainError {
+  constructor() {
+    super('this session is not an active journey watch');
+  }
+}

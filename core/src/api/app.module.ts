@@ -45,6 +45,8 @@ const DEV_CONFIG: SessionServiceConfig = {
   responderArrivalTimeoutMs: 30 * 60 * 1000,
   maxArrivalAttempts: 5,
   maxResponderOffers: 3,
+  minWatchMs: 60 * 1000,
+  maxWatchMs: 12 * 60 * 60 * 1000,
   pins: { safe: '1234', duress: '9999' },
   publicBaseUrl: process.env.SAHAY_BASE_URL ?? 'http://localhost:3000',
 };

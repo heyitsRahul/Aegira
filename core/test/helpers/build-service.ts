@@ -17,6 +17,8 @@ export const TEST_CONFIG: SessionServiceConfig = {
   responderArrivalTimeoutMs: 20 * 60 * 1000,
   maxArrivalAttempts: 3,
   maxResponderOffers: 3,
+  minWatchMs: 60 * 1000,
+  maxWatchMs: 12 * 60 * 60 * 1000,
   pins: { safe: '1234', duress: '9999' },
   publicBaseUrl: 'http://localhost:3000',
 };

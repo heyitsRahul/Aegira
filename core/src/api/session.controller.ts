@@ -30,6 +30,32 @@ export class SessionController {
     return this.sessions.trigger(body);
   }
 
+  @Post('watch')
+  watch(@Body() body: TriggerInput & { etaMinutes?: number }) {
+    const etaMs = Math.round((body.etaMinutes ?? 0) * 60 * 1000);
+    return this.sessions.startWatch(body, etaMs);
+  }
+
+  @Post(':id/checkin')
+  checkin(
+    @Param('id') id: string,
+    @Body() body: { pin: string },
+    @Headers('authorization') auth?: string,
+  ) {
+    this.sessions.authorizeSeeker(id, bearer(auth));
+    return this.sessions.checkInSafe(id, body.pin);
+  }
+
+  @Post(':id/extend')
+  extend(
+    @Param('id') id: string,
+    @Body() body: { minutes: number },
+    @Headers('authorization') auth?: string,
+  ) {
+    this.sessions.authorizeSeeker(id, bearer(auth));
+    return this.sessions.extendWatch(id, Math.round((body.minutes ?? 0) * 60 * 1000));
+  }
+
   @Post(':id/confirm')
   confirm(@Param('id') id: string, @Headers('authorization') auth?: string) {
     this.sessions.authorizeSeeker(id, bearer(auth));

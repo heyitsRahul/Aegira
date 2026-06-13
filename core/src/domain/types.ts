@@ -5,6 +5,7 @@
 
 /** Lifecycle states of an emergency session. */
 export type SessionState =
+  | 'WATCHING'
   | 'PENDING'
   | 'ACTIVE'
   | 'DISPATCHED'
@@ -15,12 +16,17 @@ export type SessionState =
   | 'PURGED';
 
 /**
- * Event types. TRIGGERED is the genesis event that creates a session in
- * PENDING; it never appears in the transition table. All other lifecycle
- * behavior is an event type with an entry in the transition table.
+ * Event types. TRIGGERED (→ PENDING, an SOS) and WATCH_ARMED (→ WATCHING, a
+ * timed journey check-in) are the two genesis events that create a session;
+ * neither appears in the transition table. All other lifecycle behavior is
+ * an event type with an entry in the transition table.
  */
 export type SessionEventType =
   | 'TRIGGERED'
+  | 'WATCH_ARMED'
+  | 'WATCH_EXTENDED'
+  | 'CHECKIN_SAFE'
+  | 'WATCH_ESCALATED'
   | 'ACTIVATED'
   | 'CANCEL_CONFIRMED'
   | 'RESPONDER_ACCEPTED'
@@ -32,7 +38,7 @@ export type SessionEventType =
   | 'DATA_PURGED';
 
 /** Event types that may be applied to an existing session. */
-export type LifecycleEventType = Exclude<SessionEventType, 'TRIGGERED'>;
+export type LifecycleEventType = Exclude<SessionEventType, 'TRIGGERED' | 'WATCH_ARMED'>;
 
 /**
  * One entry in a session's append-only, hash-chained event log.

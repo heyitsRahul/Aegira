@@ -89,6 +89,13 @@ export function homePage(): string {
       '<option value="other">Other</option></select>' +
       '<button type="submit">SEND SOS</button>' +
       '<small>Starts a session with a 30 second cancel window.</small></form></div>' +
+      '<div class="box"><form method="post" action="/lite/watch">' +
+      '<b>Watch my journey home</b><br>' +
+      phoneWithDial() +
+      `<select name="area">${areas}</select>` +
+      '<input name="minutes" placeholder="minutes until I arrive" inputmode="numeric">' +
+      '<button type="submit">START WATCH</button>' +
+      '<small>If you do not check in safe in time, your circle is alerted.</small></form></div>' +
       '<div class="box"><form method="post" action="/lite/status">' +
       `<b>Check my session</b><br>${pinFields()}<button type="submit">STATUS</button></form></div>` +
       '<div class="box"><form method="post" action="/lite/register">' +
@@ -131,12 +138,23 @@ export function cancelledPage(): string {
   return messagePage('Cancelled', 'Session cancelled. Nobody was notified.');
 }
 
-export function statusPage(stateText: string, showSafeForm: boolean): string {
+export function statusPage(stateText: string, showSafeForm: boolean, isWatch = false): string {
   const safeForm = showSafeForm
     ? '<div class="box"><form method="post" action="/lite/safe">' +
-      `I am safe now: ${pinFields()}<button type="submit">MARK SAFE</button></form></div>`
+      `${isWatch ? 'I have arrived' : 'I am safe now'}: ${pinFields()}` +
+      `<button type="submit">${isWatch ? 'CHECK IN SAFE' : 'MARK SAFE'}</button></form></div>`
     : '';
-  return page('Session status', `<p><b>${esc(stateText)}</b></p>${safeForm}<small>This page does not update itself; use the STATUS form on the home page to check again.</small>`);
+  const extendForm = isWatch
+    ? '<div class="box"><form method="post" action="/lite/extend">' +
+      `Need more time? ${pinFields()}` +
+      '<input name="minutes" placeholder="extra minutes" inputmode="numeric">' +
+      '<button type="submit">EXTEND WATCH</button></form></div>'
+    : '';
+  return page(
+    'Session status',
+    `<p><b>${esc(stateText)}</b></p>${safeForm}${extendForm}` +
+      '<small>This page does not update itself; use the STATUS form on the home page to check again.</small>',
+  );
 }
 
 export function contactViewPage(view: {

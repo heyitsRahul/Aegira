@@ -68,6 +68,29 @@ describe('responder offers never carry identity (invariant 6)', () => {
     }
   });
 
+  it('contact alert shape is closed: the audited fields only', async () => {
+    const { notifier } = await (async () => {
+      const rig = buildRig();
+      const { sessionId } = rig.service.trigger(TRIGGER_FIXTURE);
+      await rig.service.confirm(sessionId);
+      return rig;
+    })();
+    for (const alert of notifier.contactAlerts) {
+      expect(Object.keys(alert).sort()).toEqual([
+        'category',
+        'duress',
+        'escalation',
+        'helpseekerDisplayName',
+        'kind',
+        'liveSessionLink',
+        'sentAt',
+        'sessionId',
+        'to',
+        'watchExpired',
+      ]);
+    }
+  });
+
   it('the routing address is a responder id, never a phone number', async () => {
     const { notifier } = await dispatchedRig();
     for (const offer of notifier.responderOffers) {

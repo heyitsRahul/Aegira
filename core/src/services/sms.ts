@@ -40,6 +40,13 @@ export function renderContactAlertSms(payload: ContactAlertPayload): string {
       `Reply SEND to dispatch a verified responder.`
     );
   }
+  if (payload.watchExpired) {
+    return (
+      `SAHAY: ${payload.helpseekerDisplayName} did not check in from their journey (${category}) ` +
+      `and may need help. Live view: ${payload.liveSessionLink} ` +
+      `Reply SEND to dispatch a verified responder.`
+    );
+  }
   if (payload.escalation) {
     return (
       `SAHAY ESCALATION: ${payload.helpseekerDisplayName} still has no responder (${category}). ` +

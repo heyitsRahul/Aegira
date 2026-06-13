@@ -16,6 +16,9 @@ import { SessionEventType, SessionState } from '../src/domain/types';
  */
 
 const EXPECTED: ReadonlyArray<[SessionState, SessionEventType, SessionState]> = [
+  ['WATCHING', 'CHECKIN_SAFE', 'RESOLVED'],
+  ['WATCHING', 'WATCH_EXTENDED', 'WATCHING'],
+  ['WATCHING', 'WATCH_ESCALATED', 'ACTIVE'],
   ['PENDING', 'ACTIVATED', 'ACTIVE'],
   ['PENDING', 'CANCEL_CONFIRMED', 'CANCELLED'],
   ['ACTIVE', 'RESPONDER_ACCEPTED', 'DISPATCHED'],
@@ -35,9 +38,9 @@ function expectedTarget(from: SessionState, event: SessionEventType): SessionSta
 }
 
 describe('state machine — exhaustive transition coverage', () => {
-  it('covers all 8 states and 10 event types', () => {
-    expect(ALL_STATES).toHaveLength(8);
-    expect(ALL_EVENT_TYPES).toHaveLength(10);
+  it('covers all 9 states and 14 event types', () => {
+    expect(ALL_STATES).toHaveLength(9);
+    expect(ALL_EVENT_TYPES).toHaveLength(14);
   });
 
   for (const from of ALL_STATES) {
@@ -80,8 +83,16 @@ describe('state machine — structural invariants', () => {
     expect(legalTransitions().filter((t) => t.from === 'PURGED')).toHaveLength(0);
   });
 
-  it('TRIGGERED is genesis-only: never legal as a transition', () => {
+  it('TRIGGERED and WATCH_ARMED are genesis-only: never legal as transitions', () => {
     expect(legalTransitions().filter((t) => t.event === 'TRIGGERED')).toHaveLength(0);
+    expect(legalTransitions().filter((t) => t.event === 'WATCH_ARMED')).toHaveLength(0);
+  });
+
+  it('a journey watch never reaches CANCELLED — only PENDING can (invariant 3)', () => {
+    const fromWatching = legalTransitions().filter((t) => t.from === 'WATCHING');
+    expect(fromWatching.some((t) => t.to === 'CANCELLED')).toBe(false);
+    // its benign end is RESOLVED; its emergency path is ACTIVE
+    expect(fromWatching.map((t) => t.to).sort()).toEqual(['ACTIVE', 'RESOLVED', 'WATCHING']);
   });
 
   it('a withdrawal returns to ACTIVE so the session can be re-dispatched', () => {

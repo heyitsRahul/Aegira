@@ -10,6 +10,7 @@ import {
   NotAuthenticatedError,
   ResponderNotAuthorizedError,
   SessionNotFoundError,
+  WatchActionNotAllowedError,
 } from '../domain/errors';
 import { IllegalTransitionError } from '../domain/state-machine';
 
@@ -50,7 +51,8 @@ export class DomainErrorFilter implements ExceptionFilter {
     if (
       exception instanceof CancelNotAllowedError ||
       exception instanceof IllegalTransitionError ||
-      exception instanceof ActiveSessionExistsError
+      exception instanceof ActiveSessionExistsError ||
+      exception instanceof WatchActionNotAllowedError
     ) {
       response.status(409).json({ error: exception.message });
       return;

@@ -20,7 +20,10 @@ export interface SessionSnapshot {
   encryptedContactToken: EncryptedBlob | null;
   /** sha256 of each contact address — reply-routing index, not identity. */
   contactRefs: string[];
-  duressActivatedAtIso: string | null;
+  /** Faked-benign mask for a duress cancel/check-in; null otherwise. */
+  duressMask: { atIso: string; benign: 'CANCELLED' | 'RESOLVED' } | null;
+  /** Journey-watch deadline (WATCHING), null for SOS sessions. */
+  watchDeadlineIso: string | null;
   offeredResponderIds: string[];
   acceptedResponderId: string | null;
   arrivalCode: string | null;

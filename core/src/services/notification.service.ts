@@ -30,6 +30,8 @@ export interface ContactAlertPayload {
   readonly duress: boolean;
   /** True when this is a re-alert because no responder accepted in time. */
   readonly escalation: boolean;
+  /** True when a journey watch hit its deadline with no check-in. */
+  readonly watchExpired: boolean;
   readonly sentAt: string;
 }
 

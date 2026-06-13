@@ -11,6 +11,7 @@ import {
   NotAuthenticatedError,
   ResponderNotAuthorizedError,
   SessionNotFoundError,
+  WatchActionNotAllowedError,
 } from '../domain/errors';
 import { cellId, toCell } from '../domain/geo';
 import { normalizePhone } from '../domain/phone';
@@ -38,6 +39,9 @@ export interface SessionServiceConfig {
   responderArrivalTimeoutMs: number;
   maxArrivalAttempts: number;
   maxResponderOffers: number;
+  /** Bounds for a journey watch ETA (timed check-in). */
+  minWatchMs: number;
+  maxWatchMs: number;
   /** Fallback PINs for dev wiring; real sessions enroll their own. */
   pins: { safe: string; duress: string };
   /**
@@ -75,9 +79,25 @@ export interface CancelResponse {
   sessionId: string;
 }
 
+/** Returned by both safe and duress check-ins — identical by design. */
+export interface CheckInResponse {
+  status: 'safe';
+  sessionId: string;
+}
+
+export interface WatchReceipt {
+  sessionId: string;
+  state: SessionState;
+  seekerToken: string;
+  /** ISO deadline; if no check-in by then, the circle is alerted. */
+  watchDeadline: string;
+}
+
 export interface ClientStatus {
   sessionId: string;
   state: SessionState;
+  /** Present only while WATCHING (and not masked): the check-in deadline. */
+  watchDeadline?: string;
 }
 
 /**
@@ -92,6 +112,12 @@ export interface ContactView {
   category: SessionCategory;
   helpseekerDisplayName: string;
   location: PreciseLocation | null;
+  /**
+   * Age of the latest location fix in ms, or null if none. Lets a contact
+   * see "updated 4 min ago" and infer a dead/offline phone instead of
+   * trusting a stale dot — a gap real safety apps fill with "last seen".
+   */
+  locationAgeMs: number | null;
 }
 
 /** What an offered/accepted responder's app sees. Identity-free. */
@@ -111,6 +137,16 @@ interface SessionPii {
   contacts: Array<{ id: string; address: string }>;
 }
 
+/**
+ * Set when a duress PIN faked a benign outcome. `benign` is the timeline
+ * the coerced device must keep showing — CANCELLED for a duress cancel,
+ * RESOLVED for a duress journey check-in (invariant 4).
+ */
+interface DuressMask {
+  atIso: string;
+  benign: 'CANCELLED' | 'RESOLVED';
+}
+
 interface StoredSession {
   aggregate: SessionAggregate;
   alias: string;
@@ -122,8 +158,10 @@ interface StoredSession {
   encryptedContactToken: EncryptedBlob | null;
   /** sha256 of each contact address — reply-routing index, not identity. */
   contactRefs: string[];
-  /** Set when a duress PIN faked a cancel; drives the masked client view. */
-  duressActivatedAtIso: string | null;
+  /** Set when a duress PIN faked a benign outcome; masks the client view. */
+  duressMask: DuressMask | null;
+  /** Deadline for a journey watch (WATCHING); null for SOS sessions. */
+  watchDeadlineIso: string | null;
   offeredResponderIds: Set<string>;
   acceptedResponderId: string | null;
   arrivalCode: string | null;
@@ -157,7 +195,28 @@ function matchesHash(presented: string | null | undefined, storedHash: string): 
   return timingSafeEqual(Buffer.from(sha256(presented), 'hex'), Buffer.from(storedHash, 'hex'));
 }
 
-const LIVE_STATES: readonly SessionState[] = ['PENDING', 'ACTIVE', 'DISPATCHED', 'ARRIVED'];
+const LIVE_STATES: readonly SessionState[] = [
+  'WATCHING',
+  'PENDING',
+  'ACTIVE',
+  'DISPATCHED',
+  'ARRIVED',
+];
+/** States in which precise location pings are accepted. */
+const LOCATION_STATES: readonly SessionState[] = [
+  'WATCHING',
+  'PENDING',
+  'ACTIVE',
+  'DISPATCHED',
+  'ARRIVED',
+];
+/** States in which a contact may see the live location. */
+const CONTACT_VISIBLE_STATES: readonly SessionState[] = [
+  'PENDING',
+  'ACTIVE',
+  'DISPATCHED',
+  'ARRIVED',
+];
 const VALID_CATEGORIES: readonly SessionCategory[] = [
   'personal_safety',
   'medical',
@@ -243,7 +302,8 @@ export class SessionService {
         encryptedLocations: [...snapshot.encryptedLocations],
         encryptedContactToken: snapshot.encryptedContactToken,
         contactRefs: snapshot.contactRefs ?? [],
-        duressActivatedAtIso: snapshot.duressActivatedAtIso,
+        duressMask: snapshot.duressMask ?? null,
+        watchDeadlineIso: snapshot.watchDeadlineIso ?? null,
         offeredResponderIds: new Set(snapshot.offeredResponderIds),
         acceptedResponderId: snapshot.acceptedResponderId,
         arrivalCode: snapshot.arrivalCode,
@@ -288,26 +348,32 @@ export class SessionService {
 
   /* --------------------------- lifecycle --------------------------- */
 
-  trigger(input: TriggerInput): TriggerReceipt {
-    validateTrigger(input);
+  /**
+   * Shared session builder for both genesis paths (SOS and journey watch).
+   * Returns the stored record plus the one-time seeker token; the caller
+   * sets the genesis aggregate and any watch deadline.
+   */
+  private createSession(
+    input: TriggerInput,
+    aggregate: SessionAggregate,
+    watchDeadlineIso: string | null,
+  ): { record: StoredSession; seekerToken: string } {
     const userRef = sha256(input.userId);
     // One live session per user — but duress-masked sessions don't count:
-    // refusing a new trigger after a "successful" cancel would expose the
-    // mask to a coercer (invariant 4).
+    // refusing a new trigger after a "successful" cancel/check-in would
+    // expose the mask to a coercer (invariant 4).
     for (const existing of this.sessions.values()) {
       if (
         existing.userRef === userRef &&
-        existing.duressActivatedAtIso === null &&
+        existing.duressMask === null &&
         LIVE_STATES.includes(existing.aggregate.state)
       ) {
         throw new ActiveSessionExistsError();
       }
     }
 
-    const sessionId = randomUUID();
-    const at = this.clock.now().toISOString();
-    this.crypto.provisionSession(sessionId);
-
+    const sessionId = aggregate.sessionId;
+    const at = aggregate.events[0].at;
     const seekerToken = randomBytes(24).toString('hex');
     const contactToken = randomBytes(24).toString('hex');
     const fallbackPins = input.pins ?? this.config.pins;
@@ -326,13 +392,7 @@ export class SessionService {
     };
 
     const record: StoredSession = {
-      // Identity and precise location never enter the durable event log:
-      // the genesis event carries only category + consent version.
-      aggregate: SessionAggregate.trigger({
-        sessionId,
-        at,
-        data: { category: input.category, consentVersion: CURRENT_CONSENT_VERSION },
-      }),
+      aggregate,
       alias: `helpseeker-${sha256(sessionId).slice(0, 8)}`,
       coarseCell: cellId(toCell(input.location.lat, input.location.lng)),
       category: input.category,
@@ -341,7 +401,8 @@ export class SessionService {
       encryptedLocations: [this.crypto.encrypt(sessionId, JSON.stringify(initialLocation))],
       encryptedContactToken: this.crypto.encrypt(sessionId, contactToken),
       contactRefs: input.contacts.map((c) => contactRefOf(c.address)),
-      duressActivatedAtIso: null,
+      duressMask: null,
+      watchDeadlineIso,
       offeredResponderIds: new Set(),
       acceptedResponderId: null,
       arrivalCode: null,
@@ -353,13 +414,97 @@ export class SessionService {
     };
     this.sessions.set(sessionId, record);
     this.persist(record);
+    return { record, seekerToken };
+  }
 
+  trigger(input: TriggerInput): TriggerReceipt {
+    validateTrigger(input);
+    const sessionId = randomUUID();
+    const at = this.clock.now().toISOString();
+    this.crypto.provisionSession(sessionId);
+    // Identity and precise location never enter the durable event log: the
+    // genesis event carries only category + consent version.
+    const aggregate = SessionAggregate.trigger({
+      sessionId,
+      at,
+      data: { category: input.category, consentVersion: CURRENT_CONSENT_VERSION },
+    });
+    const { seekerToken } = this.createSession(input, aggregate, null);
     return {
       sessionId,
-      state: record.aggregate.state,
+      state: 'PENDING',
       activationCountdownMs: this.config.activationCountdownMs,
       seekerToken,
     };
+  }
+
+  /**
+   * Arms a journey watch (timed check-in). Creates a WATCHING session with
+   * a deadline; nobody is alerted yet. If the user checks in safe before
+   * the deadline it resolves quietly; if the deadline passes (or a duress
+   * check-in is given) it escalates to a real ACTIVE emergency.
+   */
+  startWatch(input: TriggerInput, etaMs: number): WatchReceipt {
+    validateTrigger(input);
+    if (!Number.isFinite(etaMs) || etaMs < this.config.minWatchMs || etaMs > this.config.maxWatchMs) {
+      throw new InvalidInputError('watch ETA is out of range');
+    }
+    const sessionId = randomUUID();
+    const at = this.clock.now().toISOString();
+    this.crypto.provisionSession(sessionId);
+    const aggregate = SessionAggregate.watch({
+      sessionId,
+      at,
+      data: { category: input.category, consentVersion: CURRENT_CONSENT_VERSION },
+    });
+    const watchDeadlineIso = new Date(Date.parse(at) + etaMs).toISOString();
+    const { seekerToken } = this.createSession(input, aggregate, watchDeadlineIso);
+    return { sessionId, state: 'WATCHING', seekerToken, watchDeadline: watchDeadlineIso };
+  }
+
+  /**
+   * Journey check-in. Mirrors the duress discipline of cancel: the safe PIN
+   * ends the watch quietly (RESOLVED, nobody alerted); the duress PIN
+   * returns the identical response while silently escalating to ACTIVE and
+   * alerting the circle (invariant 4); a wrong PIN is rejected.
+   */
+  async checkInSafe(sessionId: string, pin: string): Promise<CheckInResponse> {
+    const record = this.mustGet(sessionId);
+    if (record.aggregate.state !== 'WATCHING') {
+      throw new WatchActionNotAllowedError();
+    }
+    const at = this.clock.now().toISOString();
+    if (matchesHash(pin, record.pinSafeHash)) {
+      record.aggregate.apply('CHECKIN_SAFE', at, { reason: 'reached_safely' });
+      record.watchDeadlineIso = null;
+      this.persist(record);
+      return { status: 'safe', sessionId };
+    }
+    if (matchesHash(pin, record.pinDuressHash)) {
+      record.aggregate.apply('WATCH_ESCALATED', at, { reason: 'duress' });
+      record.duressMask = { atIso: at, benign: 'RESOLVED' };
+      record.watchDeadlineIso = null;
+      this.persist(record);
+      await this.notifyContacts(record, { duress: true, escalation: false, watchExpired: false });
+      return { status: 'safe', sessionId };
+    }
+    throw new InvalidPinError();
+  }
+
+  /** Pushes a journey watch deadline further out. WATCHING only. */
+  extendWatch(sessionId: string, addMs: number): ClientStatus {
+    const record = this.mustGet(sessionId);
+    if (record.aggregate.state !== 'WATCHING') {
+      throw new WatchActionNotAllowedError();
+    }
+    if (!Number.isFinite(addMs) || addMs <= 0 || addMs > this.config.maxWatchMs) {
+      throw new InvalidInputError('watch extension is out of range');
+    }
+    const base = record.watchDeadlineIso ?? this.clock.now().toISOString();
+    record.watchDeadlineIso = new Date(Date.parse(base) + addMs).toISOString();
+    record.aggregate.apply('WATCH_EXTENDED', this.clock.now().toISOString(), { addMs });
+    this.persist(record);
+    return this.clientStatus(sessionId);
   }
 
   /** Explicit user confirmation: skip the countdown and activate now. */
@@ -369,7 +514,7 @@ export class SessionService {
       reason: 'confirmed',
     });
     this.persist(record);
-    await this.notifyContacts(record, { duress: false, escalation: false });
+    await this.notifyContacts(record, { duress: false, escalation: false, watchExpired: false });
     return this.clientStatus(sessionId);
   }
 
@@ -392,9 +537,9 @@ export class SessionService {
     }
     if (matchesHash(pin, record.pinDuressHash)) {
       record.aggregate.apply('ACTIVATED', at, { reason: 'duress' });
-      record.duressActivatedAtIso = at;
+      record.duressMask = { atIso: at, benign: 'CANCELLED' };
       this.persist(record);
-      await this.notifyContacts(record, { duress: true, escalation: false });
+      await this.notifyContacts(record, { duress: true, escalation: false, watchExpired: false });
       return { status: 'cancelled', sessionId };
     }
     throw new InvalidPinError();
@@ -402,30 +547,36 @@ export class SessionService {
 
   /**
    * What the helpseeker's device is told. For duress-masked sessions this
-   * simulates the timeline a genuinely cancelled session would have shown
-   * (CANCELLED → CLOSED → PURGED on the same schedule), so the view stays
-   * indistinguishable at any later time.
+   * simulates the timeline the faked benign outcome would have shown
+   * (CANCELLED or RESOLVED → CLOSED → PURGED on the same schedule), so the
+   * view stays indistinguishable at any later time (invariant 4).
    */
   clientStatus(sessionId: string): ClientStatus {
     const record = this.mustGet(sessionId);
-    if (record.duressActivatedAtIso !== null) {
+    if (record.duressMask !== null) {
       return {
         sessionId,
-        state: this.simulatedCancelledState(record.duressActivatedAtIso, this.clock.now()),
+        state: this.simulatedMaskedState(record.duressMask, this.clock.now()),
       };
     }
-    return { sessionId, state: record.aggregate.state };
+    const status: ClientStatus = { sessionId, state: record.aggregate.state };
+    if (record.aggregate.state === 'WATCHING' && record.watchDeadlineIso !== null) {
+      status.watchDeadline = record.watchDeadlineIso;
+    }
+    return status;
   }
 
-  private simulatedCancelledState(cancelledAtIso: string, now: Date): SessionState {
-    const elapsed = now.getTime() - Date.parse(cancelledAtIso);
-    if (elapsed >= this.config.closeAfterCancelMs + this.config.purgeAfterCloseMs) {
+  private simulatedMaskedState(mask: DuressMask, now: Date): SessionState {
+    const elapsed = now.getTime() - Date.parse(mask.atIso);
+    const closeMs =
+      mask.benign === 'CANCELLED' ? this.config.closeAfterCancelMs : this.config.closeAfterResolveMs;
+    if (elapsed >= closeMs + this.config.purgeAfterCloseMs) {
       return 'PURGED';
     }
-    if (elapsed >= this.config.closeAfterCancelMs) {
+    if (elapsed >= closeMs) {
       return 'CLOSED';
     }
-    return 'CANCELLED';
+    return mask.benign;
   }
 
   /** Server-side view for audit/ops. Never exposed to client devices. */
@@ -471,22 +622,27 @@ export class SessionService {
     const record = this.mustGet(sessionId);
     const state = record.aggregate.state;
     let location: PreciseLocation | null = null;
+    let locationAgeMs: number | null = null;
     let displayName = '';
     if (!this.crypto.isShredded(sessionId) && record.encryptedPii !== null) {
       const pii = JSON.parse(this.crypto.decrypt(record.encryptedPii)) as SessionPii;
       displayName = pii.displayName;
-      if (LIVE_STATES.includes(state) && record.encryptedLocations.length > 0) {
+      // A WATCHING session is pre-alert: contacts are not involved yet, so
+      // no location is exposed until it escalates to a real emergency.
+      if (CONTACT_VISIBLE_STATES.includes(state) && record.encryptedLocations.length > 0) {
         const latest = record.encryptedLocations[record.encryptedLocations.length - 1];
         location = JSON.parse(this.crypto.decrypt(latest)) as PreciseLocation;
+        locationAgeMs = Math.max(0, this.clock.now().getTime() - Date.parse(location.capturedAt));
       }
     }
     return {
       sessionId,
       state,
-      duress: record.duressActivatedAtIso !== null,
+      duress: record.duressMask !== null,
       category: record.category,
       helpseekerDisplayName: displayName,
       location,
+      locationAgeMs,
     };
   }
 
@@ -523,7 +679,7 @@ export class SessionService {
   recordLocation(sessionId: string, lat: number, lng: number): void {
     const record = this.mustGet(sessionId);
     const state = record.aggregate.state;
-    if (!LIVE_STATES.includes(state)) {
+    if (!LOCATION_STATES.includes(state)) {
       throw new LocationRejectedError(state);
     }
     const ping: PreciseLocation = {
@@ -668,11 +824,29 @@ export class SessionService {
     for (const record of this.sessions.values()) {
       const sinceLastEvent = now.getTime() - Date.parse(record.aggregate.lastEvent.at);
       switch (record.aggregate.state) {
+        case 'WATCHING':
+          // Deadline missed with no check-in → escalate to a real emergency
+          // and alert the circle.
+          if (record.watchDeadlineIso !== null && now.getTime() >= Date.parse(record.watchDeadlineIso)) {
+            record.aggregate.apply('WATCH_ESCALATED', nowIso, { reason: 'watch_expired' });
+            record.watchDeadlineIso = null;
+            this.persist(record);
+            await this.notifyContacts(record, {
+              duress: false,
+              escalation: false,
+              watchExpired: true,
+            });
+          }
+          break;
         case 'PENDING':
           if (sinceLastEvent >= this.config.activationCountdownMs) {
             record.aggregate.apply('ACTIVATED', nowIso, { reason: 'countdown_elapsed' });
             this.persist(record);
-            await this.notifyContacts(record, { duress: false, escalation: false });
+            await this.notifyContacts(record, {
+              duress: false,
+              escalation: false,
+              watchExpired: false,
+            });
           }
           break;
         case 'ACTIVE':
@@ -685,8 +859,9 @@ export class SessionService {
             });
             this.persist(record);
             await this.notifyContacts(record, {
-              duress: record.duressActivatedAtIso !== null,
+              duress: record.duressMask !== null,
               escalation: true,
+              watchExpired: false,
             });
           }
           break;
@@ -737,7 +912,7 @@ export class SessionService {
 
   private async notifyContacts(
     record: StoredSession,
-    flags: { duress: boolean; escalation: boolean },
+    flags: { duress: boolean; escalation: boolean; watchExpired: boolean },
   ): Promise<void> {
     if (record.encryptedPii === null || record.encryptedContactToken === null) {
       return;
@@ -756,6 +931,7 @@ export class SessionService {
         liveSessionLink: `${this.config.publicBaseUrl}/lite/c/${sessionId}?t=${contactToken}`,
         duress: flags.duress,
         escalation: flags.escalation,
+        watchExpired: flags.watchExpired,
         sentAt,
       });
     }
@@ -772,7 +948,8 @@ export class SessionService {
       encryptedLocations: [...record.encryptedLocations],
       encryptedContactToken: record.encryptedContactToken,
       contactRefs: [...record.contactRefs],
-      duressActivatedAtIso: record.duressActivatedAtIso,
+      duressMask: record.duressMask,
+      watchDeadlineIso: record.watchDeadlineIso,
       offeredResponderIds: [...record.offeredResponderIds],
       acceptedResponderId: record.acceptedResponderId,
       arrivalCode: record.arrivalCode,

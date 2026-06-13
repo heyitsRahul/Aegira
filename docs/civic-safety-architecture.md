@@ -63,6 +63,31 @@ The transition table in `core/src/domain/state-machine.ts` is the single source
 of truth; the test suite asserts every legal transition and proves every other
 (state, event) pair throws.
 
+### §3.1 Journey watch (timed check-in)
+
+A second genesis path for the "get home safe" use case common to bSafe,
+Noonlight, Kitestring, and ride-hailing safety toolkits. `WATCH_ARMED` creates a
+session in **WATCHING** with a deadline; **nobody is alerted yet**.
+
+* `CHECKIN_SAFE → RESOLVED` — the user arrives and checks in; the session ends
+  quietly and is cleaned up on the normal RESOLVED → CLOSED → PURGED schedule.
+  Contacts were never contacted.
+* `WATCH_EXTENDED → WATCHING` — push the deadline out ("running late").
+* `WATCH_ESCALATED → ACTIVE` — the deadline passed with no check-in, **or** a
+  duress check-in was given. From here it is an ordinary emergency: contacts are
+  alerted and responders can be dispatched.
+
+There is deliberately **no WATCHING → CANCELLED edge**: CANCELLED stays reachable
+only from PENDING (invariant 3). A watch ends benignly through CHECKIN_SAFE, not
+a cancel. Location is recorded (encrypted, session-scoped) during WATCHING so the
+latest fix is available the instant it escalates, but a watch is invisible to
+contacts until escalation — they are not part of a journey that is going fine.
+
+Duress discipline carries over (§8.7): a check-in with the duress PIN returns the
+byte-identical response to a safe check-in and shows the coerced device a
+benign **RESOLVED** timeline, while the session silently escalates to ACTIVE and
+the circle is alerted with the duress flag.
+
 ## §4 Event log
 
 Append-only, hash-chained (SHA-256 over canonical JSON, each event carrying the
@@ -126,23 +151,33 @@ Two payload types, both closed shapes (no index signatures):
    it cannot leak or surrender.
 6. **Insider misuse** — mitigated by the same session-scoped keys, the
    append-only audit chain, and ops views that never include payload plaintext.
+7. **Coercer forcing a journey check-in** (§3.1) — an attacker who knows the
+   victim armed a watch may force them to "check in safe." Mitigated exactly like
+   the duress cancel: the duress PIN at check-in returns the identical response
+   and shows a benign RESOLVED timeline, while the session silently escalates to
+   ACTIVE and the circle is alerted. A wrong/duress PIN on a *resolve* of an
+   already-live emergency is treated as a plain wrong PIN (deniable), since a
+   forced "all clear" must not look distinguishable either.
 
 ## §9 Open questions (tracked, not yet designed)
 
 Resolved since first draft: stuck-ACTIVE escalation (ESCALATION_RAISED
 self-loop, single re-alert), responder no-show recovery (RESPONDER_WITHDREW
 with arrival-timeout sweep), capability-token auth for all three roles,
-per-session PIN enrollment, and restart-safe persistence with chain-verified
-rehydration (SQLite standing in for Postgres+KMS).
+per-session PIN enrollment, restart-safe persistence with chain-verified
+rehydration (SQLite standing in for Postgres+KMS), and journey watch / timed
+check-in (§3.1) with its own duress discipline (§8.7) across app, lite, and SMS.
 
 Still open:
 
-* Duress semantics on the resolve flow (coerced "I'm safe"): likely a duress
-  variant of resolve mirroring the cancel design.
 * Production KMS adapter and key-destruction attestation; production Postgres
   adapter for the SessionRepository port.
 * Real SMS/push delivery with acknowledgment and retry (Notifier is a stub).
-* Offline/SMS-fallback trigger paths for low-connectivity areas.
+* Contact acknowledgement / coordination (a contact signalling "I've got it /
+  called 112" to the seeker and other contacts) — needs per-contact identity,
+  which today's single shared contact token does not provide.
+* Duress semantics on resolving an *already-live* emergency (coerced "all clear"
+  mid-emergency); the watch check-in case is now handled.
 * Contact-side consent (contacts currently never opt in to receiving alerts).
 * Real map tiles (the grid is a schematic stand-in).
 * Localized UI strings (Hindi + regional languages). The system is already
