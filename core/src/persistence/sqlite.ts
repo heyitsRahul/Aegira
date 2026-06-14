@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { KeyDestroyedError, KeyNotFoundError, KeyVault } from '../crypto/shredder';
 import { RegistrationRecord, RegistrationStore } from '../services/registration.service';
+import { WaitlistEntry, WaitlistStore } from '../services/waitlist.service';
 import { SessionRepository, SessionSnapshot } from './session-repository';
 
 /**
@@ -31,6 +32,12 @@ export function openDatabase(path: string): DatabaseSync {
     CREATE TABLE IF NOT EXISTS registrations (
       phone_ref TEXT PRIMARY KEY,
       record    TEXT NOT NULL
+    );
+    -- retention_class: durable (pre-launch marketing waitlist, consent v3;
+    -- no location, no session link — see migrations/0011)
+    CREATE TABLE IF NOT EXISTS waitlist (
+      email_ref TEXT PRIMARY KEY,
+      entry     TEXT NOT NULL
     );
   `);
   return db;
@@ -77,6 +84,30 @@ export class SqliteRegistrationStore implements RegistrationStore {
 
   delete(phoneRef: string): void {
     this.db.prepare('DELETE FROM registrations WHERE phone_ref = ?').run(phoneRef);
+  }
+}
+
+export class SqliteWaitlistStore implements WaitlistStore {
+  constructor(private readonly db: DatabaseSync) {}
+
+  save(entry: WaitlistEntry): void {
+    this.db
+      .prepare(
+        `INSERT INTO waitlist (email_ref, entry) VALUES (?, ?)
+         ON CONFLICT(email_ref) DO NOTHING`,
+      )
+      .run(entry.emailRef, JSON.stringify(entry));
+  }
+
+  has(emailRef: string): boolean {
+    return (
+      this.db.prepare('SELECT 1 FROM waitlist WHERE email_ref = ?').get(emailRef) !== undefined
+    );
+  }
+
+  count(): number {
+    const row = this.db.prepare('SELECT COUNT(*) AS n FROM waitlist').get() as { n: number };
+    return row.n;
   }
 }
 

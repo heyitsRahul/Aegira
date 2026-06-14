@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>Sahay — help on any phone, without surveillance</title>
+<meta name="description" content="Privacy-first emergency coordination. Help on any phone — even over SMS — without ever storing your location outside a live, self-destructing session.">
+<style>
+  :root{--bg:#0b0e14;--panel:#141926;--panel2:#1b2233;--line:#283042;--ink:#eef1f6;--dim:#8b93a3;--red:#e5484d;--green:#46a758;--blue:#4f8ef7;--amber:#f5a623}
+  *{box-sizing:border-box;margin:0}
+  body{background:#06080c;color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:0 20px}
+  header{display:flex;align-items:center;gap:12px;padding:20px 0}
+  .logo{font-weight:800;font-size:20px}.logo span{color:var(--red)}
+  header nav{margin-left:auto;display:flex;gap:18px;font-size:14px}
+  header nav a{color:var(--dim);text-decoration:none}header nav a:hover{color:var(--ink)}
+  .hero{padding:48px 0 32px;text-align:center}
+  .hero h1{font-size:40px;line-height:1.15;letter-spacing:-.5px;margin-bottom:16px}
+  .hero h1 .hl{color:var(--red)}
+  .hero p{color:var(--dim);font-size:18px;max-width:620px;margin:0 auto 28px}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-block;font-weight:700;border-radius:12px;padding:13px 22px;text-decoration:none;cursor:pointer;border:0;font-size:16px}
+  .btn.primary{background:var(--red);color:#fff}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .pills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px;color:var(--dim);font-size:13px}
+  .pill{border:1px solid var(--line);border-radius:99px;padding:5px 12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin:40px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .card h3{font-size:16px;margin-bottom:8px}.card .ico{font-size:24px}
+  .card p{color:var(--dim);font-size:14px}
+  .how{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;margin:32px 0}
+  .how ol{margin:12px 0 0 20px;color:var(--dim)}.how li{margin:6px 0}
+  .how b{color:var(--ink)}
+  .channels{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .channels a{flex:1;min-width:150px;text-align:center;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;text-decoration:none;color:var(--ink)}
+  .channels a small{display:block;color:var(--dim);font-size:12px;margin-top:4px}
+  .wait{background:linear-gradient(180deg,#171c27,#10141c);border:1px solid var(--line);border-radius:18px;padding:28px;margin:36px 0;text-align:center}
+  .wait h2{font-size:24px;margin-bottom:8px}.wait p{color:var(--dim);margin-bottom:16px}
+  .wait form{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .wait input{font:inherit;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:#0b0e14;color:var(--ink);min-width:240px}
+  .wait .msg{margin-top:12px;font-size:14px;min-height:20px}
+  .wait .msg.ok{color:var(--green)}.wait .msg.err{color:var(--red)}
+  .count{color:var(--dim);font-size:13px;margin-top:8px}
+  footer{color:#525a6a;font-size:13px;border-top:1px solid var(--line);padding:24px 0 40px;margin-top:24px}
+  footer a{color:var(--dim)}
+  @media (max-width:600px){.hero h1{font-size:30px}.hero p{font-size:16px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">sah<span>ay</span></div>
+    <nav>
+      <a href="/app">Try the app</a>
+      <a href="/phone">SMS demo</a>
+      <a href="https://github.com" onclick="return false">Docs</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Help on any phone,<br><span class="hl">without surveillance.</span></h1>
+    <p>Sahay turns an emergency into a consented, time-boxed session that destroys
+       its own data when it ends. Your location never exists outside a live session —
+       and it works on a smartphone, an old browser, or plain SMS.</p>
+    <div class="cta">
+      <a class="btn primary" href="/app">Open the demo</a>
+      <a class="btn ghost" href="#waitlist">Join the waitlist</a>
+    </div>
+    <div class="pills">
+      <span class="pill">🔒 No location outside a session</span>
+      <span class="pill">🕯️ Crypto-shredded data</span>
+      <span class="pill">🤫 Duress PIN</span>
+      <span class="pill">📟 Works over SMS</span>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card"><div class="ico">🛡️</div><h3>Privacy by architecture</h3>
+      <p>Not a policy promise — a design guarantee. There is no table, cache, or log
+         where your location exists without a live session.</p></div>
+    <div class="card"><div class="ico">🤫</div><h3>Safe under coercion</h3>
+      <p>A duress PIN returns a response identical to success while silently alerting
+         your circle. The same protection covers journey check-ins.</p></div>
+    <div class="card"><div class="ico">📟</div><h3>Reaches every phone</h3>
+      <p>Smartphone app, a zero-JavaScript page for old browsers, and a full SMS
+         channel for phones with no internet at all.</p></div>
+    <div class="card"><div class="ico">🧭</div><h3>Coordination, not vigilantism</h3>
+      <p>No public incident feed, no trust scores. Verified responders see only a
+         session alias and a ~1&nbsp;km area until they accept.</p></div>
+  </section>
+
+  <section class="how">
+    <h3>How it works</h3>
+    <ol>
+      <li><b>Trigger</b> — tap SOS, or arm a <b>journey watch</b> before you set out.</li>
+      <li><b>Notify</b> — your chosen trusted contacts are alerted with a live link.</li>
+      <li><b>Match</b> — a nearby verified responder is offered the session, identity-free.</li>
+      <li><b>Verify &amp; resolve</b> — arrival is confirmed by a code; you mark yourself safe.</li>
+      <li><b>Destroy</b> — the per-session key is shredded; the data becomes unreadable.</li>
+    </ol>
+    <div class="channels">
+      <a href="/app"><b>📱 App</b><small>smartphones (PWA)</small></a>
+      <a href="/lite"><b>🌐 Lite web</b><small>old / low-end browsers</small></a>
+      <a href="/phone"><b>📟 SMS</b><small>any phone, no internet</small></a>
+    </div>
+  </section>
+
+  <section class="wait" id="waitlist">
+    <h2>Get early access</h2>
+    <p>We're piloting with campuses, gig platforms, and safety NGOs. Leave your email.</p>
+    <form onsubmit="return joinWaitlist(event)">
+      <input id="email" type="email" placeholder="you@example.com" required aria-label="email">
+      <input id="country" placeholder="Country (e.g. IN)" maxlength="2" aria-label="country" style="min-width:140px">
+      <button class="btn primary" type="submit">Join waitlist</button>
+    </form>
+    <div class="msg" id="msg"></div>
+    <div class="count" id="count"></div>
+  </section>
+
+  <footer class="wrap">
+    Sahay — privacy-first emergency coordination ·
+    <a href="/app">app</a> · <a href="/lite">lite</a> · <a href="/phone">sms</a> · <a href="/console">ops console</a><br>
+    Prototype. Consent v3 governs waitlist emails: stored only to contact you about early access, deletable on request.
+  </footer>
+</div>
+
+<script>
+  async function joinWaitlist(e) {
+    e.preventDefault();
+    const msg = document.getElementById('msg');
+    const email = document.getElementById('email').value.trim();
+    const country = document.getElementById('country').value.trim();
+    try {
+      const r = await fetch('/waitlist', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, country }),
+      });
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || 'Something went wrong');
+      msg.className = 'msg ok';
+      msg.textContent = j.alreadyJoined ? "You're already on the list — thank you!" : "You're in. We'll be in touch.";
+      document.getElementById('email').value = '';
+      refreshCount();
+    } catch (err) {
+      msg.className = 'msg err';
+      msg.textContent = err.message;
+    }
+    return false;
+  }
+  async function refreshCount() {
+    try {
+      const j = await fetch('/waitlist/count').then((r) => r.json());
+      if (j.count > 0) document.getElementById('count').textContent = j.count + ' already waiting';
+    } catch {}
+  }
+  refreshCount();
+</script>
+</body>
+</html>

@@ -29,6 +29,11 @@ export class DevController {
   ) {}
 
   @Get()
+  landing(@Res() res: Response): void {
+    res.sendFile(join(PUBLIC_DIR, 'landing.html'));
+  }
+
+  @Get('app')
   app(@Res() res: Response): void {
     res.sendFile(join(PUBLIC_DIR, 'app.html'));
   }

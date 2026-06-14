@@ -25,6 +25,7 @@ import {
   SessionSnapshot,
 } from '../persistence/session-repository';
 import { MatchCandidate, MatchingService, ResponderProfile } from './matching.service';
+import { Metrics, NoopMetrics } from './metrics';
 import { Notifier } from './notification.service';
 
 export interface SessionServiceConfig {
@@ -290,6 +291,7 @@ export class SessionService {
     private readonly matching: MatchingService,
     private readonly config: SessionServiceConfig,
     private readonly repository: SessionRepository = new InMemorySessionRepository(),
+    private readonly metrics: Metrics = new NoopMetrics(),
   ) {
     for (const snapshot of this.repository.loadAll()) {
       this.sessions.set(snapshot.sessionId, {
@@ -430,6 +432,7 @@ export class SessionService {
       data: { category: input.category, consentVersion: CURRENT_CONSENT_VERSION },
     });
     const { seekerToken } = this.createSession(input, aggregate, null);
+    this.metrics.increment('session.triggered');
     return {
       sessionId,
       state: 'PENDING',
@@ -459,6 +462,7 @@ export class SessionService {
     });
     const watchDeadlineIso = new Date(Date.parse(at) + etaMs).toISOString();
     const { seekerToken } = this.createSession(input, aggregate, watchDeadlineIso);
+    this.metrics.increment('watch.armed');
     return { sessionId, state: 'WATCHING', seekerToken, watchDeadline: watchDeadlineIso };
   }
 
@@ -478,6 +482,7 @@ export class SessionService {
       record.aggregate.apply('CHECKIN_SAFE', at, { reason: 'reached_safely' });
       record.watchDeadlineIso = null;
       this.persist(record);
+      this.metrics.increment('watch.checkin_safe');
       return { status: 'safe', sessionId };
     }
     if (matchesHash(pin, record.pinDuressHash)) {
@@ -485,6 +490,7 @@ export class SessionService {
       record.duressMask = { atIso: at, benign: 'RESOLVED' };
       record.watchDeadlineIso = null;
       this.persist(record);
+      this.metrics.increment('watch.escalated');
       await this.notifyContacts(record, { duress: true, escalation: false, watchExpired: false });
       return { status: 'safe', sessionId };
     }
@@ -514,6 +520,7 @@ export class SessionService {
       reason: 'confirmed',
     });
     this.persist(record);
+    this.metrics.increment('session.activated');
     await this.notifyContacts(record, { duress: false, escalation: false, watchExpired: false });
     return this.clientStatus(sessionId);
   }
@@ -533,12 +540,14 @@ export class SessionService {
     if (matchesHash(pin, record.pinSafeHash)) {
       record.aggregate.apply('CANCEL_CONFIRMED', at, { reason: 'user_cancelled' });
       this.persist(record);
+      this.metrics.increment('session.cancelled');
       return { status: 'cancelled', sessionId };
     }
     if (matchesHash(pin, record.pinDuressHash)) {
       record.aggregate.apply('ACTIVATED', at, { reason: 'duress' });
       record.duressMask = { atIso: at, benign: 'CANCELLED' };
       this.persist(record);
+      this.metrics.increment('session.activated');
       await this.notifyContacts(record, { duress: true, escalation: false, watchExpired: false });
       return { status: 'cancelled', sessionId };
     }
@@ -720,6 +729,7 @@ export class SessionService {
       });
     }
     this.persist(record);
+    this.metrics.increment('session.dispatched');
     return candidates;
   }
 
@@ -811,6 +821,7 @@ export class SessionService {
       reason: 'helpseeker_confirmed_safe',
     });
     this.persist(record);
+    this.metrics.increment('session.resolved');
     return { sessionId, state: record.aggregate.state };
   }
 
@@ -831,6 +842,7 @@ export class SessionService {
             record.aggregate.apply('WATCH_ESCALATED', nowIso, { reason: 'watch_expired' });
             record.watchDeadlineIso = null;
             this.persist(record);
+            this.metrics.increment('watch.escalated');
             await this.notifyContacts(record, {
               duress: false,
               escalation: false,
@@ -842,6 +854,7 @@ export class SessionService {
           if (sinceLastEvent >= this.config.activationCountdownMs) {
             record.aggregate.apply('ACTIVATED', nowIso, { reason: 'countdown_elapsed' });
             this.persist(record);
+            this.metrics.increment('session.activated');
             await this.notifyContacts(record, {
               duress: false,
               escalation: false,
@@ -908,6 +921,7 @@ export class SessionService {
     record.encryptedContactToken = null;
     record.arrivalCode = null;
     this.persist(record);
+    this.metrics.increment('session.purged');
   }
 
   private async notifyContacts(

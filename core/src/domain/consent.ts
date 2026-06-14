@@ -19,10 +19,16 @@ export const CONSENT_RECORD: Readonly<Record<string, string>> = Object.freeze({
     'using your approximate network location at that moment only; (3) the ' +
     'session terms of consent v1 applying to every session you trigger. ' +
     'No location is stored with your registration.',
+  v3:
+    'By joining the Sahay waitlist you consent to Sahay storing your email ' +
+    'address (and optional country) to contact you about early access. No ' +
+    'location and no emergency-session data are involved. You can ask us to ' +
+    'delete it at any time.',
 });
 
 export const CURRENT_CONSENT_VERSION = 'v1';
 export const SMS_REGISTRATION_CONSENT_VERSION = 'v2';
+export const WAITLIST_CONSENT_VERSION = 'v3';
 
 export function consentText(version: string): string {
   const text = CONSENT_RECORD[version];

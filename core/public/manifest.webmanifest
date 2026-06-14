@@ -2,7 +2,7 @@
   "name": "Sahay — Emergency Coordination",
   "short_name": "Sahay",
   "description": "Privacy-first emergency coordination. All capability is session-shaped.",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#0b0e14",
   "theme_color": "#0b0e14",

@@ -1,0 +1,32 @@
+# Fly.io deploy config. `fly launch --copy-config --now` to ship.
+app = "sahay"
+primary_region = "bom"  # Mumbai — close to the first users
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3000"
+  SAHAY_DB = "/data/sahay.db"
+  SAHAY_BASE_URL = "https://sahay.fly.dev"
+
+# Set secrets out of band (never commit them):
+#   fly secrets set SAHAY_GATEWAY_SECRET=... \
+#     TWILIO_ACCOUNT_SID=... TWILIO_AUTH_TOKEN=... TWILIO_FROM_NUMBER=...
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+# Durable volume so sessions + the key vault survive restarts.
+[[mounts]]
+  source = "sahay_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
