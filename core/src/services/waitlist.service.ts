@@ -22,6 +22,8 @@ export interface WaitlistStore {
   save(entry: WaitlistEntry): void;
   has(emailRef: string): boolean;
   count(): number;
+  /** Most recent entries first. */
+  recent(limit: number): WaitlistEntry[];
 }
 
 export class InMemoryWaitlistStore implements WaitlistStore {
@@ -37,6 +39,10 @@ export class InMemoryWaitlistStore implements WaitlistStore {
 
   count(): number {
     return this.entries.size;
+  }
+
+  recent(limit: number): WaitlistEntry[] {
+    return [...this.entries.values()].reverse().slice(0, limit);
   }
 }
 
@@ -72,5 +78,10 @@ export class WaitlistService {
 
   count(): number {
     return this.store.count();
+  }
+
+  /** Founder ops only (admin-gated): the latest signups. */
+  recent(limit = 50): WaitlistEntry[] {
+    return this.store.recent(limit);
   }
 }

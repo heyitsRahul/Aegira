@@ -26,6 +26,7 @@ import {
   SMS_GATEWAY,
   TWILIO_AUTH_TOKEN,
 } from './gateway.controller';
+import { AdminController, ADMIN_TOKEN } from './admin.controller';
 import { LiteController, REGISTRATIONS } from './lite.controller';
 import { METRICS, PublicController, WAITLIST } from './public.controller';
 import { ReferenceController } from './reference.controller';
@@ -65,6 +66,7 @@ const DEV_CONFIG: SessionServiceConfig = {
 };
 
 const GATEWAY_SECRET_VALUE = process.env.SAHAY_GATEWAY_SECRET ?? 'dev-gateway-secret';
+const ADMIN_TOKEN_VALUE = process.env.SAHAY_ADMIN_TOKEN ?? 'dev-admin-token';
 
 function buildResponderRegistry(): ResponderRegistry {
   const registry = new ResponderRegistry();
@@ -135,6 +137,7 @@ const wiring = buildWiring();
     LiteController,
     ReferenceController,
     PublicController,
+    AdminController,
   ],
   providers: [
     { provide: NOTIFIER, useValue: wiring.appOutbox },
@@ -149,6 +152,7 @@ const wiring = buildWiring();
     { provide: PUBLIC_BASE_URL, useValue: PUBLIC_URL },
     { provide: WAITLIST, useValue: wiring.waitlist },
     { provide: METRICS, useValue: wiring.metrics },
+    { provide: ADMIN_TOKEN, useValue: ADMIN_TOKEN_VALUE },
   ],
 })
 export class AppModule {}

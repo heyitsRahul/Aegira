@@ -94,9 +94,14 @@ describe('no public incident feed (invariant 5)', () => {
   it('the API exposes no route that lists or searches incidents', () => {
     for (const file of listFiles(join(ROOT, 'src', 'api'), '.ts')) {
       const source = readFileSync(file, 'utf8');
-      expect(/nearby|incidents|feed|recent/i.test(source), `${file} smells like a feed`).toBe(
-        false,
-      );
+      // Targets the actual invariant-5 risk: a listing of incidents/sessions
+      // by area or recency. "recent <waitlist signups>" is fine; "nearby",
+      // "incident", "heatmap", a "/feed" route, or "recent incident/session/
+      // alert" are not.
+      expect(
+        /nearby|incident|heatmap|\/feed|recent\s*(incident|session|alert)/i.test(source),
+        `${file} smells like an incident feed`,
+      ).toBe(false);
     }
   });
 

@@ -31,8 +31,9 @@ session, and is destroyed when it ends.
 | Lite web (no JS) | old/low-end browsers | `/lite` |
 | SMS | any phone, no internet | `POST /gateway/sms` (sim at `/phone`) |
 
-Plus an ops console at `/console` showing the server-truth view (duress mask vs.
-reality) — dev only.
+Plus a marketing landing at `/` with a waitlist, an ops console at `/console`
+(server-truth view: duress mask vs. reality), and a founder dashboard at `/admin`
+(waitlist + aggregate metrics, token-gated).
 
 ## Quickstart
 
@@ -64,9 +65,13 @@ Set these to go from demo to real:
 | `SAHAY_BASE_URL` | base for contact live-links in alerts |
 | `SAHAY_GATEWAY_SECRET` | shared secret for the JSON SMS webhook |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | real outbound SMS; Twilio inbound webhook at `/gateway/twilio` |
+| `SAHAY_ADMIN_TOKEN` | unlocks the `/admin` founder dashboard |
 
 With no Twilio env set, SMS falls back to the in-memory stub (the `/phone`
 simulator) so the demo still works.
+
+Full step-by-step: [docs/deploy.md](docs/deploy.md). Video scripts for the YC
+application: [docs/demo-script.md](docs/demo-script.md).
 
 ## Architecture
 

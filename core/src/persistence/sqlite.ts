@@ -109,6 +109,14 @@ export class SqliteWaitlistStore implements WaitlistStore {
     const row = this.db.prepare('SELECT COUNT(*) AS n FROM waitlist').get() as { n: number };
     return row.n;
   }
+
+  recent(limit: number): WaitlistEntry[] {
+    // rowid increases on insert, so DESC is insertion-recency order.
+    const rows = this.db
+      .prepare('SELECT entry FROM waitlist ORDER BY rowid DESC LIMIT ?')
+      .all(limit) as Array<{ entry: string }>;
+    return rows.map((r) => JSON.parse(r.entry) as WaitlistEntry);
+  }
 }
 
 /**
