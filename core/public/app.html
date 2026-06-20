@@ -131,6 +131,19 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
   .help a span { font-size:10px; color:var(--dim); }
   .cat-ico { font-size:15px; margin-right:2px; }
   .country-row { display:flex; gap:8px; } .country-row select { flex:0 0 42%; } .country-row input { flex:1; }
+  /* accessibility: language picker + big icon-first controls */
+  .lang-pick{display:flex;flex-direction:column;gap:14px;margin-top:30px}
+  .lang-pick button{font-size:26px;font-weight:700;padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:18px}
+  .topctl{display:flex;gap:8px;margin-left:auto}
+  .topctl button{width:auto;margin:0;background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:99px;padding:6px 12px;font-size:12px;min-height:36px}
+  .bigbtn{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;margin-top:12px}
+  .bigbtn .ic{font-size:34px;line-height:1}
+  .bigbtn b{font-size:19px;display:block}
+  .bigbtn .s{color:var(--dim);font-size:13px}
+  .modebar{display:flex;gap:10px;margin-top:6px}
+  .modebar button{flex:1;font-size:15px;padding:16px 8px;background:var(--panel);border:2px solid var(--line);color:var(--dim);margin:0;border-radius:16px}
+  .modebar button.on{border-color:var(--red);color:var(--ink)}
+  .modebar button .mi{font-size:22px;display:block;margin-bottom:4px}
   @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
   @media (prefers-color-scheme: light) {
     :root { --bg:#f6f7f9; --panel:#fff; --panel2:#eef1f5; --line:#d4dae3; --ink:#11151c; --dim:#5b6472; }
@@ -144,7 +157,7 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
   <header>
     <div class="logo">sah<span>ay</span></div>
     <div class="role-tag" id="role-tag"></div>
-    <button class="switch" onclick="go('')">switch role</button>
+    <div class="topctl" id="topctl"></div>
   </header>
   <main id="main"></main>
 </div>
@@ -209,7 +222,7 @@ function helplineCard(country) {
   const c = country || (store.get('profile', {}).country) || REF.defaultCountry || 'IN';
   const nums = helplinesFor(c).map((h) =>
     `<a href="tel:${esc(h.number)}"><b>${esc(h.number)}</b><span>${esc(h.label)}</span></a>`).join('');
-  return `<div class="help"><div class="k">OFFICIAL HELPLINES — TAP TO CALL</div><div class="nums">${nums}</div></div>`;
+  return `<div class="help"><div class="k">${esc(t('helplines_title'))}</div><div class="nums">${nums}</div></div>`;
 }
 function countrySelect(id, selected) {
   const sel = selected || REF.defaultCountry || 'IN';
@@ -219,6 +232,113 @@ function countrySelect(id, selected) {
 // Locale-aware time — respects the user's device locale and timezone.
 const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
 const phoneTail = (s) => String(s).replace(/\D/g, '').slice(-10);
+
+/* --------------------- language + voice (accessibility) --------------------- */
+// Adding a language = add its name to LANGS and a block to STR. Each string
+// falls back to English, then to the key, so nothing ever breaks.
+const LANGS = [
+  { code: 'en', name: 'English', voice: 'en-IN' },
+  { code: 'hi', name: 'हिंदी', voice: 'hi-IN' },
+];
+const STR = {
+  en: {
+    pick_language: 'Choose your language', tap_to_continue: 'Tap your language',
+    language: 'Language', sound_on: '🔊 Sound on', sound_off: '🔇 Sound off',
+    choose_role: 'Who is using this phone?',
+    role_seeker: 'I need help', role_seeker_sub: 'In danger? Press a button for help.',
+    role_contact: 'I watch over someone', role_contact_sub: 'Get alerts, see their live location.',
+    role_responder: "I'm a verified helper", role_responder_sub: 'Accept requests. You never see who.',
+    no_smartphone: 'No smartphone? This also works on a basic web page and over SMS.',
+    hi_name: 'Hi {name}', mode_sos: 'Emergency', mode_watch: 'Watch my journey',
+    what_happening: 'What is happening?',
+    cat_personal_safety: 'Safety', cat_medical: 'Medical', cat_accident: 'Accident', cat_other: 'Other',
+    sos_sub: 'Starts in 30 seconds. You can cancel.',
+    demo_location: 'Location (a real phone uses GPS)',
+    your_circle: 'Your trusted people', edit_circle: 'Edit',
+    helplines_title: 'Official help — tap to call',
+    activating: 'Sending help…', countdown_sub: 'Your people are alerted at zero.',
+    need_help_now: 'I need help NOW', enter_pin_cancel: 'Enter PIN to cancel', cancel: 'Cancel',
+    help_in_motion: 'Help is coming',
+    step1: 'People alerted', step2: 'Helper coming', step3: 'Helper here',
+    request_responder: 'Call a verified helper', waiting_accept: 'Helpers notified — waiting…',
+    show_code: 'Show this code to your helper:', responder_here: 'Your helper is with you.',
+    i_am_safe: 'I am safe — end', youre_safe: "You're safe.",
+    youre_safe_sub: 'This will close by itself and the data will be erased.', done: 'Done',
+    cancelled: 'Cancelled', nobody_notified: 'Nobody was told.', back: 'Back',
+    watch_title: 'Journey watch',
+    watch_sub: "Going alone? Set a timer. Check in safe when you arrive — if you don't, your people are alerted.",
+    watch_me_for: 'Watch me for', minutes: 'minutes', start_watch: 'Start journey watch',
+    check_in_safe: "I've arrived — check in safe", your_pin: 'your PIN', more_time: 'More time (+15 min)',
+    until_alerted: 'until your people are alerted',
+    setup_title: 'Add your trusted people', your_name: 'Your name', country: 'Country',
+    contact_name: 'Trusted person — name', contact_phone: 'Trusted person — phone',
+    safe_pin: 'Safe PIN (cancels)', duress_pin: 'Danger PIN (pretends)', i_consent: 'I agree — continue',
+    // spoken
+    v_sos: 'Sending help. Enter your PIN to cancel.',
+    v_active: 'Your people have been alerted. Help is on the way.',
+    v_safe: 'You are safe.', v_checkin: 'You have checked in safe.',
+    v_cancelled: 'Session cancelled.', v_watch: 'Journey watch started. Check in safe when you arrive.',
+  },
+  hi: {
+    pick_language: 'अपनी भाषा चुनें', tap_to_continue: 'अपनी भाषा दबाएँ',
+    language: 'भाषा', sound_on: '🔊 आवाज़ चालू', sound_off: '🔇 आवाज़ बंद',
+    choose_role: 'यह फ़ोन कौन इस्तेमाल कर रहा है?',
+    role_seeker: 'मुझे मदद चाहिए', role_seeker_sub: 'ख़तरे में हैं? मदद के लिए बटन दबाएँ।',
+    role_contact: 'मैं किसी का ध्यान रखता/रखती हूँ', role_contact_sub: 'चेतावनी पाएँ, लाइव जगह देखें।',
+    role_responder: 'मैं प्रमाणित सहायक हूँ', role_responder_sub: 'अनुरोध स्वीकारें। आप पहचान नहीं देखते।',
+    no_smartphone: 'स्मार्टफ़ोन नहीं? यह सादे वेब पेज और SMS पर भी चलता है।',
+    hi_name: 'नमस्ते {name}', mode_sos: 'आपातकाल', mode_watch: 'मेरी यात्रा पर नज़र',
+    what_happening: 'क्या हुआ है?',
+    cat_personal_safety: 'सुरक्षा', cat_medical: 'चिकित्सा', cat_accident: 'दुर्घटना', cat_other: 'अन्य',
+    sos_sub: '30 सेकंड में शुरू। आप रद्द कर सकते हैं।',
+    demo_location: 'जगह (असली फ़ोन GPS लेता है)',
+    your_circle: 'आपके भरोसेमंद लोग', edit_circle: 'बदलें',
+    helplines_title: 'सरकारी मदद — कॉल के लिए दबाएँ',
+    activating: 'मदद भेजी जा रही है…', countdown_sub: 'शून्य पर आपके अपनों को सूचना जाएगी।',
+    need_help_now: 'मुझे अभी मदद चाहिए', enter_pin_cancel: 'रद्द करने के लिए PIN डालें', cancel: 'रद्द करें',
+    help_in_motion: 'मदद आ रही है',
+    step1: 'अपनों को सूचना', step2: 'सहायक आ रहा है', step3: 'सहायक पहुँचा',
+    request_responder: 'प्रमाणित सहायक बुलाएँ', waiting_accept: 'सहायकों को सूचना — इंतज़ार…',
+    show_code: 'यह कोड अपने सहायक को दिखाएँ:', responder_here: 'आपका सहायक आपके साथ है।',
+    i_am_safe: 'मैं सुरक्षित हूँ — समाप्त', youre_safe: 'आप सुरक्षित हैं।',
+    youre_safe_sub: 'यह अपने आप बंद होगा और डेटा मिटा दिया जाएगा।', done: 'ठीक है',
+    cancelled: 'रद्द किया गया', nobody_notified: 'किसी को नहीं बताया गया।', back: 'वापस',
+    watch_title: 'यात्रा निगरानी',
+    watch_sub: 'अकेले जा रहे हैं? टाइमर लगाएँ। पहुँचने पर सुरक्षित बताएँ — नहीं तो अपनों को सूचना जाएगी।',
+    watch_me_for: 'इतने समय तक नज़र रखें', minutes: 'मिनट', start_watch: 'यात्रा निगरानी शुरू करें',
+    check_in_safe: 'मैं पहुँच गया/गई — सुरक्षित बताएँ', your_pin: 'आपका PIN', more_time: 'और समय (+15 मिनट)',
+    until_alerted: 'फिर आपके अपनों को सूचना जाएगी',
+    setup_title: 'अपने भरोसेमंद लोग जोड़ें', your_name: 'आपका नाम', country: 'देश',
+    contact_name: 'भरोसेमंद व्यक्ति — नाम', contact_phone: 'भरोसेमंद व्यक्ति — फ़ोन',
+    safe_pin: 'सुरक्षित PIN (रद्द करता है)', duress_pin: 'ख़तरे वाला PIN (दिखावा)', i_consent: 'मैं सहमत हूँ — आगे बढ़ें',
+    v_sos: 'मदद भेजी जा रही है। रद्द करने के लिए पिन डालें।',
+    v_active: 'आपके अपनों को सूचना दे दी गई है। मदद आ रही है।',
+    v_safe: 'आप सुरक्षित हैं।', v_checkin: 'आप सुरक्षित रूप से पहुँच गए।',
+    v_cancelled: 'सत्र रद्द कर दिया गया।', v_watch: 'यात्रा निगरानी शुरू। पहुँचने पर सुरक्षित बताएँ।',
+  },
+};
+const langCode = () => store.get('lang', null);
+function t(key, vars) {
+  const l = langCode() || 'en';
+  let s = (STR[l] && STR[l][key]) || STR.en[key] || key;
+  if (vars) for (const k in vars) s = s.replace('{' + k + '}', vars[k]);
+  return s;
+}
+function setLang(code) { store.set('lang', code); render(); }
+const soundOn = () => store.get('sound', true);
+function toggleSound() { store.set('sound', !soundOn()); if (soundOn()) speakKey('v_safe'); render(); }
+// Voice prompts: built-in speech, no dependency. Speaks the chosen language.
+function speakKey(key) {
+  if (!soundOn() || !window.speechSynthesis) return;
+  try {
+    const u = new SpeechSynthesisUtterance(t(key));
+    const l = langCode() || 'en';
+    u.lang = (LANGS.find((x) => x.code === l) || LANGS[0]).voice;
+    u.rate = 0.95;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch {}
+}
 
 /* ------------------------------- map --------------------------------- */
 function mapSvg(cellId, loc, opts = {}) {
@@ -267,13 +387,26 @@ const typing = () => ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeEle
 window.addEventListener('hashchange', render);
 let routeTick = async () => {};
 
+function renderTopCtl() {
+  const ctl = document.getElementById('topctl');
+  if (!langCode()) { ctl.innerHTML = ''; return; }
+  const next = (LANGS.find((x, i) => x.code === langCode()) && LANGS[(LANGS.findIndex((x) => x.code === langCode()) + 1) % LANGS.length]) || LANGS[0];
+  ctl.innerHTML =
+    `<button onclick="setLang('${next.code}')" aria-label="${t('language')}">🌐 ${esc(next.name)}</button>` +
+    `<button onclick="toggleSound()">${soundOn() ? '🔊' : '🔇'}</button>` +
+    (location.hash ? `<button onclick="go('')">⇄</button>` : '');
+}
+
 function render() {
   const h = location.hash.replace('#', '');
   routeTick = async () => {};
+  renderTopCtl();
+  // First run: choose a language before anything else.
+  if (!langCode()) return renderLanguagePicker();
   document.getElementById('role-tag').textContent =
-    h.startsWith('seeker') ? '· help seeker' :
-    h.startsWith('contact') ? '· trusted contact' :
-    h.startsWith('responder') ? '· responder' : '';
+    h.startsWith('seeker') ? '· ' + t('role_seeker') :
+    h.startsWith('contact') ? '· ' + t('role_contact') :
+    h.startsWith('responder') ? '· ' + t('role_responder') : '';
   if (h.startsWith('seeker')) return renderSeeker();
   if (h.startsWith('contact/')) return renderContactSession(h.split('/')[1]);
   if (h.startsWith('contact')) return renderContactInbox();
@@ -282,24 +415,30 @@ function render() {
   renderLanding();
 }
 
+/* -------------------------- language picker --------------------------- */
+function renderLanguagePicker() {
+  document.getElementById('role-tag').textContent = '';
+  $m.innerHTML = `
+    <h1 style="text-align:center;margin-top:20px">सहाय · Sahay</h1>
+    <p class="lead center">${esc(STR.hi.pick_language)} · ${esc(STR.en.pick_language)}</p>
+    <div class="lang-pick">${LANGS.map((l) =>
+      `<button onclick="setLang('${l.code}')">${esc(l.name)}</button>`).join('')}</div>
+    <div class="foot">More languages coming. Works on any phone — also <a href="/lite">basic web</a>
+      and <a href="/phone">SMS</a>.</div>`;
+}
+
 /* ------------------------------ landing ------------------------------- */
 function renderLanding() {
   $m.innerHTML = `
-    <h1>Who is holding this phone?</h1>
-    <p class="lead">Sahay is session-shaped: every capability below exists only inside a consented,
-      time-boxed emergency session.</p>
-    <div class="card tap" onclick="go('seeker')"><div class="role-card">
-      <div class="ico">🆘</div><div><b>I might need help</b>
-      <div class="sub">Trigger sessions, alert your circle, summon a verified responder.</div></div></div></div>
-    <div class="card tap" onclick="go('contact')"><div class="role-card">
-      <div class="ico">👁️</div><div><b>I watch over someone</b>
-      <div class="sub">Receive alerts, see their live session, dispatch responders.</div></div></div></div>
-    <div class="card tap" onclick="go('responder')"><div class="role-card">
-      <div class="ico">🏃</div><div><b>I'm a verified responder</b>
-      <div class="sub">Accept dispatches. You never see who — only a session alias and an area.</div></div></div></div>
-    <div class="foot">No smartphone? <a href="/lite">basic web version</a> works on any browser,
-      and the whole flow runs over <a href="/phone">SMS</a> for phones with no browser at all.<br>
-      Demo wiring: PINs safe 1234 / duress 9999 · ops console at <a href="/console">/console</a></div>`;
+    <h1>${esc(t('choose_role'))}</h1>
+    <button class="bigbtn" onclick="go('seeker')">
+      <span class="ic">🆘</span><span><b>${esc(t('role_seeker'))}</b><span class="s">${esc(t('role_seeker_sub'))}</span></span></button>
+    <button class="bigbtn" onclick="go('contact')">
+      <span class="ic">👁️</span><span><b>${esc(t('role_contact'))}</b><span class="s">${esc(t('role_contact_sub'))}</span></span></button>
+    <button class="bigbtn" onclick="go('responder')">
+      <span class="ic">🏃</span><span><b>${esc(t('role_responder'))}</b><span class="s">${esc(t('role_responder_sub'))}</span></span></button>
+    <div class="foot">${esc(t('no_smartphone'))}<br>
+      <a href="/lite">web</a> · <a href="/phone">SMS</a> · <a href="/console">ops</a> · PINs 1234 / 9999</div>`;
 }
 
 /* --------------------------- seeker: screens --------------------------- */
@@ -314,21 +453,18 @@ function renderSeeker() {
 
 function renderOnboarding() {
   $m.innerHTML = `
-    <h1>Set up your circle</h1>
-    <p class="lead">Stored on this device only. The server learns it encrypted, per session,
-      and forgets it cryptographically when each session is purged.</p>
-    <label>YOUR NAME</label><input id="ob-name" value="Meera Krishnan" autocomplete="name">
-    <label>COUNTRY</label>${countrySelect('ob-country')}
-    <label>TRUSTED CONTACT — NAME</label><input id="ob-cname" value="Arjun Krishnan">
-    <label>TRUSTED CONTACT — PHONE</label>
+    <h1>${esc(t('setup_title'))}</h1>
+    <label>${esc(t('your_name'))}</label><input id="ob-name" value="Meera Krishnan" autocomplete="name">
+    <label>${esc(t('country'))}</label>${countrySelect('ob-country')}
+    <label>${esc(t('contact_name'))}</label><input id="ob-cname" value="Arjun Krishnan">
+    <label>${esc(t('contact_phone'))}</label>
     <input id="ob-cphone" value="98765 43210" inputmode="tel" autocomplete="tel"
-      aria-label="trusted contact phone number">
+      aria-label="${esc(t('contact_phone'))}">
     <div class="row">
-      <div><label>SAFE PIN (cancels)</label><input id="ob-pin-safe" value="1234" inputmode="numeric" maxlength="6" type="password"></div>
-      <div><label>DURESS PIN (fakes it)</label><input id="ob-pin-duress" value="9999" inputmode="numeric" maxlength="6" type="password"></div>
+      <div><label>${esc(t('safe_pin'))}</label><input id="ob-pin-safe" value="1234" inputmode="numeric" maxlength="6" type="password"></div>
+      <div><label>${esc(t('duress_pin'))}</label><input id="ob-pin-duress" value="9999" inputmode="numeric" maxlength="6" type="password"></div>
     </div>
-    <label>CONSENT (v1)</label><div class="consent">${esc(CONSENT_V1)}</div>
-    <button class="primary" onclick="saveProfile()">I consent — create my circle</button>
+    <button class="primary" onclick="saveProfile()">${esc(t('i_consent'))}</button>
     ${helplineCard()}`;
 }
 function dialOf(code) { const c = (REF.countries || []).find((x) => x.code === code); return c ? c.dial : '91'; }
@@ -361,39 +497,38 @@ let seekerCity = DEMO_CITIES[0].id;
 let seekerMode = 'sos'; // 'sos' | 'watch'
 let watchEta = 20;
 function renderSeekerHome(profile) {
-  const citySelect = `<label>DEMO LOCATION (a real phone uses GPS)</label>
+  const citySelect = `<label>${esc(t('demo_location'))}</label>
     <select id="city" onchange="seekerCity=this.value">${DEMO_CITIES.map((c) =>
       `<option value="${c.id}"${c.id === seekerCity ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select>`;
-  const modeToggle = `<div class="cats" role="group" aria-label="mode" style="margin-top:4px">
-      <button class="${seekerMode === 'sos' ? 'on' : ''}" aria-pressed="${seekerMode === 'sos'}" onclick="seekerMode='sos';render()">🆘 Emergency SOS</button>
-      <button class="${seekerMode === 'watch' ? 'on' : ''}" aria-pressed="${seekerMode === 'watch'}" onclick="seekerMode='watch';render()">🛡️ Watch my journey</button>
+  const modeToggle = `<div class="modebar" role="group" aria-label="mode">
+      <button class="${seekerMode === 'sos' ? 'on' : ''}" aria-pressed="${seekerMode === 'sos'}" onclick="seekerMode='sos';render()"><span class="mi">🆘</span>${esc(t('mode_sos'))}</button>
+      <button class="${seekerMode === 'watch' ? 'on' : ''}" aria-pressed="${seekerMode === 'watch'}" onclick="seekerMode='watch';render()"><span class="mi">🛡️</span>${esc(t('mode_watch'))}</button>
     </div>`;
 
   const sosBlock = `
-    <label>WHAT IS HAPPENING?</label>
-    <div class="cats" role="group" aria-label="emergency category">${Object.entries(CATS).map(([k, v]) =>
-      `<button class="${k === seekerCat ? 'on' : ''}" aria-pressed="${k === seekerCat}" onclick="seekerCat='${k}';render()"><span class="cat-ico">${v.ico}</span>${esc(v.label)}</button>`).join('')}</div>
-    <div class="sos-wrap"><button class="sos" aria-label="Send SOS now" onclick="trigger()">SOS</button></div>
-    <p class="lead center">Starts a session with a 30-second cancel window.</p>`;
+    <label>${esc(t('what_happening'))}</label>
+    <div class="cats" role="group" aria-label="category">${Object.keys(CATS).map((k) =>
+      `<button class="${k === seekerCat ? 'on' : ''}" aria-pressed="${k === seekerCat}" onclick="seekerCat='${k}';render()"><span class="cat-ico">${CATS[k].ico}</span>${esc(t('cat_' + k))}</button>`).join('')}</div>
+    <div class="sos-wrap"><button class="sos" aria-label="SOS" onclick="trigger()">SOS</button></div>
+    <p class="lead center">${esc(t('sos_sub'))}</p>`;
 
   const watchBlock = `
-    <p class="lead">Going somewhere alone? Arm a timer. Check in safe when you arrive — if you
-      don't, your circle is alerted automatically. Nobody is contacted unless the timer runs out.</p>
-    <label>WATCH ME FOR</label>
+    <p class="lead">${esc(t('watch_sub'))}</p>
+    <label>${esc(t('watch_me_for'))}</label>
     <select id="eta" onchange="watchEta=Number(this.value)">${[10, 15, 20, 30, 45, 60].map((m) =>
-      `<option value="${m}"${m === watchEta ? ' selected' : ''}>${m} minutes</option>`).join('')}</select>
-    <button class="primary" style="margin-top:14px" onclick="startWatch()">Start journey watch</button>`;
+      `<option value="${m}"${m === watchEta ? ' selected' : ''}>${m} ${esc(t('minutes'))}</option>`).join('')}</select>
+    <button class="primary" style="margin-top:14px" onclick="startWatch()">${esc(t('start_watch'))}</button>`;
 
   $m.innerHTML = `
-    <h1>Hi ${esc(profile.name.split(' ')[0])}.</h1>
+    <h1>${esc(t('hi_name', { name: profile.name.split(' ')[0] }))}</h1>
     ${modeToggle}
     ${seekerMode === 'sos' ? sosBlock : watchBlock}
     ${citySelect}
     ${helplineCard(profile.country)}
-    <div class="card"><div class="k">YOUR CIRCLE</div>
+    <div class="card"><div class="k">${esc(t('your_circle'))}</div>
       ${profile.contacts.map((c) => `<div>${esc(c.name)} · ${esc(c.address)}</div>`).join('')}
     </div>
-    <button class="subtle" onclick="store.del('profile');render()">edit circle</button>`;
+    <button class="subtle" onclick="store.del('profile');render()">${esc(t('edit_circle'))}</button>`;
 }
 
 async function trigger() {
@@ -409,6 +544,7 @@ async function trigger() {
       pins: profile.pins,
     });
     store.set('session', { id: r.sessionId, token: r.seekerToken, t0: Date.now(), countdownMs: r.activationCountdownMs, loc, dispatched: false });
+    speakKey('v_sos');
     render();
   } catch (e) { toast(e.message); }
 }
@@ -446,6 +582,7 @@ function renderSeekerSession() {
   const sess = store.get('session');
   $m.innerHTML = '<div id="dyn"></div>';
   let last = '';
+  let spokenState = null;
   routeTick = async () => {
     let st = null;
     try {
@@ -458,6 +595,15 @@ function renderSeekerSession() {
     let code = null;
     if (st.state === 'DISPATCHED') code = (await api(`/sessions/${sess.id}/arrival-code`, undefined, 'GET', seekerAuth()).catch(() => ({}))).code;
     if (st.watchDeadline) { sess.deadline = st.watchDeadline; store.set('session', sess); }
+    // Speak the big moments aloud, once per change (respects the duress mask,
+    // since it reads the same masked client state the screen shows).
+    if (st.state !== spokenState) {
+      const live = (s) => ['ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(s);
+      if (live(st.state) && !live(spokenState || '')) speakKey('v_active');
+      else if (st.state === 'RESOLVED') speakKey('v_safe');
+      else if (['CANCELLED', 'CLOSED', 'PURGED'].includes(st.state)) speakKey('v_cancelled');
+      spokenState = st.state;
+    }
     sendPing(st.state);
     const html = seekerScreen(st.state, sess, code);
     if (html !== last && !typing()) { document.getElementById('dyn').innerHTML = html; last = html; }
@@ -466,56 +612,52 @@ function renderSeekerSession() {
 }
 
 function seekerScreen(state, sess, code) {
+  const help = helplineCard(store.get('profile', {}).country);
   if (state === 'WATCHING') {
     const leftMs = sess.deadline ? Date.parse(sess.deadline) - Date.now() : 0;
     const mins = Math.max(0, Math.floor(leftMs / 60000));
     const secs = Math.max(0, Math.floor((leftMs % 60000) / 1000));
     return `
-      <h1>Journey watch <span class="chip ACTIVE" style="color:var(--green);border-color:var(--green)">WATCHING</span></h1>
-      <p class="lead">Check in safe before the timer ends. If you don't, your circle is alerted —
-        and a coercer who makes you "check in" with your duress PIN will be silently escalated.</p>
+      <h1>🛡️ ${esc(t('watch_title'))}</h1>
       <div class="count" style="color:var(--green)">${mins}:${String(secs).padStart(2, '0')}</div>
-      <p class="lead center">until your circle is alerted</p>
-      <button class="primary" onclick="checkInSafe()">I've arrived — check in safe</button>
-      <input id="pin" inputmode="numeric" maxlength="6" placeholder="your PIN" aria-label="PIN">
-      <button class="subtle" onclick="extendWatch()">Need more time (+15 min)</button>
-      ${helplineCard(store.get('profile', {}).country)}`;
+      <p class="lead center">${esc(t('until_alerted'))}</p>
+      <button class="primary" onclick="checkInSafe()">✅ ${esc(t('check_in_safe'))}</button>
+      <input id="pin" inputmode="numeric" maxlength="6" placeholder="${esc(t('your_pin'))}" aria-label="${esc(t('your_pin'))}">
+      <button class="subtle" onclick="extendWatch()">＋ ${esc(t('more_time'))}</button>
+      ${help}`;
   }
   if (state === 'PENDING') {
     const left = Math.max(0, Math.ceil((sess.countdownMs - (Date.now() - sess.t0)) / 1000));
     return `
-      <h1 class="center" style="margin-top:26px">Activating…</h1>
+      <h1 class="center" style="margin-top:20px">${esc(t('activating'))}</h1>
       <div class="count">${left}</div>
-      <p class="lead center">Your circle is alerted when this reaches zero.</p>
-      <button class="danger" onclick="confirmNow()">I need help NOW</button>
-      <label>ENTER PIN TO CANCEL</label><input id="pin" inputmode="numeric" maxlength="4" placeholder="••••">
-      <button class="subtle" onclick="cancelSession()">Cancel session</button>`;
+      <p class="lead center">${esc(t('countdown_sub'))}</p>
+      <button class="danger" onclick="confirmNow()">${esc(t('need_help_now'))}</button>
+      <label>${esc(t('enter_pin_cancel'))}</label><input id="pin" inputmode="numeric" maxlength="6" placeholder="••••" aria-label="${esc(t('enter_pin_cancel'))}">
+      <button class="subtle" onclick="cancelSession()">${esc(t('cancel'))}</button>`;
   }
   if (['ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(state)) {
-    const steps = ['Circle alerted', 'Responder coming', 'Responder here'];
+    const steps = [t('step1'), t('step2'), t('step3')];
     const on = state === 'ACTIVE' ? 1 : state === 'DISPATCHED' ? 2 : 3;
     return `
-      <h1>Help is in motion <span class="chip ${state}">${state}</span></h1>
-      <div class="tl">${steps.map((s, i) => `<div class="step ${i < on ? 'on' : ''}">${s}</div>`).join('')}</div>
+      <h1>${esc(t('help_in_motion'))} <span class="chip ${state}">${state}</span></h1>
+      <div class="tl">${steps.map((s, i) => `<div class="step ${i < on ? 'on' : ''}">${esc(s)}</div>`).join('')}</div>
       ${mapSvg(null, sess.loc, { dot: true, hideCell: true })}
-      ${state === 'ACTIVE' && !sess.dispatched ? `<button class="primary" onclick="requestResponder()">Request a verified responder</button>` : ''}
-      ${state === 'ACTIVE' && sess.dispatched ? `<p class="lead center" style="margin-top:10px">Responders notified — waiting for one to accept…</p>` : ''}
-      ${state === 'DISPATCHED' && code ? `<p class="lead center" style="margin-top:12px">Show this code to your responder — it proves they really reached you:</p><div class="code">${code}</div>` : ''}
-      ${state === 'ARRIVED' ? `<p class="lead center" style="margin-top:12px">Your responder is with you.</p>` : ''}
-      <button onclick="resolveSession()">I am safe — end session</button>
-      ${helplineCard(store.get('profile', {}).country)}
-      <div class="foot">Your location is being recorded encrypted, inside this session only.
-        No cancel exists once a session is live — that is deliberate.</div>`;
+      ${state === 'ACTIVE' && !sess.dispatched ? `<button class="primary" onclick="requestResponder()">${esc(t('request_responder'))}</button>` : ''}
+      ${state === 'ACTIVE' && sess.dispatched ? `<p class="lead center" style="margin-top:10px">${esc(t('waiting_accept'))}</p>` : ''}
+      ${state === 'DISPATCHED' && code ? `<p class="lead center" style="margin-top:12px">${esc(t('show_code'))}</p><div class="code">${code}</div>` : ''}
+      ${state === 'ARRIVED' ? `<p class="lead center" style="margin-top:12px">🤝 ${esc(t('responder_here'))}</p>` : ''}
+      <button onclick="resolveSession()">✅ ${esc(t('i_am_safe'))}</button>
+      ${help}`;
   }
   if (state === 'RESOLVED') {
-    return `<div class="big-ico">✅</div><h1 class="center">You're safe.</h1>
-      <p class="lead center">This session will close automatically in 24&nbsp;h and its data will be
-      cryptographically destroyed 7&nbsp;days later.</p>
-      <button onclick="clearSession()">Done</button>`;
+    return `<div class="big-ico">✅</div><h1 class="center">${esc(t('youre_safe'))}</h1>
+      <p class="lead center">${esc(t('youre_safe_sub'))}</p>
+      <button onclick="clearSession()">${esc(t('done'))}</button>`;
   }
-  return `<div class="big-ico">🌙</div><h1 class="center">Session cancelled</h1>
-    <p class="lead center">Nobody was notified.</p>
-    <button onclick="clearSession()">Back to home</button>`;
+  return `<div class="big-ico">🌙</div><h1 class="center">${esc(t('cancelled'))}</h1>
+    <p class="lead center">${esc(t('nobody_notified'))}</p>
+    <button onclick="clearSession()">${esc(t('back'))}</button>`;
 }
 async function confirmNow() { try { await api(`/sessions/${store.get('session').id}/confirm`, {}, 'POST', seekerAuth()); } catch (e) { toast(e.message); } routeTick(); }
 async function cancelSession() {
