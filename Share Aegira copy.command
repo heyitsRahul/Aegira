@@ -1,12 +1,12 @@
 #!/bin/bash
-# Double-click this file to put Sahay online and get a link to share.
+# Double-click this file to put Aegira online and get a link to share.
 # (Non-technical: just double-click. A window opens, a link is copied for you.)
 
 export PATH="/usr/local/opt/node@22/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
-cd "$HOME/Desktop/Sahey/core" || { echo "Could not find the Sahay folder on your Desktop."; read -r; exit 1; }
+cd "$HOME/Desktop/Aegira/core" || { echo "Could not find the Aegira folder on your Desktop."; read -r; exit 1; }
 
 clear
-echo "Starting Sahay… please wait about 15 seconds."
+echo "Starting Aegira… please wait about 15 seconds."
 echo
 
 npm run build >/dev/null 2>&1
@@ -35,7 +35,7 @@ printf '%s' "$URL/app" | pbcopy          # link is now on your clipboard
 
 clear
 echo "==================================================================="
-echo "   SAHAY IS LIVE  —  the share link is already COPIED for you."
+echo "   Aegira IS LIVE  —  the share link is already COPIED for you."
 echo
 echo "   Paste it into WhatsApp / SMS to share:"
 echo
@@ -54,7 +54,7 @@ echo
 open "$URL/admin" >/dev/null 2>&1 &      # opens your dashboard automatically
 
 NODE_ENV=production PORT=3000 \
-  SAHAY_DB="$PWD/var/sahay.db" \
-  SAHAY_BASE_URL="$URL" \
-  SAHAY_ADMIN_TOKEN="$ADMIN" \
+  Aegira_DB="$PWD/var/Aegira.db" \
+  Aegira_BASE_URL="$URL" \
+  Aegira_ADMIN_TOKEN="$ADMIN" \
   node dist/api/main.js
