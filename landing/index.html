@@ -4,20 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aegira — Privacy-First Emergency Coordination</title>
-  <meta name="description" content="Aegira: Privacy-first emergency coordination. Consented, time-boxed, and cryptographically mortal safety sessions without persistent surveillance.">
+  <meta name="description" content="Aegira: Privacy-first emergency coordination. You are in control of your safety, location, and data, with zero persistent tracking.">
   <style>
     :root {
-      --bg: #09090b;
-      --bg-card: #121214;
-      --border: #222227;
-      --border-hover: #33333a;
+      --bg: #161618;
+      --bg-card: #1f1f23;
+      --border: #2d2d34;
+      --border-hover: #3d3d47;
       --text: #d4d4d8;
-      --text-muted: #8e8e93;
-      --text-strong: #ffffff;
-      --accent: #ff453a; /* Safety Red */
-      --accent-dim: rgba(255, 69, 58, 0.1);
-      --success: #30d158; /* Active / Real */
-      --warning: #ff9f0a; /* Pluggable / Stub */
+      --text-muted: #9ca3af;
+      --text-strong: #f4f4f5;
+      
+      /* Calm accent color - Deep Teal */
+      --accent: #14b8a6;
+      --accent-dim: rgba(20, 184, 166, 0.08);
+      --accent-border: rgba(20, 184, 166, 0.25);
+      
+      /* Warning red - reserved only for the prototype status warning */
+      --warning-red: #f43f5e;
+      --warning-red-bg: rgba(244, 63, 94, 0.06);
+      --warning-red-border: rgba(244, 63, 94, 0.25);
+      
+      --success-green: #10b981;
+      
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace;
     }
@@ -32,7 +41,8 @@
       background-color: var(--bg);
       color: var(--text);
       font-family: var(--font-sans);
-      line-height: 1.6;
+      font-size: 18px; /* Increased base font size for comfortable reading */
+      line-height: 1.75; /* Generous line height */
       padding: 0;
       margin: 0;
       -webkit-font-smoothing: antialiased;
@@ -40,9 +50,9 @@
     }
 
     .container {
-      max-width: 680px;
+      max-width: 720px;
       margin: 0 auto;
-      padding: 3rem 1.5rem;
+      padding: 4rem 2rem; /* Generous vertical and horizontal whitespace */
     }
 
     /* Header styling */
@@ -50,9 +60,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 2rem;
+      padding-bottom: 2.5rem;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 4rem;
+      margin-bottom: 5rem;
     }
 
     .logo-container {
@@ -62,7 +72,7 @@
     }
 
     .logo {
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       font-weight: 700;
       color: var(--text-strong);
       letter-spacing: 0.05em;
@@ -70,13 +80,13 @@
 
     .logo-badge {
       font-family: var(--font-mono);
-      font-size: 0.65rem;
+      font-size: 0.7rem;
       background-color: var(--accent-dim);
       color: var(--accent);
-      padding: 0.15rem 0.45rem;
-      border-radius: 2px;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
       font-weight: 600;
-      letter-spacing: 0.05em;
+      border: 1px solid var(--accent-border);
     }
 
     .status-badge {
@@ -88,32 +98,26 @@
       color: var(--text-muted);
       background-color: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--border);
-      padding: 0.25rem 0.75rem;
+      padding: 0.35rem 0.85rem;
       border-radius: 4px;
     }
 
     .status-dot {
       width: 6px;
       height: 6px;
-      background-color: var(--warning);
+      background-color: var(--accent);
       border-radius: 50%;
-      box-shadow: 0 0 6px var(--warning);
-      animation: pulse 2.5s infinite ease-in-out;
+      box-shadow: 0 0 6px var(--accent);
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 0.4; }
-      50% { opacity: 1; }
-    }
-
-    /* Typography */
+    /* Typography & Sections */
     h1 {
       font-size: 2rem;
-      font-weight: 800;
-      line-height: 1.25;
+      font-weight: 700;
+      line-height: 1.3;
       color: var(--text-strong);
-      letter-spacing: -0.03em;
-      margin-bottom: 1.75rem;
+      letter-spacing: -0.02em;
+      margin-bottom: 2rem;
     }
 
     @media (min-width: 600px) {
@@ -123,37 +127,42 @@
     }
 
     h2 {
-      font-size: 1.25rem;
+      font-size: 1.35rem;
       font-weight: 700;
       color: var(--text-strong);
-      letter-spacing: -0.02em;
-      margin-bottom: 1rem;
+      letter-spacing: -0.01em;
+      margin-bottom: 1.25rem;
     }
 
     section {
-      margin-bottom: 4.5rem;
+      margin-bottom: 5.5rem; /* Large gaps between logical sections */
     }
 
     p {
       color: var(--text-muted);
-      font-size: 0.975rem;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
     }
 
-    .intro-text {
-      font-size: 1.1rem;
-      line-height: 1.6;
-      color: var(--text);
+    /* Calm intro / Reassurance block */
+    .reassurance-block {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      padding: 2rem;
+      border-radius: 6px;
+      margin-bottom: 3.5rem;
     }
 
-    .strong-text {
+    .reassurance-block p {
       color: var(--text-strong);
-      font-weight: 500;
+      font-size: 1.05rem;
+      line-height: 1.8;
+      margin-bottom: 0;
     }
 
     .section-label {
       font-family: var(--font-mono);
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.12em;
       color: var(--accent);
@@ -162,59 +171,37 @@
       font-weight: 700;
     }
 
-    /* Problem Section */
-    .problem-box {
-      border-left: 1px solid var(--accent);
-      background-color: rgba(255, 69, 58, 0.01);
-      padding: 1.25rem 1.5rem;
-      margin-top: 1.5rem;
+    /* Explanation Layout */
+    .concept-item {
+      margin-bottom: 2rem;
     }
 
-    .problem-box p {
+    .concept-item:last-child {
       margin-bottom: 0;
-      color: var(--text);
-      font-size: 0.95rem;
     }
 
-    /* Differentiators Grid */
-    .diff-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1.25rem;
-      margin-top: 1.5rem;
-    }
-
-    @media (min-width: 600px) {
-      .diff-grid {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    .diff-card {
-      background-color: var(--bg-card);
-      border: 1px solid var(--border);
-      padding: 1.5rem;
-      border-radius: 4px;
-      transition: border-color 0.2s ease, background-color 0.2s ease;
-    }
-
-    .diff-card:hover {
-      border-color: var(--border-hover);
-      background-color: rgba(255, 255, 255, 0.01);
-    }
-
-    .diff-card h3 {
-      font-size: 0.95rem;
+    .concept-item h3 {
+      font-size: 1.1rem;
       font-weight: 600;
       color: var(--text-strong);
       margin-bottom: 0.5rem;
-      letter-spacing: -0.01em;
     }
 
-    .diff-card p {
-      font-size: 0.875rem;
-      line-height: 1.5;
+    .concept-item p {
+      font-size: 0.95rem;
+      line-height: 1.6;
       margin-bottom: 0;
+    }
+
+    .technical-term {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--accent);
+      background-color: var(--accent-dim);
+      padding: 0.1rem 0.4rem;
+      border-radius: 3px;
+      display: inline-block;
+      margin-top: 0.5rem;
     }
 
     /* Access Channels Table */
@@ -222,20 +209,20 @@
       overflow-x: auto;
       margin-top: 1.5rem;
       border: 1px solid var(--border);
-      border-radius: 4px;
+      border-radius: 6px;
       background-color: var(--bg-card);
     }
 
     .channels-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       text-align: left;
     }
 
     .channels-table th, 
     .channels-table td {
-      padding: 1rem 1.25rem;
+      padding: 1.25rem 1.5rem;
       border-bottom: 1px solid var(--border);
     }
 
@@ -258,40 +245,41 @@
     }
 
     .channels-table tr:hover td {
-      color: var(--text);
+      color: var(--text-strong);
     }
 
     .channel-route-tag {
       font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       color: var(--accent);
       background-color: var(--accent-dim);
-      padding: 0.2rem 0.5rem;
-      border-radius: 3px;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
       text-decoration: none;
-      border: 1px solid rgba(255, 69, 58, 0.15);
+      border: 1px solid var(--accent-border);
       display: inline-block;
       transition: background-color 0.2s ease, border-color 0.2s ease;
     }
 
     .channel-route-tag:hover {
-      background-color: rgba(255, 69, 58, 0.2);
-      border-color: rgba(255, 69, 58, 0.3);
+      background-color: rgba(20, 184, 166, 0.18);
+      border-color: rgba(20, 184, 166, 0.4);
     }
 
-    /* Administrative Routes */
+    /* Administrative Channels */
     .admin-routes {
-      margin-top: 1.5rem;
-      padding: 1.25rem;
+      margin-top: 2rem;
+      padding: 1.5rem;
       border: 1px dashed var(--border);
-      border-radius: 4px;
+      border-radius: 6px;
+      background-color: rgba(255, 255, 255, 0.005);
     }
 
     .admin-routes h3 {
-      font-size: 0.875rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--text-strong);
-      margin-bottom: 0.75rem;
+      margin-bottom: 1rem;
     }
 
     .admin-routes ul {
@@ -300,9 +288,9 @@
     }
 
     .admin-routes li {
-      font-size: 0.875rem;
+      font-size: 0.9rem;
       color: var(--text-muted);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
       display: flex;
       flex-wrap: wrap;
       align-items: baseline;
@@ -313,12 +301,38 @@
       margin-bottom: 0;
     }
 
+    /* Genuine Status Warning Box */
+    .warning-box {
+      border: 1px solid var(--warning-red-border);
+      background-color: var(--warning-red-bg);
+      padding: 1.5rem;
+      border-radius: 6px;
+      margin-bottom: 2rem;
+    }
+
+    .warning-box h3 {
+      font-size: 0.95rem;
+      color: var(--warning-red);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+      font-family: var(--font-mono);
+    }
+
+    .warning-box p {
+      margin-bottom: 0;
+      color: var(--text);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
     /* Real vs Stub Lists */
     .status-container {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 2rem;
-      margin-top: 1.5rem;
+      gap: 2.5rem;
+      margin-top: 2rem;
     }
 
     @media (min-width: 600px) {
@@ -328,10 +342,10 @@
     }
 
     .status-list-container h3 {
-      font-size: 0.875rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--text-strong);
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
       padding-bottom: 0.5rem;
       border-bottom: 1px solid var(--border);
     }
@@ -341,13 +355,13 @@
     }
 
     .status-items li {
-      font-size: 0.875rem;
+      font-size: 0.9rem;
       color: var(--text-muted);
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.85rem;
       display: flex;
       gap: 0.6rem;
       align-items: flex-start;
-      line-height: 1.4;
+      line-height: 1.5;
     }
 
     .status-items li::before {
@@ -356,21 +370,21 @@
       width: 5px;
       height: 5px;
       border-radius: 50%;
-      background-color: var(--success);
-      margin-top: 0.5rem;
+      background-color: var(--success-green);
+      margin-top: 0.6rem;
       flex-shrink: 0;
     }
 
     .status-items.stubbed li::before {
-      background-color: var(--warning);
+      background-color: var(--warning-red);
     }
 
     /* Footer */
     footer {
-      margin-top: 6rem;
-      padding-top: 2rem;
+      margin-top: 8rem;
+      padding-top: 2.5rem;
       border-top: 1px solid var(--border);
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       color: var(--text-muted);
     }
 
@@ -389,14 +403,14 @@
     }
 
     .footer-policy {
-      max-width: 420px;
+      max-width: 440px;
       line-height: 1.6;
     }
 
     .footer-meta {
       text-align: left;
       font-family: var(--font-mono);
-      font-size: 0.7rem;
+      font-size: 0.75rem;
     }
 
     @media (min-width: 600px) {
@@ -424,64 +438,82 @@
     </header>
 
     <main>
-      <!-- Hero Section -->
-      <section>
-        <h1>Help, on any phone, without becoming a surveillance system.</h1>
-        <p class="intro-text">
-          Aegira turns a trigger into a consented, time-boxed, cryptographically mortal <span class="strong-text">session</span>. The power to see someone's location or summon aid exists only inside that session, and is permanently destroyed when it ends.
-        </p>
-      </section>
-
-      <!-- The Problem -->
-      <section>
-        <span class="section-label">Problem</span>
-        <h2>Privacy Trade-offs in Coordination</h2>
-        <p>
-          Emergency coordination systems often trade user privacy for utility, retaining sensitive location histories in persistent databases, cache files, logs, or analytics feeds. This introduces ongoing risk from data breaches, platform surveillance, or external subpoenas. Furthermore, many solutions require modern smartphones and stable internet connectivity, leaving feature phones and lower-end hardware unsupported.
-        </p>
-        <div class="problem-box">
+      <!-- Reassurance Section: Direct statement of control -->
+      <section aria-labelledby="reassurance-heading">
+        <h2 id="reassurance-heading" class="section-label">Your Safety & Control</h2>
+        <div class="reassurance-block">
           <p>
-            Aegira solves this by ensuring location capability is strictly session-bound, using ephemeral cryptography for true data deletion, and providing accessibility channels for every tier of hardware.
+            You are in control. If you need support, Aegira is designed to help you on your own terms. Nothing happens without your explicit consent. You decide who can see your location and exactly how long they can see it. The moment you choose to end a session, it is permanently closed. You never have to justify your situation, and you do not need to be certain of danger before you ask for help.
           </p>
         </div>
       </section>
 
-      <!-- Differentiators -->
-      <section>
-        <span class="section-label">Design Invariants</span>
-        <h2>Four Differentiators</h2>
-        <div class="diff-grid">
-          <div class="diff-card">
-            <h3>Session-shaped capability</h3>
-            <p>No location ever exists outside a session — not in a table, cache, log, or analytics event.</p>
+      <!-- What it is / Plain Headline -->
+      <section aria-labelledby="about-heading">
+        <span class="section-label">Overview</span>
+        <h1 id="about-heading">Help, on any phone, without becoming a surveillance system.</h1>
+        <p>
+          Aegira is a privacy-first emergency coordination platform. Instead of keeping a permanent log of where you are or who you contact, it limits location sharing and emergency coordination to a brief, temporary window.
+        </p>
+      </section>
+
+      <!-- Key Differentiators / How it behaves -->
+      <section aria-labelledby="principles-heading">
+        <span class="section-label">Core Invariants</span>
+        <h2 id="principles-heading">Four Design Guarantees</h2>
+        <p>Aegira enforces your privacy through its core software architecture, not just a policy promise.</p>
+
+        <div class="concept-list">
+          <div class="concept-item">
+            <h3>Location sharing is strictly temporary</h3>
+            <p>Your location only exists while a session is active. It is never stored in database tables, browser caches, system logs, or background analytics.</p>
+            <span class="technical-term">session-shaped capability</span>
           </div>
-          <div class="diff-card">
-            <h3>Crypto-mortal data</h3>
-            <p>Deletion means destroying the per-session key (crypto-shredding). What the platform cannot decrypt, it cannot leak or be subpoenaed for.</p>
+
+          <div class="concept-item">
+            <h3>Your data destroys itself when finished</h3>
+            <p>When you end a session, the key needed to read your information is permanently destroyed. What the platform cannot decrypt, it can never leak, and it cannot be forced to share with third parties or legal authorities.</p>
+            <span class="technical-term">crypto-mortal data / crypto-shredding</span>
           </div>
-          <div class="diff-card">
-            <h3>Duress by design</h3>
-            <p>A duress PIN returns a response indistinguishable from success while silently escalating — for cancel and for journey check-in.</p>
+
+          <div class="concept-item">
+            <h3>Safe check-in and cancellation under pressure</h3>
+            <p>If you are forced to cancel an alert or check in against your will, entering a specific secondary number returns a screen that looks identical to a normal success message, while silently notifying your contacts of the situation.</p>
+            <span class="technical-term">duress by design</span>
           </div>
-          <div class="diff-card">
-            <h3>Runs on every phone</h3>
-            <p>Smartphone app (PWA), a zero-JavaScript web version for old browsers, and a full SMS gateway for phones with no browser at all.</p>
+
+          <div class="concept-item">
+            <h3>Runs on any mobile hardware</h3>
+            <p>You can access help on any phone. Aegira is available as a modern smartphone app, a lightweight web interface with zero scripts for older devices, or entirely over standard text messages without internet access.</p>
+            <span class="technical-term">runs on every phone</span>
           </div>
         </div>
       </section>
 
+      <!-- The Problem it Resolves -->
+      <section aria-labelledby="problem-heading">
+        <span class="section-label">Architecture Rationale</span>
+        <h2 id="problem-heading">Why this approach is necessary</h2>
+        <p>
+          Most safety and emergency coordination tools trade privacy for utility. They record and retain sensitive location histories in database records, temporary cache files, or analytics tracking. This builds up a permanent trail of your movement, exposing you to ongoing risks from security breaches, platform tracking, or external subpoenas. Many of these tools also require high-speed internet and modern smartphones, which means they do not work on basic feature phones or under poor network conditions.
+        </p>
+        <p>
+          Aegira is built to fix this. It ensures location information is locked inside active sessions, deletes details permanently using automated key destruction, and supports communication channels that run without internet connectivity.
+        </p>
+      </section>
+
       <!-- Access Channels -->
-      <section>
-        <span class="section-label">Interface</span>
-        <h2>Three Access Channels</h2>
-        <p>Aegira operates across three dedicated channels, ensuring complete device coverage from high-end smartphones to basic feature phones without internet access.</p>
+      <section aria-labelledby="channels-heading">
+        <span class="section-label">Interface Entrypoints</span>
+        <h2 id="channels-heading">Three Access Channels</h2>
+        <p>You can connect to Aegira in the way that best fits your device and network coverage.</p>
         
         <div class="channels-table-wrapper">
           <table class="channels-table">
             <thead>
               <tr>
                 <th>Channel</th>
-                <th>For</th>
+                <th>Designed For</th>
                 <th>Route / Entrypoint</th>
               </tr>
             </thead>
@@ -493,12 +525,12 @@
               </tr>
               <tr>
                 <td><span class="strong-text">Lite web</span></td>
-                <td>Old / low-end browsers (no JS)</td>
+                <td>Older or low-end browsers (no JavaScript required)</td>
                 <td><a href="/lite" class="channel-route-tag">/lite</a></td>
               </tr>
               <tr>
                 <td><span class="strong-text">SMS</span></td>
-                <td>Any phone (no internet)</td>
+                <td>Any mobile phone (no internet connection needed)</td>
                 <td><a href="/phone" class="channel-route-tag">POST /gateway/sms</a></td>
               </tr>
             </tbody>
@@ -506,27 +538,33 @@
         </div>
 
         <div class="admin-routes">
-          <h3>Administrative & Supporting Consoles</h3>
+          <h3>Administrative & System Consoles</h3>
           <ul>
             <li>
-              <span>Ops Console:</span>
+              <span>Operations Console:</span>
               <a href="/console" class="channel-route-tag">/console</a>
-              <span>(Server-truth view: duress mask vs. reality)</span>
+              <span>(Server-truth view displaying duress mask vs. reality)</span>
             </li>
             <li>
               <span>Founder Dashboard:</span>
               <a href="/admin" class="channel-route-tag">/admin</a>
-              <span>(Waitlist and aggregate metrics, token-gated)</span>
+              <span>(Waitlist registry and aggregate metrics, token-gated)</span>
             </li>
           </ul>
         </div>
       </section>
 
-      <!-- Status (Real vs Stub) -->
-      <section>
-        <span class="section-label">State of Development</span>
-        <h2>What's Real vs. Stub</h2>
-        <p>Aegira is a working prototype. Core logic, state machines, encryption mechanisms, and protocols are real and validated through 282 tests. Infrastructure integrations use pluggable stubs ready for production implementations.</p>
+      <!-- Honest Status Section -->
+      <section aria-labelledby="status-heading">
+        <span class="section-label">Development Integrity</span>
+        <h2 id="status-heading">State of Development</h2>
+        
+        <div class="warning-box">
+          <h3>System Warning</h3>
+          <p>
+            Aegira is currently a working prototype. The core session lifecycle, state machines, encryption, and protocols are real and validated through 282 tests. However, external delivery systems and third-party integrations are stubs (simulations). Do not rely on this prototype for active emergencies in its current state without configuring these connections.
+          </p>
+        </div>
 
         <div class="status-container">
           <div class="status-list-container">
@@ -559,11 +597,11 @@
     <footer>
       <div class="footer-flex">
         <div class="footer-policy">
-          This site does not use cookies, trackers, analytic scripts, or external CDNs. In line with the core design principles of Aegira, we practice absolute privacy preservation.
+          This site does not use cookies, trackers, analytics scripts, or external content delivery networks. In line with the design principles of Aegira, we practice absolute privacy preservation.
         </div>
         <div class="footer-meta">
           <div>Status: Working Prototype</div>
-          <div>Tests: 282 passing</div>
+          <div>Validation: 282 tests passing</div>
           <div>License: All rights reserved pending a decision</div>
         </div>
       </div>
