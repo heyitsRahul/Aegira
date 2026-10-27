@@ -82,7 +82,7 @@ enforced by the test suite in CI.
   send real SMS.
 - **Resilient notifications.** A failed SMS channel is counted, never allowed
   to stop the emergency or the other channels.
-- **393 tests**, typecheck and build in GitHub Actions on every push.
+- **394 tests**, typecheck and build in GitHub Actions on every push.
 - **Attack and chaos tests:** 300 random runs of every action in any order
   (rules re-checked after every step), and the real server attacked over
   HTTP: 1,000+ malformed inputs, stolen tokens, floods of simultaneous
@@ -109,7 +109,7 @@ core/test/             Vitest: state machine, privacy-negative, hygiene, clock-d
 ```bash
 cd core
 npm install
-npm test                      # 393 tests
+npm test                      # 394 tests
 npm run build && npm start    # http://localhost:3000
 ```
 

@@ -23,9 +23,6 @@ export function configureHttp(
   options: { postsPerMinute?: number } = {},
 ): void {
   app.disable('x-powered-by');
-  // Behind the host's one load balancer: the client address is the last
-  // hop it adds to X-Forwarded-For, not something the caller can type.
-  app.set('trust proxy', 1);
   app.useGlobalFilters(new DomainErrorFilter());
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -50,6 +47,21 @@ export const POSTS_PER_MINUTE = 300;
 const WINDOW_MS = 60_000;
 
 /**
+ * Who is asking. The live demo sits behind Cloudflare, which puts the real
+ * visitor address in CF-Connecting-IP and overwrites any value a visitor
+ * sends. Without it (local runs), the direct connection address is used.
+ * X-Forwarded-For is not used: behind two proxies its last entry is the
+ * proxy, which would lump many visitors into one count.
+ */
+function clientKey(req: Request): string {
+  const cloudflare = req.headers['cf-connecting-ip'];
+  if (typeof cloudflare === 'string' && cloudflare.length > 0 && cloudflare.length <= 45) {
+    return cloudflare;
+  }
+  return req.socket?.remoteAddress ?? req.ip ?? 'unknown';
+}
+
+/**
  * Counts POSTs per client address in one-minute windows. SMS webhooks are
  * exempt: they are signed, and one phone relays everyone's texts.
  */
@@ -65,7 +77,7 @@ export function postLimiter(limit: number, now: () => number) {
       windowStart = now();
       counts = new Map();
     }
-    const key = req.ip ?? 'unknown';
+    const key = clientKey(req);
     const count = (counts.get(key) ?? 0) + 1;
     counts.set(key, count);
     if (count > limit) {

@@ -27,7 +27,7 @@ Live link: <https://aegira.onrender.com>
   fixed crash, clickjacking and flooding gaps before launch.
 - Built with AI-assisted development (Claude Code): I set the product spec,
   safety rules and priorities, and reviewed every feature against them;
-  393 automated tests, CI on every push.
+  394 automated tests, CI on every push.
 
 Pick the 3–4 bullets that fit the job. For product roles, lead with the rules,
 the duress PIN and the accessibility bullets. For engineering roles, add a

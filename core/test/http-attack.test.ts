@@ -182,7 +182,7 @@ describe('flood limit', () => {
   function rig(limit: number) {
     let clock = 0;
     const limiter = postLimiter(limit, () => clock);
-    const send = (ip: string, path = '/sessions', method = 'POST') => {
+    const send = (ip: string, path = '/sessions', method = 'POST', headers: Record<string, string> = {}) => {
       const sent = { status: 200, body: '' as unknown, passed: false };
       const res = {
         setHeader() {},
@@ -191,7 +191,8 @@ describe('flood limit', () => {
         json(body: unknown) { sent.body = body; },
         send(body: unknown) { sent.body = body; },
       };
-      limiter({ method, path, ip } as never, res as never, () => { sent.passed = true; });
+      const req = { method, path, headers, socket: { remoteAddress: ip } };
+      limiter(req as never, res as never, () => { sent.passed = true; });
       return sent;
     };
     return { send, tick: (ms: number) => { clock += ms; } };
@@ -223,6 +224,14 @@ describe('flood limit', () => {
     expect(lite.status).toBe(429);
     expect(String(lite.body)).toContain('<html');
     expect(String(lite.body)).toContain('112');
+  });
+
+  it("behind Cloudflare, each visitor is counted by Cloudflare's real-visitor address", () => {
+    const { send } = rig(1);
+    const proxy = '172.70.0.1'; // every visitor arrives from the proxy
+    expect(send(proxy, '/sessions', 'POST', { 'cf-connecting-ip': '49.36.0.1' }).passed).toBe(true);
+    expect(send(proxy, '/sessions', 'POST', { 'cf-connecting-ip': '49.36.0.2' }).passed).toBe(true);
+    expect(send(proxy, '/sessions', 'POST', { 'cf-connecting-ip': '49.36.0.1' }).passed).toBe(false);
   });
 
   it('the real server is set to a limit no person tapping would reach', () => {

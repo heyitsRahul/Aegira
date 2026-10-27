@@ -57,7 +57,7 @@ safety apps have three gaps:
 
 ## How I tested it
 
-The project has 393 automated tests that run every time the code changes.
+The project has 394 automated tests that run every time the code changes.
 Some of them are deliberately hard:
 
 - **Chaos testing.** A program does 300 runs of 60 random actions each (press
