@@ -1,10 +1,26 @@
-import { Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Body,
+  Catch,
+  Controller,
+  ExceptionFilter,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Query,
+  UseFilters,
+} from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ActiveSessionExistsError,
   CancelNotAllowedError,
   InvalidInputError,
   InvalidPinError,
+  DomainError,
   LocationUnknownError,
+  NotAuthenticatedError,
+  SessionNotFoundError,
 } from '../domain/errors';
 import { RegistrationService } from '../services/registration.service';
 import { SessionService } from '../services/session.service';
@@ -22,6 +38,33 @@ import { ResponderRegistry } from './responder-registry';
 import { RESPONDER_REGISTRY, SESSION_SERVICE } from './session.controller';
 
 export const REGISTRATIONS = 'REGISTRATIONS';
+
+/** Error text for people: drop the technical "invalid input:" prefix. */
+const plain = (message: string): string => message.replace(/^invalid input: /, '');
+
+/**
+ * The lite channel answers every error with a readable page, never the
+ * JSON the app gets: a mistyped phone number on an old phone must still
+ * show a way back.
+ */
+@Catch(DomainError)
+export class LiteErrorFilter implements ExceptionFilter {
+  catch(error: DomainError, host: ArgumentsHost): void {
+    const response = host.switchToHttp().getResponse<Response>();
+    const notFound = error instanceof SessionNotFoundError;
+    const denied = error instanceof NotAuthenticatedError;
+    response
+      .status(notFound ? 404 : denied ? 401 : 400)
+      .type('html')
+      .send(
+        notFound
+          ? messagePage('Not found', 'This link has ended or is not right.')
+          : denied
+            ? messagePage('Link not allowed', 'This link is not right. Use the link in your message.')
+            : messagePage('Please check', `${plain(error.message)}. Go back and try again.`),
+      );
+  }
+}
 
 /**
  * Where a lite session starts: a listed area if chosen, plus the place in
@@ -41,15 +84,15 @@ function startWhere(
 }
 
 const STATE_TEXT: Record<string, string> = {
-  WATCHING: 'Journey watch active. Mark safe when you arrive, or extend the time.',
-  PENDING: 'SOS received - activating shortly. Cancel from the home page if accidental.',
-  ACTIVE: 'Your circle is alerted. Help is in motion.',
-  DISPATCHED: 'A verified responder is on the way.',
-  ARRIVED: 'Your responder is with you.',
-  RESOLVED: 'Session resolved. Stay safe.',
-  CANCELLED: 'No active session.',
-  CLOSED: 'No active session.',
-  PURGED: 'No active session.',
+  WATCHING: 'Your timer is on. When you reach, say so below. Need more time? Add it below.',
+  PENDING: 'Help is starting. You can still cancel with your PIN.',
+  ACTIVE: 'Your people have been told. Help is coming.',
+  DISPATCHED: 'A trained helper is on the way.',
+  ARRIVED: 'Your helper is with you.',
+  RESOLVED: 'You are safe. Take care.',
+  CANCELLED: 'Nothing is running right now.',
+  CLOSED: 'Nothing is running right now.',
+  PURGED: 'Nothing is running right now.',
 };
 
 /**
@@ -59,6 +102,7 @@ const STATE_TEXT: Record<string, string> = {
  * the cancel result page is one shared render for safe and duress.
  */
 @Controller('lite')
+@UseFilters(LiteErrorFilter)
 export class LiteController {
   constructor(
     @Inject(SESSION_SERVICE) private readonly sessions: SessionService,
@@ -94,12 +138,12 @@ export class LiteController {
         body.pinDuress ?? '',
       );
       return messagePage(
-        'Registered',
-        `Welcome ${record.displayName}. You can now send an SOS from the home page or by SMS.`,
+        'You are signed up',
+        `Welcome ${record.displayName}. In danger, use “I need help now” on the start page, or send SOS by SMS.`,
       );
     } catch (error) {
       if (error instanceof InvalidInputError) {
-        return messagePage('Could not register', error.message);
+        return messagePage('Could not sign up', plain(error.message));
       }
       throw error;
     }
@@ -111,7 +155,7 @@ export class LiteController {
   ): string {
     const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
     if (registration === undefined) {
-      return messagePage('Not registered', 'Register first from the home page.');
+      return messagePage('Please sign up first', 'Fill in “First time? Sign up” at the bottom of the start page.');
     }
     const where = startWhere(body.area, body.place);
     try {
@@ -129,7 +173,7 @@ export class LiteController {
       return sosAcceptedPage(Math.round(receipt.activationCountdownMs / 1000));
     } catch (error) {
       if (error instanceof ActiveSessionExistsError) {
-        return messagePage('Already running', 'You already have a session. Check STATUS.', true);
+        return messagePage('Help is already running', 'You already asked for help. Check what is happening below.', true);
       }
       throw error;
     }
@@ -141,12 +185,12 @@ export class LiteController {
   ): string {
     const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
     if (registration === undefined) {
-      return messagePage('Not registered', 'Register first from the home page.');
+      return messagePage('Please sign up first', 'Fill in “First time? Sign up” at the bottom of the start page.');
     }
     const where = startWhere(body.area, body.place);
     const minutes = Number(body.minutes);
     if (!Number.isFinite(minutes) || minutes <= 0) {
-      return messagePage('Pick a time', 'Choose how many minutes to be watched for.');
+      return messagePage('How many minutes?', 'Type how many minutes it will take you to reach.');
     }
     try {
       this.sessions.startWatch(
@@ -161,14 +205,14 @@ export class LiteController {
         Math.round(minutes * 60 * 1000),
       );
       return messagePage(
-        'Watch started',
-        `We are watching your journey for ${minutes} minutes. Use the STATUS form to mark ` +
-          'yourself safe or extend the time. If you do not, your circle will be alerted.',
+        'Timer started',
+        `Your timer is on for ${minutes} minutes. When you reach, press CHECK and say you ` +
+          'reached. If you do not, your people get a message.',
         true,
       );
     } catch (error) {
       if (error instanceof ActiveSessionExistsError) {
-        return messagePage('Already running', 'You already have a session. Check STATUS.', true);
+        return messagePage('Help is already running', 'You already asked for help. Check what is happening below.', true);
       }
       throw error;
     }
@@ -178,7 +222,7 @@ export class LiteController {
   extend(@Body() body: { phone?: string; pin?: string; minutes?: string; dial?: string }): string {
     const phone = applyDial(body.phone ?? '', body.dial);
     if (this.registrations.verifyPin(phone, body.pin ?? '') === 'invalid') {
-      return messagePage('Wrong PIN', 'Wrong PIN.');
+      return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
     }
     const registration = this.registrations.find(phone);
     const sessionId =
@@ -187,13 +231,13 @@ export class LiteController {
         : this.sessions.latestSessionIdForUser(registration.phoneRef);
     const minutes = Number(body.minutes);
     if (sessionId === null || !Number.isFinite(minutes) || minutes <= 0) {
-      return messagePage('Could not extend', 'No journey watch to extend.');
+      return messagePage('No timer', 'No timer is running.');
     }
     try {
       this.sessions.extendWatch(sessionId, Math.round(minutes * 60 * 1000));
-      return messagePage('Extended', `Journey watch extended by ${minutes} minutes.`, true);
+      return messagePage('More time added', `OK, ${minutes} more minutes.`, true);
     } catch {
-      return messagePage('Could not extend', 'No journey watch to extend.');
+      return messagePage('No timer', 'No timer is running.');
     }
   }
 
@@ -205,7 +249,7 @@ export class LiteController {
         ? null
         : this.sessions.latestSessionIdForUser(registration.phoneRef);
     if (sessionId === null) {
-      return messagePage('No session', 'No active session.');
+      return messagePage('Nothing running', 'Nothing is running right now.');
     }
     try {
       await this.sessions.cancel(sessionId, body.pin ?? '');
@@ -213,10 +257,10 @@ export class LiteController {
       return cancelledPage();
     } catch (error) {
       if (error instanceof InvalidPinError) {
-        return messagePage('Wrong PIN', 'Wrong PIN.');
+        return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
       }
       if (error instanceof CancelNotAllowedError) {
-        return messagePage('Too late', 'This session is live and can no longer be cancelled.');
+        return messagePage('Too late to cancel', 'Help has already been sent, so it cannot be cancelled now.');
       }
       throw error;
     }
@@ -226,7 +270,7 @@ export class LiteController {
   status(@Body() body: { phone?: string; pin?: string; dial?: string }): string {
     const phone = applyDial(body.phone ?? '', body.dial);
     if (this.registrations.verifyPin(phone, body.pin ?? '') === 'invalid') {
-      return messagePage('Wrong PIN', 'Wrong PIN.');
+      return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
     }
     const registration = this.registrations.find(phone);
     const sessionId =
@@ -255,7 +299,7 @@ export class LiteController {
         ? null
         : this.sessions.latestSessionIdForUser(registration.phoneRef);
     if (sessionId === null) {
-      return messagePage('No session', 'No active session.');
+      return messagePage('Nothing running', 'Nothing is running right now.');
     }
     const state = this.sessions.opsView(sessionId).state;
     // On a journey watch, "mark safe" is the check-in: safe PIN ends it,
@@ -263,19 +307,19 @@ export class LiteController {
     if (state === 'WATCHING') {
       try {
         await this.sessions.checkInSafe(sessionId, body.pin ?? '');
-        return messagePage('Checked in safe', 'Glad you arrived. Take care.');
+        return messagePage('You reached safely', 'Good. Take care.');
       } catch {
-        return messagePage('Wrong PIN', 'Wrong PIN.');
+        return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
       }
     }
     if (this.registrations.verifyPin(phone, body.pin ?? '') !== 'safe') {
-      return messagePage('Wrong PIN', 'Wrong PIN.');
+      return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
     }
     if (state !== 'ACTIVE' && state !== 'DISPATCHED' && state !== 'ARRIVED') {
-      return messagePage('No session', 'No active session.');
+      return messagePage('Nothing running', 'Nothing is running right now.');
     }
     this.sessions.resolve(sessionId);
-    return messagePage('Marked safe', 'Session resolved. Take care.');
+    return messagePage('You are safe', 'Good. Take care.');
   }
 
   /** Contact live view — the link in alert SMS works on any browser. */
@@ -299,17 +343,21 @@ export class LiteController {
   @Post('c/:id/dispatch')
   async contactDispatch(@Param('id') id: string, @Query('t') token?: string): Promise<string> {
     this.sessions.authorizeSeekerOrContact(id, null, token ?? null);
+    let asked = 0;
     try {
-      await this.sessions.dispatch(id, this.responders.all());
+      asked = (await this.sessions.dispatch(id, this.responders.all())).length;
     } catch (error) {
       if (error instanceof LocationUnknownError) {
         return messagePage(
-          'No location yet',
-          "We don't know where they are, so no helper can be sent. Call them, or call 112.",
+          'We do not know where they are',
+          'So no helper can go. Call them, or call 112.',
         );
       }
       throw error;
     }
-    return messagePage('Dispatched', 'Verified responders have been asked to help.');
+    if (asked === 0) {
+      return messagePage('No helper close by', 'No trained helper is near them right now. Call them, or call 112.');
+    }
+    return messagePage('Helper asked', 'We have asked trained helpers to go.');
   }
 }

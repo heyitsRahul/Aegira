@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0e14">
+<meta name="theme-color" content="#0b0e14" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -34,7 +35,9 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
   #frame {
     width:100%; max-width:412px; min-height:100vh; background:var(--bg);
     display:flex; flex-direction:column; position:relative; overflow:hidden;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
   }
+  button, a, input, select { touch-action:manipulation; }
   header {
     display:flex; align-items:center; gap:10px; padding:16px 18px 10px;
   }
@@ -149,6 +152,9 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
   .steps{margin:8px 0 4px 20px;padding:0}.steps li{margin:6px 0;font-size:14px}
   .card.how{border-color:var(--blue)}.card.how .row{align-items:center;margin-top:6px}
   .loc{font-size:13px;color:var(--dim);margin-top:14px}
+  .soon .soon-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .soon .soon-list button{width:auto;margin:0;padding:8px 12px;font-size:15px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;min-height:40px}
+  .soon .soon-list button.on{border-color:var(--green);color:var(--green)}
   @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
   @media (prefers-color-scheme: light) {
     :root { --bg:#f6f7f9; --panel:#fff; --panel2:#eef1f5; --line:#d4dae3; --ink:#11151c; --dim:#5b6472; }
@@ -168,7 +174,7 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
   </header>
   <main id="main"></main>
 </div>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 /* ----------------------------- utilities ----------------------------- */
@@ -180,6 +186,16 @@ const store = {
   set: (k, v) => localStorage.setItem('aegira.' + k, JSON.stringify(v)),
   del: (k) => localStorage.removeItem('aegira.' + k),
 };
+// Server and network errors in plain words, in the chosen language.
+function friendlyError(e) {
+  const m = String((e && e.message) || '');
+  if (/location unknown/i.test(m)) return t('err_location');
+  if (/invalid pin|wrong pin/i.test(m)) return t('err_pin');
+  if (/already live/i.test(m)) return t('err_live');
+  if (/failed to fetch|networkerror|load failed/i.test(m)) return t('err_network');
+  if (/^invalid input: /i.test(m)) return m.replace(/^invalid input: /i, '');
+  return t('err_generic');
+}
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.opacity = 1;
@@ -208,7 +224,7 @@ const CATS = {
   accident:        { label: 'Accident',        ico: '⚠️' },
   other:           { label: 'Other',           ico: '❓' },
 };
-const catLabel = (k) => (CATS[k] ? CATS[k].label : k);
+const catLabel = (k) => (CATS[k] ? t('cat_' + k) : k);
 
 // Indian demo cities for the location simulation. Real deployments read
 // the device's GPS; here the seeker picks (or we default to the first).
@@ -227,10 +243,12 @@ const refReady = fetch('/reference').then((r) => r.json()).then((d) => { REF = d
 function helplinesFor(country) {
   return (REF.helplines && REF.helplines[country]) || [{ label: 'Emergency', number: '112' }];
 }
+// Helpline names in the chosen language, falling back to English.
+function hlLabel(label) { const l = langCode() || 'en'; return (STR[l] && STR[l]['hl_' + label]) || label; }
 function helplineCard(country) {
   const c = country || (store.get('profile', {}).country) || REF.defaultCountry || 'IN';
   const nums = helplinesFor(c).map((h) =>
-    `<a href="tel:${esc(h.number)}"><b>${esc(h.number)}</b><span>${esc(h.label)}</span></a>`).join('');
+    `<a href="tel:${esc(h.number)}"><b>${esc(h.number)}</b><span>${esc(hlLabel(h.label))}</span></a>`).join('');
   return `<div class="help"><div class="k">${esc(t('helplines_title'))}</div><div class="nums">${nums}</div></div>`;
 }
 function countrySelect(id, selected) {
@@ -253,132 +271,210 @@ const STR = {
   en: {
     pick_language: 'Choose your language', tap_to_continue: 'Tap your language',
     language: 'Language', sound_on: '🔊 Sound on', sound_off: '🔇 Sound off',
+    more_langs: 'More Indian languages coming soon. Tap yours, so we add it first:',
+    vote_thanks: 'Thank you! We will add it soon. For now, choose English or हिंदी.',
     choose_role: 'Who is using this phone?',
-    role_seeker: 'I need help', role_seeker_sub: 'In danger? Press a button for help.',
-    role_contact: 'I watch over someone', role_contact_sub: 'Get alerts, see their live location.',
-    role_responder: "I'm a verified helper", role_responder_sub: 'Accept requests. You never see who.',
-    no_smartphone: 'No smartphone? This also works on a basic web page and over SMS.',
-    hi_name: 'Hi {name}', mode_sos: 'Emergency', mode_watch: 'Watch my journey',
-    what_happening: 'What is happening?',
-    cat_personal_safety: 'Safety', cat_medical: 'Medical', cat_accident: 'Accident', cat_other: 'Other',
-    sos_sub: 'Starts in 30 seconds. You can cancel.',
-    demo_location: 'Location (a real phone uses GPS)',
-    your_circle: 'Your trusted people', edit_circle: 'Edit',
-    helplines_title: 'Official help — tap to call',
-    activating: 'Sending help…', countdown_sub: 'Your people are alerted at zero.',
-    need_help_now: 'I need help NOW', enter_pin_cancel: 'Enter PIN to cancel', cancel: 'Cancel',
+    role_seeker: 'I need help', role_seeker_sub: 'Press one button to get help.',
+    role_contact: 'I look after someone', role_contact_sub: 'Get a message when they need help.',
+    role_responder: 'I am a trained helper', role_responder_sub: 'Go and help. You never see their name.',
+    no_smartphone: 'No smartphone? It also works on a simple web page and by SMS.',
+    hi_name: 'Hi {name}', mode_sos: 'Emergency', mode_watch: 'Going somewhere',
+    what_happening: 'What is wrong?',
+    cat_personal_safety: 'Danger', cat_medical: 'Medical', cat_accident: 'Accident', cat_other: 'Other',
+    sos_sub: 'Press SOS. You get 30 seconds to cancel.',
+    your_circle: 'People we will tell', edit_circle: 'Change',
+    helplines_title: 'Call for help now — tap a number',
+    activating: 'Sending help…', countdown_sub: 'At 0, your people get a message.',
+    need_help_now: 'Send help NOW', enter_pin_cancel: 'Type your PIN to cancel', cancel: 'Cancel',
     help_in_motion: 'Help is coming',
-    step1: 'People alerted', step2: 'Helper coming', step3: 'Helper here',
-    request_responder: 'Call a verified helper', waiting_accept: 'Helpers notified — waiting…',
-    show_code: 'Show this code to your helper:', responder_here: 'Your helper is with you.',
-    i_am_safe: 'I am safe — end', youre_safe: "You're safe.",
-    youre_safe_sub: 'This will close by itself and the data will be erased.', done: 'Done',
+    step1: 'People told', step2: 'Helper coming', step3: 'Helper here',
+    request_responder: 'Ask a trained helper to come', waiting_accept: 'Asking helpers… please wait.',
+    no_loc_helper: 'We do not know where you are, so no helper can come. Your people have been told.',
+    no_helpers: 'No trained helper is near you right now. Your people have been told. If you can, call 112.',
+    no_helpers_contact: 'No trained helper is near them right now. Call them, or call 112.',
+    show_code: 'Show this number to your helper:', responder_here: 'Your helper is with you.',
+    i_am_safe: 'I am safe now', youre_safe: 'You are safe.',
+    youre_safe_sub: 'Everything about this will be deleted soon.', done: 'Done',
     cancelled: 'Cancelled', nobody_notified: 'Nobody was told.', back: 'Back',
-    watch_title: 'Journey watch',
-    watch_sub: "Going alone? Set a timer. Check in safe when you arrive — if you don't, your people are alerted.",
-    watch_me_for: 'Watch me for', minutes: 'minutes', start_watch: 'Start journey watch',
-    check_in_safe: "I've arrived — check in safe", your_pin: 'your PIN', more_time: 'More time (+15 min)',
-    until_alerted: 'until your people are alerted',
-    setup_title: 'Add your trusted people', your_name: 'Your name', country: 'Country',
-    contact_name: 'Trusted person — name', contact_phone: 'Trusted person — phone',
-    safe_pin: 'Safe PIN (cancels)', duress_pin: 'Danger PIN (pretends)', i_consent: 'I agree — continue',
+    watch_title: 'Going somewhere',
+    watch_sub: 'Set a timer. When you reach, press “I have reached”. If you don’t, your people get a message.',
+    watch_me_for: 'How long will it take?', minutes: 'minutes', start_watch: 'Start the timer',
+    check_in_safe: 'I have reached safely', your_pin: 'your PIN', more_time: 'I need 15 more minutes',
+    until_alerted: 'left. Then your people get a message.',
+    setup_title: 'Who should we tell?', your_name: 'Your name', country: 'Country',
+    contact_name: 'Name of a person you trust', contact_phone: 'Their phone number',
+    safe_pin: 'Safe PIN (really cancels)', duress_pin: 'Danger PIN (secret alarm)',
+    pin_hint: 'If someone forces you to cancel, type the danger PIN. It looks cancelled, but your person is told you are in danger.',
+    consent_short: 'Your location is shared only during an emergency: with your people, and with the one helper who comes. Then it is deleted.',
+    consent_full: 'Read the full terms',
+    i_consent: 'I agree — save',
+    fill_demo: 'Fill example details (demo)',
+    need_all: 'Please fill in every box.', pins_shape: 'PINs must be 4 to 6 numbers.', pins_differ: 'The two PINs must be different.',
+    err_location: 'We do not know where you are, so no helper can come. Call 112 if you can.',
+    err_pin: 'Wrong PIN. Try again.', err_live: 'You already have an emergency running.',
+    err_network: 'No internet. Call 112, or text SOS.', err_generic: 'Something went wrong. Please try again.',
+    state_WATCHING: 'Timer on', state_PENDING: 'Starting', state_ACTIVE: 'People told',
+    state_DISPATCHED: 'Helper coming', state_ARRIVED: 'Helper here', state_RESOLVED: 'Safe',
+    state_CANCELLED: 'Cancelled', state_CLOSED: 'Ended', state_PURGED: 'Deleted',
     // help + install + location
     how_title: 'How it works', how_1: 'Add one person you trust.', how_2: 'In danger, press SOS.',
-    how_3: 'They get a text with your live location.', full_guide: 'Full guide', got_it: 'Got it',
-    help: 'Help', install: 'Install app', install_ios: 'To install: tap Share □↑, then “Add to Home Screen”.',
+    how_3: 'They get a message with where you are.', full_guide: 'Full guide', got_it: 'OK',
+    help: 'Help', install: 'Add to home screen', install_ios: 'To add it: tap Share □↑, then “Add to Home Screen”.',
     help_seeker: [
       'Press the red <b>SOS</b> button.',
-      'You have 30 seconds to cancel with your <b>safe PIN</b>.',
-      'Then your trusted person gets a text with your live location.',
-      'If someone forces you to cancel, type your <b>danger PIN</b>. It looks cancelled, but your person is secretly told.',
-      'Going somewhere alone? Use <b>Watch my journey</b>. If you don’t check in, your person is told.',
-      'When you are safe, tap <b>I am safe</b>. Everything is erased.',
+      'You get 30 seconds to cancel with your <b>safe PIN</b>.',
+      'Then your person gets a message with where you are.',
+      'If someone forces you to cancel, type your <b>danger PIN</b>. It looks cancelled, but your person is told.',
+      'Going somewhere alone? Use <b>Going somewhere</b>. If you don’t press “I have reached”, your person is told.',
+      'When you are safe, press <b>I am safe now</b>. Everything is deleted.',
     ],
     help_contact: [
-      'When someone you protect presses SOS, you get a text with a link.',
-      'Open it to see where they are, and call them.',
-      'If it says <b>DURESS</b>, do not call. They may not be alone.',
-      'Tap <b>Send a verified helper</b> if someone needs to go to them.',
+      'If the person you look after presses SOS, you get a message with a link.',
+      'Open the link to see where they are. Call them.',
+      'If it says <b>SECRET ALARM</b>, do not call. Someone may be with them.',
+      'Press <b>Send a trained helper</b> if someone needs to go to them.',
     ],
     help_responder: [
-      'You get requests with an area (~1 km), never a name.',
-      'Accept to see the exact place.',
-      'When you arrive, type the code shown on their phone.',
+      'You see only the area (about 1 km), never a name.',
+      'Press <b>I will go</b> to see the exact place.',
+      'When you reach, type the number shown on their phone.',
     ],
-    sms_join: 'Ask {name} to text JOIN to {number} once, so they can get your alerts by SMS.',
-    loc_gps: '📍 Using your phone’s location', loc_finding: '📍 Finding your location…',
-    loc_off: 'Location is off. Choose your area:', loc_pick: 'Your area',
-    loc_allow: 'Allow location, so help can find you', your_person: 'your trusted person',
-    loc_none: 'Not listed / not sure', place_ph: 'Where are you? e.g. near the bus stand', open_maps: 'Open in Maps',
+    sms_join: 'Ask {name} to send the word JOIN to {number} once. Then they can get your SMS alerts.',
+    loc_gps: '📍 Your phone will share where you are', loc_finding: '📍 Finding where you are…',
+    loc_off: 'Location is off. Where are you?', loc_pick: 'Your area',
+    loc_allow: 'Turn on location, so help can find you', your_person: 'your person',
+    loc_none: 'Not in this list', place_ph: 'Where are you? (example: near the bus stand)', open_maps: 'Open map',
+    // the person who looks after someone
+    ct_setup_title: 'Your phone number', ct_setup_sub: 'Type the number your friend or family member saved for you.',
+    ct_start: 'Show my alerts', ct_alerts: 'Alerts', ct_for: 'for {number}', ct_change: 'change',
+    ct_none: 'No alerts. You will only hear from us if your person needs help.',
+    ct_alert: 'NEEDS HELP', ct_alert_duress: 'SECRET ALARM — THEY WERE FORCED TO CANCEL',
+    ct_alert_watch: 'DID NOT REACH ON TIME', ct_alert_escalation: 'STILL NO HELPER — PLEASE ACT',
+    ct_needs_help: '{name} needs help',
+    ct_duress_box: 'Their phone shows “cancelled”, but they used the secret danger PIN. Do <b>not</b> call them — someone may be with them. Get help from here.',
+    ct_no_loc: 'We don’t know where they are — call them.', ct_no_loc_duress: 'We don’t know where they are.',
+    ct_waiting_loc: 'Waiting for their location…', ct_ended: 'This has ended. Their location is deleted.',
+    ct_said: 'THEY SAID THEY ARE', ct_send_helper: 'Send a trained helper', ct_helper_coming: 'A helper is on the way.',
+    ct_all_alerts: '← All alerts',
+    fresh_live: 'live now', fresh_seconds: 'a few seconds ago', fresh_min: '{m} min ago — their phone may be offline',
+    fresh_hour: 'over an hour ago — their phone may be off', fresh_none: 'no location',
+    // trained helper
+    rs_who: 'Who are you?', rs_who_sub: 'Only trained, checked helpers. Choose your name.', rs_checked: '✓ checked',
+    rs_offers: 'Requests for help', rs_none: 'No requests right now.', rs_offer: 'SOMEONE NEEDS HELP',
+    rs_area: 'Area: about 1 km', rs_area_note: 'You see only the area. You see the exact place after you say you will go.',
+    rs_accept: 'I will go', rs_code_label: 'Number on their phone', rs_verify: 'I have reached',
+    rs_withdraw: 'I cannot go', rs_taken: 'Another helper is going. Thank you.',
+    rs_on_scene: 'You are with them. Stay until they say they are safe.',
+    rs_done: 'They are safe. Thank you. You never learned who they were — that keeps them safe.',
+    rs_not_available: 'This request is closed.', rs_back: '← Requests', rs_navigate: 'Open map ↗',
     // spoken
-    v_sos: 'Sending help. Enter your PIN to cancel.',
-    v_active: 'Your people have been alerted. Help is on the way.',
-    v_safe: 'You are safe.', v_checkin: 'You have checked in safe.',
-    v_cancelled: 'Session cancelled.', v_watch: 'Journey watch started. Check in safe when you arrive.',
+    v_sos: 'Sending help. Type your PIN to cancel.',
+    v_active: 'Your people have been told. Help is coming.',
+    v_safe: 'You are safe.', v_checkin: 'You have reached safely.',
+    v_cancelled: 'Cancelled.', v_watch: 'Timer started. Press I have reached when you get there.',
   },
   hi: {
     pick_language: 'अपनी भाषा चुनें', tap_to_continue: 'अपनी भाषा दबाएँ',
     language: 'भाषा', sound_on: '🔊 आवाज़ चालू', sound_off: '🔇 आवाज़ बंद',
+    more_langs: 'और भारतीय भाषाएँ जल्द आ रही हैं। अपनी भाषा दबाएँ, ताकि हम उसे पहले जोड़ें:',
+    vote_thanks: 'धन्यवाद! हम इसे जल्द जोड़ेंगे। अभी English या हिंदी चुनें।',
     choose_role: 'यह फ़ोन कौन इस्तेमाल कर रहा है?',
-    role_seeker: 'मुझे मदद चाहिए', role_seeker_sub: 'ख़तरे में हैं? मदद के लिए बटन दबाएँ।',
-    role_contact: 'मैं किसी का ध्यान रखता/रखती हूँ', role_contact_sub: 'चेतावनी पाएँ, लाइव जगह देखें।',
-    role_responder: 'मैं प्रमाणित सहायक हूँ', role_responder_sub: 'अनुरोध स्वीकारें। आप पहचान नहीं देखते।',
-    no_smartphone: 'स्मार्टफ़ोन नहीं? यह सादे वेब पेज और SMS पर भी चलता है।',
-    hi_name: 'नमस्ते {name}', mode_sos: 'आपातकाल', mode_watch: 'मेरी यात्रा पर नज़र',
+    role_seeker: 'मुझे मदद चाहिए', role_seeker_sub: 'एक बटन दबाएँ, मदद आएगी।',
+    role_contact: 'मैं किसी का ध्यान रखता/रखती हूँ', role_contact_sub: 'उन्हें मदद चाहिए तो आपको संदेश आएगा।',
+    role_responder: 'मैं प्रशिक्षित सहायक हूँ', role_responder_sub: 'जाकर मदद करें। आपको उनका नाम नहीं दिखेगा।',
+    no_smartphone: 'स्मार्टफ़ोन नहीं? यह सादे वेब पेज और SMS से भी चलता है।',
+    hi_name: 'नमस्ते {name}', mode_sos: 'आपातकाल', mode_watch: 'कहीं जा रहे हैं',
     what_happening: 'क्या हुआ है?',
-    cat_personal_safety: 'सुरक्षा', cat_medical: 'चिकित्सा', cat_accident: 'दुर्घटना', cat_other: 'अन्य',
-    sos_sub: '30 सेकंड में शुरू। आप रद्द कर सकते हैं।',
-    demo_location: 'जगह (असली फ़ोन GPS लेता है)',
-    your_circle: 'आपके भरोसेमंद लोग', edit_circle: 'बदलें',
-    helplines_title: 'सरकारी मदद — कॉल के लिए दबाएँ',
-    activating: 'मदद भेजी जा रही है…', countdown_sub: 'शून्य पर आपके अपनों को सूचना जाएगी।',
-    need_help_now: 'मुझे अभी मदद चाहिए', enter_pin_cancel: 'रद्द करने के लिए PIN डालें', cancel: 'रद्द करें',
+    cat_personal_safety: 'ख़तरा', cat_medical: 'बीमारी', cat_accident: 'दुर्घटना', cat_other: 'और कुछ',
+    sos_sub: 'SOS दबाएँ। रद्द करने के लिए 30 सेकंड मिलेंगे।',
+    your_circle: 'जिन्हें हम बताएँगे', edit_circle: 'बदलें',
+    helplines_title: 'अभी मदद के लिए कॉल करें — नंबर दबाएँ',
+    activating: 'मदद भेजी जा रही है…', countdown_sub: '0 पर आपके अपनों को संदेश जाएगा।',
+    need_help_now: 'अभी मदद भेजें', enter_pin_cancel: 'रद्द करने के लिए PIN डालें', cancel: 'रद्द करें',
     help_in_motion: 'मदद आ रही है',
-    step1: 'अपनों को सूचना', step2: 'सहायक आ रहा है', step3: 'सहायक पहुँचा',
-    request_responder: 'प्रमाणित सहायक बुलाएँ', waiting_accept: 'सहायकों को सूचना — इंतज़ार…',
-    show_code: 'यह कोड अपने सहायक को दिखाएँ:', responder_here: 'आपका सहायक आपके साथ है।',
-    i_am_safe: 'मैं सुरक्षित हूँ — समाप्त', youre_safe: 'आप सुरक्षित हैं।',
-    youre_safe_sub: 'यह अपने आप बंद होगा और डेटा मिटा दिया जाएगा।', done: 'ठीक है',
+    step1: 'अपनों को बताया', step2: 'सहायक आ रहा है', step3: 'सहायक पहुँचा',
+    request_responder: 'प्रशिक्षित सहायक को बुलाएँ', waiting_accept: 'सहायकों से पूछ रहे हैं… रुकिए।',
+    no_loc_helper: 'हमें नहीं पता आप कहाँ हैं, इसलिए सहायक नहीं आ सकता। आपके अपनों को बता दिया गया है।',
+    no_helpers: 'अभी आपके पास कोई प्रशिक्षित सहायक नहीं है। आपके अपनों को बता दिया गया है। हो सके तो 112 पर कॉल करें।',
+    no_helpers_contact: 'अभी उनके पास कोई प्रशिक्षित सहायक नहीं है। उन्हें कॉल करें, या 112 पर कॉल करें।',
+    show_code: 'यह नंबर अपने सहायक को दिखाएँ:', responder_here: 'आपका सहायक आपके साथ है।',
+    i_am_safe: 'मैं अब सुरक्षित हूँ', youre_safe: 'आप सुरक्षित हैं।',
+    youre_safe_sub: 'इससे जुड़ी हर जानकारी जल्द मिटा दी जाएगी।', done: 'ठीक है',
     cancelled: 'रद्द किया गया', nobody_notified: 'किसी को नहीं बताया गया।', back: 'वापस',
-    watch_title: 'यात्रा निगरानी',
-    watch_sub: 'अकेले जा रहे हैं? टाइमर लगाएँ। पहुँचने पर सुरक्षित बताएँ — नहीं तो अपनों को सूचना जाएगी।',
-    watch_me_for: 'इतने समय तक नज़र रखें', minutes: 'मिनट', start_watch: 'यात्रा निगरानी शुरू करें',
-    check_in_safe: 'मैं पहुँच गया/गई — सुरक्षित बताएँ', your_pin: 'आपका PIN', more_time: 'और समय (+15 मिनट)',
-    until_alerted: 'फिर आपके अपनों को सूचना जाएगी',
-    setup_title: 'अपने भरोसेमंद लोग जोड़ें', your_name: 'आपका नाम', country: 'देश',
-    contact_name: 'भरोसेमंद व्यक्ति — नाम', contact_phone: 'भरोसेमंद व्यक्ति — फ़ोन',
-    safe_pin: 'सुरक्षित PIN (रद्द करता है)', duress_pin: 'ख़तरे वाला PIN (दिखावा)', i_consent: 'मैं सहमत हूँ — आगे बढ़ें',
+    watch_title: 'कहीं जा रहे हैं',
+    watch_sub: 'टाइमर लगाएँ। पहुँचकर “मैं पहुँच गया/गई” दबाएँ। नहीं दबाया तो आपके अपनों को संदेश जाएगा।',
+    watch_me_for: 'कितना समय लगेगा?', minutes: 'मिनट', start_watch: 'टाइमर शुरू करें',
+    check_in_safe: 'मैं सुरक्षित पहुँच गया/गई', your_pin: 'आपका PIN', more_time: 'मुझे 15 मिनट और चाहिए',
+    until_alerted: 'बाक़ी। फिर आपके अपनों को संदेश जाएगा।',
+    setup_title: 'हम किसे बताएँ?', your_name: 'आपका नाम', country: 'देश',
+    contact_name: 'किसी भरोसेमंद व्यक्ति का नाम', contact_phone: 'उनका फ़ोन नंबर',
+    safe_pin: 'सुरक्षित PIN (सच में रद्द करता है)', duress_pin: 'ख़तरे वाला PIN (गुप्त अलार्म)',
+    pin_hint: 'अगर कोई ज़बरदस्ती रद्द करवाए, तो ख़तरे वाला PIN डालें। रद्द दिखेगा, पर आपके व्यक्ति को बताया जाएगा कि आप ख़तरे में हैं।',
+    consent_short: 'आपकी जगह सिर्फ़ आपातकाल में बताई जाती है: आपके अपनों को, और आने वाले एक सहायक को। फिर मिटा दी जाती है।',
+    consent_full: 'पूरी शर्तें पढ़ें',
+    i_consent: 'मैं सहमत हूँ — सहेजें',
+    fill_demo: 'उदाहरण भरें (डेमो)',
+    need_all: 'कृपया हर खाना भरें।', pins_shape: 'PIN में 4 से 6 अंक होने चाहिए।', pins_differ: 'दोनों PIN अलग होने चाहिए।',
+    err_location: 'हमें नहीं पता आप कहाँ हैं, इसलिए सहायक नहीं आ सकता। हो सके तो 112 पर कॉल करें।',
+    err_pin: 'ग़लत PIN। फिर से डालें।', err_live: 'आपका एक आपातकाल पहले से चल रहा है।',
+    err_network: 'इंटरनेट नहीं है। 112 पर कॉल करें, या SOS का SMS भेजें।', err_generic: 'कुछ गड़बड़ हुई। फिर से कोशिश करें।',
+    state_WATCHING: 'टाइमर चालू', state_PENDING: 'शुरू हो रहा है', state_ACTIVE: 'अपनों को बताया',
+    state_DISPATCHED: 'सहायक आ रहा है', state_ARRIVED: 'सहायक पहुँचा', state_RESOLVED: 'सुरक्षित',
+    state_CANCELLED: 'रद्द', state_CLOSED: 'ख़त्म', state_PURGED: 'मिटाया गया',
     how_title: 'यह कैसे काम करता है', how_1: 'एक भरोसेमंद व्यक्ति जोड़ें।', how_2: 'ख़तरे में SOS दबाएँ।',
-    how_3: 'उन्हें आपकी लाइव जगह के साथ SMS जाता है।', full_guide: 'पूरी जानकारी', got_it: 'समझ गया',
-    help: 'मदद', install: 'ऐप लगाएँ', install_ios: 'लगाने के लिए: Share □↑ दबाएँ, फिर “Add to Home Screen”।',
+    how_3: 'उन्हें संदेश जाता है कि आप कहाँ हैं।', full_guide: 'पूरी जानकारी', got_it: 'ठीक है',
+    help: 'मदद', install: 'होम स्क्रीन पर लगाएँ', install_ios: 'लगाने के लिए: Share □↑ दबाएँ, फिर “Add to Home Screen”।',
     help_seeker: [
       'लाल <b>SOS</b> बटन दबाएँ।',
-      '30 सेकंड में अपने <b>सुरक्षित PIN</b> से रद्द कर सकते हैं।',
-      'फिर आपके भरोसेमंद व्यक्ति को आपकी लाइव जगह के साथ SMS जाता है।',
-      'अगर कोई ज़बरदस्ती रद्द करवाए, तो <b>ख़तरे वाला PIN</b> डालें। रद्द दिखेगा, पर आपके व्यक्ति को चुपचाप बताया जाएगा।',
-      'अकेले जा रहे हैं? <b>मेरी यात्रा पर नज़र</b> लगाएँ। समय पर नहीं बताया तो आपके व्यक्ति को सूचना जाएगी।',
-      'सुरक्षित होने पर <b>मैं सुरक्षित हूँ</b> दबाएँ। सब मिटा दिया जाता है।',
+      'अपने <b>सुरक्षित PIN</b> से रद्द करने के लिए 30 सेकंड मिलते हैं।',
+      'फिर आपके व्यक्ति को संदेश जाता है कि आप कहाँ हैं।',
+      'अगर कोई ज़बरदस्ती रद्द करवाए, तो <b>ख़तरे वाला PIN</b> डालें। रद्द दिखेगा, पर आपके व्यक्ति को बताया जाएगा।',
+      'अकेले कहीं जा रहे हैं? <b>कहीं जा रहे हैं</b> दबाएँ। पहुँचकर नहीं बताया तो आपके व्यक्ति को संदेश जाएगा।',
+      'सुरक्षित होने पर <b>मैं अब सुरक्षित हूँ</b> दबाएँ। सब मिटा दिया जाता है।',
     ],
     help_contact: [
-      'जिसका आप ध्यान रखते हैं, वह SOS दबाए तो आपको लिंक के साथ SMS आएगा।',
-      'लिंक खोलकर देखें वे कहाँ हैं, और उन्हें कॉल करें।',
-      'अगर <b>DURESS</b> लिखा हो, तो कॉल न करें। हो सकता है वे अकेले न हों।',
-      'पास में किसी की ज़रूरत हो तो <b>प्रमाणित सहायक भेजें</b> दबाएँ।',
+      'जिसका आप ध्यान रखते हैं, वह SOS दबाए तो आपको लिंक के साथ संदेश आएगा।',
+      'लिंक खोलकर देखें वे कहाँ हैं। उन्हें कॉल करें।',
+      'अगर <b>गुप्त अलार्म</b> लिखा हो, तो कॉल न करें। कोई उनके साथ हो सकता है।',
+      'किसी को उनके पास जाना हो तो <b>प्रशिक्षित सहायक भेजें</b> दबाएँ।',
     ],
     help_responder: [
-      'आपको इलाक़ा (~1 किमी) दिखता है, नाम कभी नहीं।',
-      'स्वीकार करने पर सही जगह दिखती है।',
-      'पहुँचने पर उनके फ़ोन पर दिखा कोड डालें।',
+      'आपको सिर्फ़ इलाक़ा (लगभग 1 किमी) दिखता है, नाम कभी नहीं।',
+      '<b>मैं जाऊँगा/जाऊँगी</b> दबाने पर सही जगह दिखती है।',
+      'पहुँचकर उनके फ़ोन पर दिखा नंबर डालें।',
     ],
-    sms_join: '{name} से कहें कि एक बार {number} पर JOIN भेजें, ताकि उन्हें SMS से सूचना मिले।',
-    loc_gps: '📍 आपके फ़ोन की जगह इस्तेमाल हो रही है', loc_finding: '📍 आपकी जगह ढूँढ रहे हैं…',
-    loc_off: 'लोकेशन बंद है। अपना इलाक़ा चुनें:', loc_pick: 'आपका इलाक़ा',
-    loc_allow: 'लोकेशन चालू करें, ताकि मदद आप तक पहुँचे', your_person: 'अपने भरोसेमंद व्यक्ति',
-    loc_none: 'सूची में नहीं / पता नहीं', place_ph: 'आप कहाँ हैं? जैसे: बस स्टैंड के पास', open_maps: 'मैप में खोलें',
+    sms_join: '{name} से कहें कि एक बार {number} पर JOIN लिखकर भेजें। फिर उन्हें आपके SMS संदेश मिलेंगे।',
+    loc_gps: '📍 आपका फ़ोन बताएगा कि आप कहाँ हैं', loc_finding: '📍 आपकी जगह ढूँढ रहे हैं…',
+    loc_off: 'लोकेशन बंद है। आप कहाँ हैं?', loc_pick: 'आपका इलाक़ा',
+    loc_allow: 'लोकेशन चालू करें, ताकि मदद आप तक पहुँचे', your_person: 'अपने व्यक्ति',
+    loc_none: 'इस सूची में नहीं', place_ph: 'आप कहाँ हैं? (जैसे: बस स्टैंड के पास)', open_maps: 'नक़्शा खोलें',
+    ct_setup_title: 'आपका फ़ोन नंबर', ct_setup_sub: 'वह नंबर डालें जो आपके दोस्त या परिवार ने आपके लिए सहेजा है।',
+    ct_start: 'मेरे संदेश दिखाएँ', ct_alerts: 'संदेश', ct_for: '{number} के लिए', ct_change: 'बदलें',
+    ct_none: 'कोई संदेश नहीं। आपके व्यक्ति को मदद चाहिए होगी, तभी हम आपको बताएँगे।',
+    ct_alert: 'मदद चाहिए', ct_alert_duress: 'गुप्त अलार्म — उनसे ज़बरदस्ती रद्द करवाया गया',
+    ct_alert_watch: 'समय पर नहीं पहुँचे', ct_alert_escalation: 'अभी तक कोई सहायक नहीं — कृपया कुछ करें',
+    ct_needs_help: '{name} को मदद चाहिए',
+    ct_duress_box: 'उनके फ़ोन पर “रद्द” दिख रहा है, पर उन्होंने गुप्त ख़तरे वाला PIN डाला है। उन्हें कॉल <b>न</b> करें — कोई उनके साथ हो सकता है। यहीं से मदद बुलाएँ।',
+    ct_no_loc: 'हमें नहीं पता वे कहाँ हैं — उन्हें कॉल करें।', ct_no_loc_duress: 'हमें नहीं पता वे कहाँ हैं।',
+    ct_waiting_loc: 'उनकी जगह का इंतज़ार…', ct_ended: 'यह ख़त्म हो गया। उनकी जगह मिटा दी गई है।',
+    ct_said: 'उन्होंने बताया वे यहाँ हैं', ct_send_helper: 'प्रशिक्षित सहायक भेजें', ct_helper_coming: 'सहायक रास्ते में है।',
+    ct_all_alerts: '← सभी संदेश',
+    fresh_live: 'अभी', fresh_seconds: 'कुछ सेकंड पहले', fresh_min: '{m} मिनट पहले — उनका फ़ोन बंद हो सकता है',
+    fresh_hour: 'एक घंटे से ज़्यादा पहले — उनका फ़ोन बंद हो सकता है', fresh_none: 'जगह नहीं मिली',
+    rs_who: 'आप कौन हैं?', rs_who_sub: 'सिर्फ़ प्रशिक्षित, जाँचे हुए सहायक। अपना नाम चुनें।', rs_checked: '✓ जाँचा हुआ',
+    rs_offers: 'मदद के अनुरोध', rs_none: 'अभी कोई अनुरोध नहीं।', rs_offer: 'किसी को मदद चाहिए',
+    rs_area: 'इलाक़ा: लगभग 1 किमी', rs_area_note: 'आपको सिर्फ़ इलाक़ा दिखता है। “मैं जाऊँगा” दबाने के बाद सही जगह दिखेगी।',
+    rs_accept: 'मैं जाऊँगा/जाऊँगी', rs_code_label: 'उनके फ़ोन पर दिखा नंबर', rs_verify: 'मैं पहुँच गया/गई',
+    rs_withdraw: 'मैं नहीं जा सकता/सकती', rs_taken: 'दूसरा सहायक जा रहा है। धन्यवाद।',
+    rs_on_scene: 'आप उनके साथ हैं। जब तक वे सुरक्षित न कहें, रुकिए।',
+    rs_done: 'वे सुरक्षित हैं। धन्यवाद। आपको नहीं पता चला वे कौन थे — इससे वे सुरक्षित रहते हैं।',
+    rs_not_available: 'यह अनुरोध बंद हो गया है।', rs_back: '← अनुरोध', rs_navigate: 'नक़्शा खोलें ↗',
     v_sos: 'मदद भेजी जा रही है। रद्द करने के लिए पिन डालें।',
-    v_active: 'आपके अपनों को सूचना दे दी गई है। मदद आ रही है।',
-    v_safe: 'आप सुरक्षित हैं।', v_checkin: 'आप सुरक्षित रूप से पहुँच गए।',
-    v_cancelled: 'सत्र रद्द कर दिया गया।', v_watch: 'यात्रा निगरानी शुरू। पहुँचने पर सुरक्षित बताएँ।',
+    v_active: 'आपके अपनों को बता दिया गया है। मदद आ रही है।',
+    v_safe: 'आप सुरक्षित हैं।', v_checkin: 'आप सुरक्षित पहुँच गए।',
+    v_cancelled: 'रद्द कर दिया गया।', v_watch: 'टाइमर शुरू। पहुँचकर बताइए।',
+    'hl_All emergencies': 'सभी आपात स्थितियाँ', hl_Police: 'पुलिस', hl_Ambulance: 'एम्बुलेंस', hl_Fire: 'आग',
+    'hl_Women helpline': 'महिला हेल्पलाइन', 'hl_Child helpline': 'बाल हेल्पलाइन', 'hl_Disaster management': 'आपदा सहायता',
   },
 };
 const langCode = () => store.get('lang', null);
@@ -388,7 +484,7 @@ function t(key, vars) {
   if (vars) for (const k in vars) s = s.replace('{' + k + '}', vars[k]);
   return s;
 }
-function setLang(code) { store.set('lang', code); render(); }
+function setLang(code) { store.set('lang', code); document.documentElement.lang = code; render(); }
 const soundOn = () => store.get('sound', true);
 function toggleSound() { store.set('sound', !soundOn()); if (soundOn()) speakKey('v_safe'); render(); }
 // Voice prompts: built-in speech, no dependency. Speaks the chosen language.
@@ -425,7 +521,7 @@ function mapSvg(cellId, loc, opts = {}) {
   const cx = 2 * S, cy = 2 * S;
   const cell = opts.hideCell ? '' :
     `<rect x="${cx}" y="${cy}" width="${S}" height="${S}" fill="#e5484d18" stroke="#e5484d" stroke-width="1.5" rx="3"/>
-     <text x="${cx + S/2}" y="${cy - 6}" fill="#e5484d" font-size="9" text-anchor="middle" font-family="monospace">cell:${R}:${C} · ~1 km</text>`;
+     <text x="${cx + S/2}" y="${cy - 6}" fill="#e5484d" font-size="9" text-anchor="middle" font-family="sans-serif">≈ 1 km</text>`;
   let dot = '';
   if (loc && opts.dot) {
     const fx = Math.min(.98, Math.max(.02, loc.lng * 100 - C));
@@ -500,11 +596,13 @@ function renderHelp() {
     <a class="bigbtn" style="text-decoration:none;color:inherit" href="${guideLink()}">
       <span class="ic">📖</span><span><b>${esc(t('full_guide'))}</b><span class="s">SMS · ${esc(t('no_smartphone'))}</span></span></a>
     ${installBlock()}
+    ${upcomingBlock(false)}
     <button onclick="history.length > 1 ? history.back() : go('')">${esc(t('back'))}</button>
     ${helplineCard()}`;
 }
 
 function render() {
+  if (langCode()) document.documentElement.lang = langCode();
   const h = location.hash.replace('#', '');
   routeTick = async () => {};
   renderTopCtl();
@@ -531,8 +629,34 @@ function renderLanguagePicker() {
     <p class="lead center">${esc(STR.hi.pick_language)} · ${esc(STR.en.pick_language)}</p>
     <div class="lang-pick">${LANGS.map((l) =>
       `<button onclick="setLang('${l.code}')">${esc(l.name)}</button>`).join('')}</div>
-    <div class="foot">More languages coming. Works on any phone — also <a href="/lite">basic web</a>
-      and <a href="/phone">SMS</a>.</div>`;
+    ${upcomingBlock(true)}
+    <div class="foot">${esc(STR.en.no_smartphone)} <a href="/lite">web</a> · <a href="/phone">SMS</a></div>`;
+}
+
+/* ---------------- more Indian languages: coming soon + votes ---------------- */
+// The list comes from the server; tapping one counts a vote (no identity),
+// once per device, so we know which language to add first.
+let UPCOMING = [];
+fetch('/languages').then((r) => r.json()).then((d) => {
+  UPCOMING = d.upcoming || [];
+  const h = location.hash.replace('#', '');
+  if (!langCode() || h === 'help') render();
+}).catch(() => {});
+function upcomingBlock(bilingual) {
+  if (!UPCOMING.length) return '';
+  const voted = store.get('lang_votes', []);
+  const intro = bilingual ? `${esc(STR.hi.more_langs)}<br>${esc(STR.en.more_langs)}` : esc(t('more_langs'));
+  return `<div class="card soon"><p class="lead">🗣️ ${intro}</p><div class="soon-list">${UPCOMING.map((l) =>
+    `<button class="${voted.includes(l.code) ? 'on' : ''}" onclick="voteLang('${esc(l.code)}')" lang="${esc(l.code)}">${esc(l.name)}${voted.includes(l.code) ? ' ✓' : ''}</button>`).join('')}</div></div>`;
+}
+async function voteLang(code) {
+  const voted = store.get('lang_votes', []);
+  if (!voted.includes(code)) {
+    try { await api('/languages/vote', { code }); } catch {}
+    voted.push(code); store.set('lang_votes', voted);
+  }
+  toast(langCode() ? t('vote_thanks') : STR.hi.vote_thanks + ' ' + STR.en.vote_thanks);
+  render();
 }
 
 /* ------------------------------ landing ------------------------------- */
@@ -542,7 +666,7 @@ function renderLanding() {
     <div class="card how">
       <div class="k">${esc(t('how_title'))}</div>
       <ol class="steps"><li>👤 ${esc(t('how_1'))}</li><li>🆘 ${esc(t('how_2'))}</li><li>📍 ${esc(t('how_3'))}</li></ol>
-      <div class="row"><a href="${guideLink()}">${esc(t('full_guide'))} →</a>
+      <div class="row"><a href="${guideLink()}">${esc(t('full_guide'))}</a>
         <button class="subtle" style="margin:0;padding:8px" onclick="store.set('seen_how',true);render()">${esc(t('got_it'))}</button></div>
     </div>`;
   $m.innerHTML = `
@@ -561,28 +685,36 @@ function renderLanding() {
 
 /* --------------------------- seeker: screens --------------------------- */
 let seekerCat = 'personal_safety';
+let editingProfile = false;
 function renderSeeker() {
   const profile = store.get('profile', null);
-  if (!profile) return renderOnboarding();
+  if (!profile || editingProfile) return renderOnboarding(profile);
   const sess = store.get('session', null);
   if (!sess) return renderSeekerHome(profile);
   renderSeekerSession();
 }
 
-function renderOnboarding() {
+// Setup, or editing saved details: an existing profile pre-fills the form.
+function renderOnboarding(existing) {
+  const p = existing || null;
+  const c = p && p.contacts && p.contacts[0];
+  const val = (v) => (v ? ` value="${esc(v)}"` : '');
   $m.innerHTML = `
     <h1>${esc(t('setup_title'))}</h1>
-    <label>${esc(t('your_name'))}</label><input id="ob-name" value="Meera Krishnan" autocomplete="name">
-    <label>${esc(t('country'))}</label>${countrySelect('ob-country')}
-    <label>${esc(t('contact_name'))}</label><input id="ob-cname" value="Arjun Krishnan">
-    <label>${esc(t('contact_phone'))}</label>
-    <input id="ob-cphone" value="98765 43210" inputmode="tel" autocomplete="tel"
-      aria-label="${esc(t('contact_phone'))}">
+    ${CFG.demoMode && !p ? `<button class="subtle" onclick="fillDemo()">✍️ ${esc(t('fill_demo'))}</button>` : ''}
+    <label for="ob-name">${esc(t('your_name'))}</label><input id="ob-name" autocomplete="name"${val(p && p.name)}>
+    <label for="ob-country">${esc(t('country'))}</label>${countrySelect('ob-country', p && p.country)}
+    <label for="ob-cname">${esc(t('contact_name'))}</label><input id="ob-cname" autocomplete="off"${val(c && c.name)}>
+    <label for="ob-cphone">${esc(t('contact_phone'))}</label>
+    <input id="ob-cphone" inputmode="tel" autocomplete="tel" placeholder="98765 43210"${val(c && c.address)}>
     <div class="row">
-      <div><label>${esc(t('safe_pin'))}</label><input id="ob-pin-safe" value="1234" inputmode="numeric" maxlength="6" type="password"></div>
-      <div><label>${esc(t('duress_pin'))}</label><input id="ob-pin-duress" value="9999" inputmode="numeric" maxlength="6" type="password"></div>
+      <div><label for="ob-pin-safe">${esc(t('safe_pin'))}</label><input id="ob-pin-safe" inputmode="numeric" maxlength="6" type="password" autocomplete="off" placeholder="••••"${val(p && p.pins && p.pins.safe)}></div>
+      <div><label for="ob-pin-duress">${esc(t('duress_pin'))}</label><input id="ob-pin-duress" inputmode="numeric" maxlength="6" type="password" autocomplete="off" placeholder="••••"${val(p && p.pins && p.pins.duress)}></div>
     </div>
+    <p class="lead" style="margin-top:8px">🤫 ${esc(t('pin_hint'))}</p>
     ${CFG.smsNumber ? `<div class="foot">📟 ${esc(t('sms_join', { name: t('your_person'), number: CFG.smsNumber }))}</div>` : ''}
+    <div class="consent">🔒 ${esc(t('consent_short'))}
+      <details><summary>${esc(t('consent_full'))}</summary><p style="margin-top:6px">${esc(CONSENT_V1)}</p></details></div>
     <button class="primary" onclick="saveProfile()">${esc(t('i_consent'))}</button>
     ${helplineCard()}`;
 }
@@ -592,6 +724,12 @@ function withDial(raw, code) {
   if (t.startsWith('+') || t.startsWith('00')) return t;
   return '+' + dialOf(code) + t.replace(/\D/g, '').replace(/^0+/, '');
 }
+// Demo only: fills example details so a visitor can try SOS in seconds.
+function fillDemo() {
+  const set = (id, v) => { document.getElementById(id).value = v; };
+  set('ob-name', 'Meera Krishnan'); set('ob-cname', 'Arjun Krishnan'); set('ob-cphone', '98765 43210');
+  set('ob-pin-safe', '1234'); set('ob-pin-duress', '9999');
+}
 function saveProfile() {
   const name = document.getElementById('ob-name').value.trim();
   const country = document.getElementById('ob-country').value;
@@ -599,9 +737,13 @@ function saveProfile() {
   const cphoneRaw = document.getElementById('ob-cphone').value.trim();
   const pinSafe = document.getElementById('ob-pin-safe').value.trim();
   const pinDuress = document.getElementById('ob-pin-duress').value.trim();
-  if (!name || !cname || !cphoneRaw) return toast('All fields are needed');
-  if (!/^\d{4,6}$/.test(pinSafe) || !/^\d{4,6}$/.test(pinDuress)) return toast('PINs must be 4-6 digits');
-  if (pinSafe === pinDuress) return toast('Safe and duress PINs must differ');
+  if (!name || !cname || !cphoneRaw) {
+    const empty = ['ob-name', 'ob-cname', 'ob-cphone'].find((id) => !document.getElementById(id).value.trim());
+    if (empty) document.getElementById(empty).focus();
+    return toast(t('need_all'));
+  }
+  if (!/^\d{4,6}$/.test(pinSafe) || !/^\d{4,6}$/.test(pinDuress)) return toast(t('pins_shape'));
+  if (pinSafe === pinDuress) return toast(t('pins_differ'));
   store.set('profile', {
     name,
     country,
@@ -609,6 +751,7 @@ function saveProfile() {
     pins: { safe: pinSafe, duress: pinDuress },
   });
   store.set('consent', 'v1');
+  editingProfile = false;
   render();
 }
 
@@ -655,7 +798,7 @@ function renderSeekerHome(profile) {
       ${profile.contacts.map((c) => `<div>${esc(c.name)} · ${esc(c.address)}</div>`).join('')}
       ${CFG.smsNumber ? `<div class="foot">📟 ${esc(t('sms_join', { name: profile.contacts[0].name.split(' ')[0], number: CFG.smsNumber }))}</div>` : ''}
     </div>
-    <button class="subtle" onclick="store.del('profile');render()">${esc(t('edit_circle'))}</button>`;
+    <button class="subtle" onclick="editingProfile=true;render()">${esc(t('edit_circle'))}</button>`;
 }
 
 /* ---------------------------- real location ---------------------------- */
@@ -730,7 +873,7 @@ async function trigger() {
     store.set('session', { id: r.sessionId, token: r.seekerToken, t0: Date.now(), countdownMs: r.activationCountdownMs, loc, realLoc, dispatched: false });
     speakKey('v_sos');
     render();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(friendlyError(e)); }
 }
 
 async function startWatch() {
@@ -747,27 +890,30 @@ async function startWatch() {
     });
     store.set('session', { id: r.sessionId, token: r.seekerToken, mode: 'watch', loc, realLoc, dispatched: false, deadline: r.watchDeadline });
     render();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(friendlyError(e)); }
 }
 async function checkInSafe() {
   const pin = document.getElementById('pin').value;
   try { await api(`/sessions/${store.get('session').id}/checkin`, { pin }, 'POST', seekerAuth()); routeTick(); }
-  catch (e) { toast(e.message); }
+  catch (e) { toast(friendlyError(e)); }
 }
 async function extendWatch() {
   try {
     const r = await api(`/sessions/${store.get('session').id}/extend`, { minutes: 15 }, 'POST', seekerAuth());
     const sess = store.get('session'); if (r.watchDeadline) { sess.deadline = r.watchDeadline; store.set('session', sess); }
     routeTick();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(friendlyError(e)); }
 }
 
 function renderSeekerSession() {
-  const sess = store.get('session');
   $m.innerHTML = '<div id="dyn"></div>';
   let last = '';
   let spokenState = null;
   routeTick = async () => {
+    // Read the session fresh each time: actions (asking for a helper, new
+    // GPS fixes) update it after this screen was first drawn.
+    const sess = store.get('session');
+    if (!sess) return;
     let st = null;
     try {
       st = await api('/sessions/' + sess.id, undefined, 'GET', seekerAuth());
@@ -824,11 +970,12 @@ function seekerScreen(state, sess, code) {
     const steps = [t('step1'), t('step2'), t('step3')];
     const on = state === 'ACTIVE' ? 1 : state === 'DISPATCHED' ? 2 : 3;
     return `
-      <h1>${esc(t('help_in_motion'))} <span class="chip ${state}">${state}</span></h1>
+      <h1>${esc(t('help_in_motion'))} <span class="chip ${state}">${esc(t('state_' + state))}</span></h1>
       <div class="tl">${steps.map((s, i) => `<div class="step ${i < on ? 'on' : ''}">${esc(s)}</div>`).join('')}</div>
       ${sess.loc ? mapSvg(null, sess.loc, { dot: true, hideCell: true }) : ''}
-      ${state === 'ACTIVE' && !sess.dispatched ? `<button class="primary" onclick="requestResponder()">${esc(t('request_responder'))}</button>` : ''}
-      ${state === 'ACTIVE' && sess.dispatched ? `<p class="lead center" style="margin-top:10px">${esc(t('waiting_accept'))}</p>` : ''}
+      ${state === 'ACTIVE' && !sess.dispatched && sess.loc ? `<button class="primary" onclick="requestResponder()">${esc(t('request_responder'))}</button>` : ''}
+      ${state === 'ACTIVE' && !sess.loc ? `<p class="lead center" style="margin-top:10px">${esc(t('no_loc_helper'))}</p>` : ''}
+      ${state === 'ACTIVE' && sess.dispatched ? `<p class="lead center" style="margin-top:10px">${esc(t(sess.noHelpers ? 'no_helpers' : 'waiting_accept'))}</p>` : ''}
       ${state === 'DISPATCHED' && code ? `<p class="lead center" style="margin-top:12px">${esc(t('show_code'))}</p><div class="code">${code}</div>` : ''}
       ${state === 'ARRIVED' ? `<p class="lead center" style="margin-top:12px">🤝 ${esc(t('responder_here'))}</p>` : ''}
       <button onclick="resolveSession()">✅ ${esc(t('i_am_safe'))}</button>
@@ -843,18 +990,23 @@ function seekerScreen(state, sess, code) {
     <p class="lead center">${esc(t('nobody_notified'))}</p>
     <button onclick="clearSession()">${esc(t('back'))}</button>`;
 }
-async function confirmNow() { try { await api(`/sessions/${store.get('session').id}/confirm`, {}, 'POST', seekerAuth()); } catch (e) { toast(e.message); } routeTick(); }
+async function confirmNow() { try { await api(`/sessions/${store.get('session').id}/confirm`, {}, 'POST', seekerAuth()); } catch (e) { toast(friendlyError(e)); } routeTick(); }
 async function cancelSession() {
   const pin = document.getElementById('pin').value;
   try { await api(`/sessions/${store.get('session').id}/cancel`, { pin }, 'POST', seekerAuth()); routeTick(); }
-  catch (e) { toast(e.message); }
+  catch (e) { toast(friendlyError(e)); }
 }
 async function requestResponder() {
   const sess = store.get('session');
-  try { await api(`/sessions/${sess.id}/dispatch`, {}, 'POST', seekerAuth()); sess.dispatched = true; store.set('session', sess); routeTick(); }
-  catch (e) { toast(e.message); }
+  try {
+    // An empty list means no trained helper is near: say so, never "please wait" forever.
+    const asked = await api(`/sessions/${sess.id}/dispatch`, {}, 'POST', seekerAuth());
+    sess.dispatched = true; sess.noHelpers = Array.isArray(asked) && asked.length === 0;
+    store.set('session', sess); routeTick();
+  }
+  catch (e) { toast(friendlyError(e)); }
 }
-async function resolveSession() { try { await api(`/sessions/${store.get('session').id}/resolve`, {}, 'POST', seekerAuth()); routeTick(); } catch (e) { toast(e.message); } }
+async function resolveSession() { try { await api(`/sessions/${store.get('session').id}/resolve`, {}, 'POST', seekerAuth()); routeTick(); } catch (e) { toast(friendlyError(e)); } }
 function clearSession() { stopGps(); store.del('session'); render(); }
 
 // Live location updates: real GPS fixes only, and only while the session
@@ -877,17 +1029,15 @@ function renderContactInbox() {
   const addr = store.get('contact.addr', null);
   if (!addr) {
     $m.innerHTML = `
-      <h1>Your alert number</h1>
-      <p class="lead">Alerts addressed to this number appear here. Use the number the help seeker
-        saved in their circle — any format works.</p>
-      <input id="ct-addr" value="98765 43210" inputmode="tel" aria-label="your phone number">
-      <button class="primary" onclick="store.set('contact.addr',document.getElementById('ct-addr').value.trim());render()">Start watching</button>`;
+      <h1>${esc(t('ct_setup_title'))}</h1>
+      <p class="lead">${esc(t('ct_setup_sub'))}</p>
+      <input id="ct-addr" placeholder="98765 43210" inputmode="tel" aria-label="${esc(t('ct_setup_title'))}">
+      <button class="primary" onclick="const v=document.getElementById('ct-addr').value.trim(); if(v){store.set('contact.addr',v);render()}">${esc(t('ct_start'))}</button>`;
     return;
   }
-  $m.innerHTML = `<h1>Alerts</h1>
-    <p class="lead">for ${esc(addr)} · <a href="#" onclick="store.del('contact.addr');render();return false">change</a></p>
-    <div id="dyn"><p class="lead" style="margin-top:30px">No alerts. You will hear nothing unless
-      someone in your circle activates a session.</p></div>`;
+  $m.innerHTML = `<h1>${esc(t('ct_alerts'))}</h1>
+    <p class="lead">${esc(t('ct_for', { number: addr }))} · <a href="#" onclick="store.del('contact.addr');render();return false">${esc(t('ct_change'))}</a></p>
+    <div id="dyn"><p class="lead" style="margin-top:30px">${esc(t('ct_none'))}</p></div>`;
   let last = '';
   routeTick = async () => {
     const ob = await api('/dev/outbox', undefined, 'GET');
@@ -898,17 +1048,17 @@ function renderContactInbox() {
     // Remember each session's contact capability token from its link.
     const tokens = store.get('contact.tokens', {});
     for (const a of mine) {
-      const t = new URL(a.liveSessionLink).searchParams.get('t');
-      if (t) tokens[a.sessionId] = t;
+      const tok = new URL(a.liveSessionLink).searchParams.get('t');
+      if (tok) tokens[a.sessionId] = tok;
     }
     store.set('contact.tokens', tokens);
     const seen = new Set();
     const cards = mine.filter((a) => !seen.has(a.sessionId) && seen.add(a.sessionId)).map((a) => `
       <div class="card tap ${a.duress ? 'duress' : ''}" onclick="go('contact/${a.sessionId}')">
-        <div class="k">${a.duress ? '⚠ DURESS — THE CANCEL WAS COERCED'
-          : a.watchExpired ? '⏰ DID NOT CHECK IN FROM JOURNEY'
-          : a.escalation ? '⏳ ESCALATION — STILL NO RESPONDER' : 'EMERGENCY ALERT'}</div>
-        <b>${esc(a.helpseekerDisplayName)}</b> needs help · ${esc(catLabel(a.category))}<br>
+        <div class="k">${a.duress ? '⚠ ' + esc(t('ct_alert_duress'))
+          : a.watchExpired ? '⏰ ' + esc(t('ct_alert_watch'))
+          : a.escalation ? '⏳ ' + esc(t('ct_alert_escalation')) : '🆘 ' + esc(t('ct_alert'))}</div>
+        <b>${esc(t('ct_needs_help', { name: a.helpseekerDisplayName }))}</b> · ${esc(catLabel(a.category))}<br>
         <span style="color:var(--dim);font-size:12px">${fmtTime(a.sentAt)}</span></div>`).join('');
     if (cards && cards !== last) { document.getElementById('dyn').innerHTML = cards; last = cards; }
   };
@@ -917,58 +1067,63 @@ function renderContactInbox() {
 const contactToken = (sid) => store.get('contact.tokens', {})[sid] || '';
 // "Last seen" freshness: a stale dot may mean the phone died, not safety.
 function freshness(ageMs) {
-  if (ageMs == null) return 'no location';
-  if (ageMs < 20000) return 'live';
+  if (ageMs == null) return t('fresh_none');
+  if (ageMs < 20000) return t('fresh_live');
   const m = Math.floor(ageMs / 60000);
-  if (m < 1) return 'updated seconds ago';
-  if (m < 60) return `updated ${m} min ago — phone may be offline`;
-  return 'updated over an hour ago — phone may be off';
+  if (m < 1) return t('fresh_seconds');
+  if (m < 60) return t('fresh_min', { m });
+  return t('fresh_hour');
 }
 
 function renderContactSession(sid) {
-  $m.innerHTML = `<div id="dyn"><p class="lead">loading…</p></div>`;
+  $m.innerHTML = `<div id="dyn"><p class="lead">…</p></div>`;
   let last = '';
   routeTick = async () => {
     const v = await api(`/sessions/${sid}/contact-view?t=${contactToken(sid)}`, undefined, 'GET').catch(() => null);
     if (!v) return;
     const live = ['PENDING', 'ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(v.state);
     const html = `
-      ${v.duress ? `<div class="card duress"><div class="k">⚠ DURESS</div>Their phone shows
-        “cancelled”. Do <b>not</b> call them — the attacker may be present. Coordinate from here.</div>` : ''}
-      <h1>${esc(v.helpseekerDisplayName || 'Session')} <span class="chip ${v.state}">${v.state}</span></h1>
+      ${v.duress ? `<div class="card duress"><div class="k">⚠ ${esc(t('ct_alert_duress'))}</div>${t('ct_duress_box')}</div>` : ''}
+      <h1>${esc(v.helpseekerDisplayName || '')} <span class="chip ${v.state}">${esc(t('state_' + v.state))}</span></h1>
       <p class="lead">${esc(catLabel(v.category))}</p>
+      ${v.placeNote ? `<div class="card"><div class="k">${esc(t('ct_said'))}</div>${esc(v.placeNote)}</div>` : ''}
       ${v.location ? mapSvg(null, v.location, { dot: true, hideCell: true }) +
-        `<p class="lead center">${freshness(v.locationAgeMs)} · ${v.location.lat.toFixed(5)}, ${v.location.lng.toFixed(5)}</p>
+        `<p class="lead center">📍 ${esc(freshness(v.locationAgeMs))}</p>
          <a class="bigbtn" style="text-decoration:none;color:inherit" target="_blank" rel="noopener"
            href="https://www.google.com/maps/search/?api=1&query=${v.location.lat},${v.location.lng}"><span class="ic">🗺️</span><b>${esc(t('open_maps'))}</b></a>` :
-        `<p class="lead" style="margin-top:20px">${live ? (v.duress ? 'Location unknown.' : 'Location unknown — call them.') : 'This session has ended; its location data is gone.'}</p>`}
-      ${v.placeNote ? `<div class="card"><div class="k">THEY SAID THEY ARE</div>${esc(v.placeNote)}</div>` : ''}
-      ${v.state === 'ACTIVE' && v.location ? `<button class="primary" onclick="contactDispatch('${sid}')">Send a verified helper</button>` : ''}
-      ${v.state === 'DISPATCHED' ? `<p class="lead center" style="margin-top:8px">A responder is on the way.</p>` : ''}
-      <button class="subtle" onclick="go('contact')">← all alerts</button>`;
+        `<p class="lead" style="margin-top:20px">${live ? esc(t(v.duress ? 'ct_no_loc_duress' : 'ct_no_loc')) : esc(t('ct_ended'))}</p>`}
+      ${v.state === 'ACTIVE' && v.location ? `<button class="primary" onclick="contactDispatch('${sid}')">${esc(t('ct_send_helper'))}</button>` : ''}
+      ${v.state === 'DISPATCHED' ? `<p class="lead center" style="margin-top:8px">${esc(t('ct_helper_coming'))}</p>` : ''}
+      <button class="subtle" onclick="go('contact')">${esc(t('ct_all_alerts'))}</button>`;
     if (html !== last) { document.getElementById('dyn').innerHTML = html; last = html; }
   };
   routeTick();
 }
-async function contactDispatch(sid) { try { await api(`/sessions/${sid}/dispatch?t=${contactToken(sid)}`, {}); routeTick(); } catch (e) { toast(e.message); } }
+async function contactDispatch(sid) {
+  try {
+    const asked = await api(`/sessions/${sid}/dispatch?t=${contactToken(sid)}`, {});
+    if (Array.isArray(asked) && asked.length === 0) toast(t('no_helpers_contact'));
+    routeTick();
+  } catch (e) { toast(friendlyError(e)); }
+}
 
 /* ----------------------------- responder ------------------------------ */
 function renderResponderInbox() {
   const rid = store.get('responder.id', null);
   if (!rid) {
-    $m.innerHTML = `<h1>Who are you?</h1>
-      <p class="lead">Verified responders only. Pick your enrolled identity.</p><div id="dyn"></div>`;
+    $m.innerHTML = `<h1>${esc(t('rs_who'))}</h1>
+      <p class="lead">${esc(t('rs_who_sub'))}</p><div id="dyn"></div>`;
     api('/dev/roster', undefined, 'GET').then((roster) => {
       document.getElementById('dyn').innerHTML = roster.map((r) => `
         <div class="card tap" onclick="store.set('responder.id','${r.id}');store.set('responder.token','${r.devToken}');render()">
           <b>${esc(r.id.replace('responder-', ''))}</b>
-          <div style="color:var(--dim);font-size:12px">zone ${esc(r.availabilityCell)} · ${r.verified ? '✓ verified' : 'unverified'}</div></div>`).join('');
-    });
+          <div style="color:var(--dim);font-size:12px">${r.verified ? esc(t('rs_checked')) : ''}</div></div>`).join('');
+    }).catch(() => {});
     return;
   }
-  $m.innerHTML = `<h1>Dispatch offers</h1>
-    <p class="lead">for ${esc(rid)} · <a href="#" onclick="store.del('responder.id');render();return false">change</a></p>
-    <div id="dyn"><p class="lead" style="margin-top:30px">No offers right now.</p></div>`;
+  $m.innerHTML = `<h1>${esc(t('rs_offers'))}</h1>
+    <p class="lead">${esc(rid.replace('responder-', ''))} · <a href="#" onclick="store.del('responder.id');render();return false">${esc(t('ct_change'))}</a></p>
+    <div id="dyn"><p class="lead" style="margin-top:30px">${esc(t('rs_none'))}</p></div>`;
   let last = '';
   routeTick = async () => {
     const ob = await api('/dev/outbox', undefined, 'GET');
@@ -976,10 +1131,9 @@ function renderResponderInbox() {
     const seen = new Set();
     const cards = mine.filter((o) => !seen.has(o.sessionId) && seen.add(o.sessionId)).map((o) => `
       <div class="card tap" onclick="go('responder/${o.sessionId}')">
-        <div class="k">DISPATCH OFFER</div>
-        <b>${esc(o.alias)}</b> · ${esc(catLabel(o.category))}<br>
-        <span style="color:var(--dim);font-size:12px">area ${esc(o.coarseCell)} (~1 km) ·
-        ${new Date(o.sentAt).toLocaleTimeString()}</span></div>`).join('');
+        <div class="k">🆘 ${esc(t('rs_offer'))}</div>
+        <b>${esc(catLabel(o.category))}</b> · ${esc(t('rs_area'))}<br>
+        <span style="color:var(--dim);font-size:12px">${fmtTime(o.sentAt)}</span></div>`).join('');
     if (cards && cards !== last) { document.getElementById('dyn').innerHTML = cards; last = cards; }
   };
   routeTick();
@@ -987,39 +1141,35 @@ function renderResponderInbox() {
 
 function renderResponderJob(sid) {
   const rid = store.get('responder.id');
-  $m.innerHTML = `<div id="dyn"><p class="lead">loading…</p></div>`;
+  $m.innerHTML = `<div id="dyn"><p class="lead">…</p></div>`;
   let last = '';
   routeTick = async () => {
     const v = await api(`/sessions/${sid}/responder-view/${rid}`, undefined, 'GET', responderAuth()).catch(() => null);
     if (!v) return;
     const accepted = (store.get('responder.accepted', [])).includes(sid);
-    let html = `<h1>${esc(v.alias)} <span class="chip ${v.state}">${v.state}</span></h1>
-      <p class="lead">${esc(catLabel(v.category))}</p>`;
+    let html = `<h1>${esc(t('rs_offer'))} <span class="chip ${v.state}">${esc(t('state_' + v.state))}</span></h1>
+      <p class="lead">${esc(catLabel(v.category))} · ${esc(t('rs_area'))}</p>`;
     if (v.state === 'ACTIVE') {
       html += mapSvg(v.coarseCell, null, {}) + `
-        <p class="lead center">You see an area, not an address — identity and exact position are
-          released only to the responder who accepts.</p>
-        <button class="primary" onclick="acceptJob('${sid}')">Accept this dispatch</button>`;
+        <p class="lead center">${esc(t('rs_area_note'))}</p>
+        <button class="primary" onclick="acceptJob('${sid}')">${esc(t('rs_accept'))}</button>`;
     } else if (v.state === 'DISPATCHED' && accepted && v.location) {
       html += mapSvg(v.coarseCell, v.location, { dot: true }) + `
-        <p class="lead center">${v.location.lat.toFixed(5)}, ${v.location.lng.toFixed(5)} ·
-          <a href="https://maps.google.com/?q=${v.location.lat},${v.location.lng}" target="_blank">navigate ↗</a></p>
-        <label>CODE FROM THE HELP SEEKER'S SCREEN</label>
+        <p class="lead center"><a href="https://www.google.com/maps/search/?api=1&query=${v.location.lat},${v.location.lng}" target="_blank" rel="noopener">${esc(t('rs_navigate'))}</a></p>
+        <label>${esc(t('rs_code_label'))}</label>
         <input id="arr-code" inputmode="numeric" maxlength="6" placeholder="······">
-        <button class="primary" onclick="verifyArrival('${sid}')">Verify arrival</button>
-        <button class="subtle" onclick="withdrawJob('${sid}')">I can't make it — withdraw</button>`;
+        <button class="primary" onclick="verifyArrival('${sid}')">${esc(t('rs_verify'))}</button>
+        <button class="subtle" onclick="withdrawJob('${sid}')">${esc(t('rs_withdraw'))}</button>`;
     } else if (v.state === 'DISPATCHED') {
-      html += `<p class="lead" style="margin-top:24px">Another responder took this one. Stand down.</p>`;
+      html += `<p class="lead" style="margin-top:24px">${esc(t('rs_taken'))}</p>`;
     } else if (v.state === 'ARRIVED') {
-      html += `<div class="big-ico">🤝</div><p class="lead center">You're on scene. Stay until the
-        help seeker resolves the session.</p>`;
+      html += `<div class="big-ico">🤝</div><p class="lead center">${esc(t('rs_on_scene'))}</p>`;
     } else if (v.state === 'RESOLVED' || v.state === 'CLOSED' || v.state === 'PURGED') {
-      html += `<div class="big-ico">✅</div><p class="lead center">Session resolved. Thank you.
-        You never learned who they were — that is the point.</p>`;
+      html += `<div class="big-ico">✅</div><p class="lead center">${esc(t('rs_done'))}</p>`;
     } else {
-      html += `<p class="lead" style="margin-top:24px">This session is no longer dispatchable.</p>`;
+      html += `<p class="lead" style="margin-top:24px">${esc(t('rs_not_available'))}</p>`;
     }
-    html += `<button class="subtle" onclick="go('responder')">← offers</button>`;
+    html += `<button class="subtle" onclick="go('responder')">${esc(t('rs_back'))}</button>`;
     if (html !== last && !typing()) { document.getElementById('dyn').innerHTML = html; last = html; }
   };
   routeTick();
@@ -1029,20 +1179,20 @@ async function acceptJob(sid) {
     await api(`/sessions/${sid}/accept`, { responderId: store.get('responder.id') }, 'POST', responderAuth());
     const a = store.get('responder.accepted', []); a.push(sid); store.set('responder.accepted', a);
     routeTick();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(friendlyError(e)); }
 }
 async function verifyArrival(sid) {
   try {
     await api(`/sessions/${sid}/arrival`, { responderId: store.get('responder.id'), code: document.getElementById('arr-code').value }, 'POST', responderAuth());
     routeTick();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(friendlyError(e)); }
 }
 async function withdrawJob(sid) {
   try {
     await api(`/sessions/${sid}/withdraw`, { responderId: store.get('responder.id') }, 'POST', responderAuth());
     store.set('responder.accepted', store.get('responder.accepted', []).filter((x) => x !== sid));
     go('responder');
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(friendlyError(e)); }
 }
 
 render();

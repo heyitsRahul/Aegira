@@ -1,0 +1,17 @@
+name: keep-awake
+
+# Render's free plan sleeps after 15 minutes without visitors, and the first
+# visit after that takes up to a minute. A light check every 10 minutes keeps
+# the demo awake. One always-on service fits in Render's free monthly hours.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the live demo
+        run: curl --fail --silent --show-error --max-time 90 https://aegira.onrender.com/healthz

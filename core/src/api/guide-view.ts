@@ -41,13 +41,14 @@ interface Copy {
   tryDemo: string;
   tryDemoSteps: string[];
   other: string;
+  langs: string;
 }
 
 const EN: Copy = {
   title: 'How to use Aegira',
   intro:
     'Aegira tells the people you trust when you are in danger. It works on a smartphone, ' +
-    'on any web browser, and by text message on a basic phone.',
+    'on an old phone’s web browser, and by SMS on a basic phone.',
   demoNote:
     'This is a working prototype. No real helpers are connected yet.',
   emergency: 'In danger right now? Call 112.',
@@ -58,10 +59,10 @@ const EN: Copy = {
     'Tap your language.',
     'Tap <b>🆘 I need help</b>.',
     'Type your name and one trusted person\'s phone number.',
-    'Choose two PINs: a <b>safe PIN</b> that really cancels, and a <b>danger PIN</b> that only pretends to cancel.',
+    'Choose two PINs (secret numbers): a <b>safe PIN</b> that really cancels, and a <b>danger PIN</b> that is a secret alarm.',
     'In danger? Press the big red <b>SOS</b> button.',
-    'You have 30 seconds to cancel with your safe PIN. Then your trusted person is told, with your live location.',
-    'When you are safe, tap <b>I am safe</b>. Your data is then erased.',
+    'You get 30 seconds to cancel with your safe PIN. Then your person gets a message with where you are.',
+    'When you are safe, tap <b>I am safe now</b>. Everything is then deleted.',
   ],
   install: 'Put it on your home screen',
   installSteps: [
@@ -70,27 +71,27 @@ const EN: Copy = {
   ],
   watch: '🛡️ Going somewhere alone?',
   watchSteps: [
-    'In the app, tap <b>Watch my journey</b> and choose how many minutes.',
-    'When you arrive, tap <b>I\'ve arrived</b> and type your PIN.',
-    'If you don\'t check in on time, your trusted person is told.',
+    'In the app, tap <b>Going somewhere</b> and choose how many minutes.',
+    'When you reach, tap <b>I have reached safely</b> and type your PIN.',
+    'If you don\'t, your person gets a message.',
   ],
   browser: '🌐 Old phone or slow internet',
   browserSteps: [
-    'Open <a href="/lite">the basic version</a>. It works without JavaScript.',
-    'Fill in <b>First time? Register</b> once.',
+    'Open <a href="/lite">the simple version</a>. It works on very old phones.',
+    'Fill in <b>First time? Sign up</b> once.',
     'In danger, fill in <b>I need help now</b> and press <b>SEND SOS</b>.',
   ],
   basic: '📟 Basic phone, no internet',
   basicIntro: (n) =>
     n === null
-      ? 'Send these text messages to the Aegira number:'
-      : `Send these text messages to <b>${esc(n)}</b>:`,
+      ? 'Send these SMS messages to the Aegira number:'
+      : `Send these SMS messages to <b>${esc(n)}</b>:`,
   basicSteps: [
-    ['REG Meera 9876543210 1234 9999', 'Register once: your name, a trusted person\'s number, safe PIN, danger PIN.'],
-    ['SOS', 'Call for help. Add a place if you can: SOS near Andheri station'],
+    ['REG Meera 9876543210 1234 9999', 'Sign up once: your name, your person\'s number, safe PIN, danger PIN.'],
+    ['SOS', 'Ask for help. Add where you are if you can: SOS near Andheri station'],
     ['CANCEL 1234', 'Stop it within 30 seconds.'],
     ['WATCH 20', 'Watch my journey for 20 minutes.'],
-    ['SAFE 1234', 'I have arrived / I am safe.'],
+    ['SAFE 1234', 'I have reached / I am safe.'],
     ['STATUS', 'What is happening?'],
     ['STOP', 'Delete my registration.'],
   ],
@@ -100,20 +101,22 @@ const EN: Copy = {
     ...(n === null
       ? []
       : [`Text <b>JOIN</b> to <b>${esc(n)}</b> once, so Aegira is allowed to text you alerts.`]),
-    'You get a text: <i>"AEGIRA ALERT: Meera needs help"</i> with a link.',
+    'You get an SMS: <i>“AEGIRA ALERT: Meera needs help”</i> with a link.',
     'Open the link to see where they are. Call them.',
-    'If someone needs to go to them, reply <b>SEND</b> (or tap the button on the page) to ask a verified helper to go.',
+    'If it says <b>SECRET ALARM</b>, do not call. Someone may be with them.',
+    'If someone needs to go to them, reply <b>SEND</b> (or tap the button on the page) to send a trained helper.',
   ],
   pins: 'Why two PINs?',
   pinsText:
-    'If someone forces you to cancel, type your danger PIN. The screen says "cancelled", ' +
-    'but your trusted person is secretly told you are in danger.',
+    'If someone forces you to cancel, type your danger PIN. The screen says “cancelled”, ' +
+    'but your person is secretly told you are in danger.',
   tryDemo: 'Trying the demo?',
   tryDemoSteps: [
     'Use safe PIN <b>1234</b> and danger PIN <b>9999</b>.',
     'Open <a href="/console">the behind-the-scenes view</a> to see what really happened.',
   ],
   other: 'हिंदी में पढ़ें',
+  langs: 'English and हिंदी now. More Indian languages coming soon: বাংলা, मराठी, తెలుగు, தமிழ், ગુજરાતી, اردو, ಕನ್ನಡ, ଓଡ଼ିଆ, മലയാളം, ਪੰਜਾਬੀ, অসমীয়া. Open the app and tap yours, so we add it first.',
 };
 
 const HI: Copy = {
@@ -133,7 +136,7 @@ const HI: Copy = {
     'दो PIN चुनें: <b>सुरक्षित PIN</b> जो सच में रद्द करता है, और <b>ख़तरे वाला PIN</b> जो सिर्फ़ रद्द होने का दिखावा करता है।',
     'ख़तरे में? बड़ा लाल <b>SOS</b> बटन दबाएँ।',
     '30 सेकंड में सुरक्षित PIN से रद्द कर सकते हैं। फिर आपके भरोसेमंद व्यक्ति को आपकी लाइव जगह के साथ सूचना जाती है।',
-    'सुरक्षित होने पर <b>मैं सुरक्षित हूँ</b> दबाएँ। फिर आपका डेटा मिटा दिया जाता है।',
+    'सुरक्षित होने पर <b>मैं अब सुरक्षित हूँ</b> दबाएँ। फिर सब मिटा दिया जाता है।',
   ],
   install: 'होम स्क्रीन पर लगाएँ',
   installSteps: [
@@ -142,14 +145,14 @@ const HI: Copy = {
   ],
   watch: '🛡️ अकेले कहीं जा रहे हैं?',
   watchSteps: [
-    'ऐप में <b>मेरी यात्रा पर नज़र</b> दबाएँ और मिनट चुनें।',
-    'पहुँचने पर <b>मैं पहुँच गया/गई</b> दबाएँ और PIN डालें।',
+    'ऐप में <b>कहीं जा रहे हैं</b> दबाएँ और मिनट चुनें।',
+    'पहुँचकर <b>मैं सुरक्षित पहुँच गया/गई</b> दबाएँ और PIN डालें।',
     'समय पर नहीं बताया तो आपके भरोसेमंद व्यक्ति को सूचना जाएगी।',
   ],
   browser: '🌐 पुराना फ़ोन या धीमा इंटरनेट',
   browserSteps: [
     '<a href="/lite">सादा संस्करण</a> खोलें। यह JavaScript के बिना चलता है।',
-    'एक बार <b>First time? Register</b> भरें।',
+    'एक बार <b>First time? Sign up</b> भरें।',
     'ख़तरे में <b>I need help now</b> भरें और <b>SEND SOS</b> दबाएँ।',
   ],
   basic: '📟 सादा फ़ोन, इंटरनेट नहीं',
@@ -174,6 +177,7 @@ const HI: Copy = {
       : [`एक बार <b>${esc(n)}</b> पर <b>JOIN</b> भेजें, ताकि Aegira आपको सूचना भेज सके।`]),
     'आपको एक SMS आएगा: <i>"AEGIRA ALERT: Meera needs help"</i>, साथ में एक लिंक।',
     'लिंक खोलकर देखें वे कहाँ हैं। उन्हें कॉल करें।',
+    'अगर <b>SECRET ALARM</b> लिखा हो, तो कॉल न करें। कोई उनके साथ हो सकता है।',
     'पास में मदद चाहिए तो <b>SEND</b> भेजें (या पेज पर बटन दबाएँ), प्रमाणित सहायक बुलाने के लिए।',
   ],
   pins: 'दो PIN क्यों?',
@@ -186,6 +190,7 @@ const HI: Copy = {
     '<a href="/console">पर्दे के पीछे का दृश्य</a> खोलकर देखें कि असल में क्या हुआ।',
   ],
   other: 'Read in English',
+  langs: 'अभी English और हिंदी। और भारतीय भाषाएँ जल्द आ रही हैं: বাংলা, मराठी, తెలుగు, தமிழ், ગુજરાતી, اردو, ಕನ್ನಡ, ଓଡ଼ିଆ, മലയാളം, ਪੰਜਾਬੀ, অসমীয়া। ऐप खोलकर अपनी भाषा दबाएँ, ताकि हम उसे पहले जोड़ें।',
 };
 
 /**
@@ -251,6 +256,7 @@ export function guidePage(lang: GuideLang, opts: GuideOptions): string {
     `<h2>${c.basic}</h2>${sms}` +
     `<h2>${c.contact}</h2>${list(c.contactSteps(n))}` +
     `<h2>${c.pins}</h2><p>${esc(c.pinsText)}</p>` +
+    `<p class="note">🗣️ ${esc(c.langs)}</p>` +
     demo +
     '</body></html>'
   );

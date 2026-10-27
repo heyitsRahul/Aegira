@@ -61,24 +61,25 @@ function placeFrom(words: string[]): string | undefined {
   return note.length > 0 ? note : undefined;
 }
 
+// Plain words for people who may not read well; one example beats a syntax line.
 const HELP_TEXT =
-  'Aegira commands: REG name contact-phone safe-pin duress-pin | SOS [place] | ' +
-  'WATCH minutes | EXTEND minutes | CANCEL pin | STATUS | SAFE pin | ' +
-  'SEND (contacts) | JOIN (contacts) | STOP';
+  'Aegira: First send REG your-name their-phone pin1 pin2 ' +
+  '(example: REG Meera 9876543210 1234 9999). In danger, send SOS and where you are. ' +
+  'Other words: CANCEL pin, STATUS, WATCH minutes, SAFE pin, STOP. Someone saved your number? Send JOIN.';
 
-const CANCELLED_REPLY = 'Aegira: session cancelled. Nobody was notified.';
-const CHECKED_IN_REPLY = 'Aegira: checked in safe. Take care.';
-const RESOLVED_REPLY = 'Aegira: marked safe. Session resolved. Take care.';
-const WRONG_PIN_REPLY = 'Aegira: wrong PIN.';
-const NO_SESSION_REPLY = 'Aegira: no active session.';
+const CANCELLED_REPLY = 'Aegira: Cancelled. Nobody was told.';
+const CHECKED_IN_REPLY = 'Aegira: Good, you reached safely. Take care.';
+const RESOLVED_REPLY = 'Aegira: Good, you are safe. Take care.';
+const WRONG_PIN_REPLY = 'Aegira: Wrong PIN. Try again.';
+const NO_SESSION_REPLY = 'Aegira: Nothing is running right now.';
 
 const STATUS_TEXT: Readonly<Record<SessionState, string>> = {
-  WATCHING: 'Aegira: journey watch active. Text SAFE <pin> when you arrive, or EXTEND <min>.',
-  PENDING: 'Aegira: SOS received, activating shortly. Text CANCEL <pin> to stop it.',
-  ACTIVE: 'Aegira: your circle is alerted. Help is in motion.',
-  DISPATCHED: 'Aegira: a verified responder is on the way.',
-  ARRIVED: 'Aegira: your responder is with you.',
-  RESOLVED: 'Aegira: session resolved. Stay safe.',
+  WATCHING: 'Aegira: Timer is on. When you reach, send SAFE and your PIN. Need more time? Send EXTEND 15.',
+  PENDING: 'Aegira: Sending help soon. To stop it, send CANCEL and your PIN.',
+  ACTIVE: 'Aegira: Your people have been told. Help is coming.',
+  DISPATCHED: 'Aegira: A trained helper is on the way.',
+  ARRIVED: 'Aegira: Your helper is with you.',
+  RESOLVED: 'Aegira: You are safe. Take care.',
   CANCELLED: NO_SESSION_REPLY,
   CLOSED: NO_SESSION_REPLY,
   PURGED: NO_SESSION_REPLY,
@@ -132,7 +133,7 @@ export class SmsGatewayService {
           const unregistered = this.registrations.unregister(from);
           const left = this.optIns?.leave(from) ?? false;
           return unregistered || left
-            ? 'Aegira: deleted. You will get no more texts from Aegira. Text JOIN or REG to come back.'
+            ? 'Aegira: Deleted. You will get no more messages from us. To come back, send JOIN or REG.'
             : HELP_TEXT;
         }
         default:
@@ -140,7 +141,7 @@ export class SmsGatewayService {
       }
     } catch (error) {
       if (error instanceof InvalidInputError) {
-        return `Aegira: ${error.message}.`;
+        return `Aegira: ${error.message.replace(/^invalid input: /, '')}.`;
       }
       throw error;
     }
@@ -148,18 +149,18 @@ export class SmsGatewayService {
 
   private handleJoin(from: string): string {
     if (this.optIns === null) {
-      return 'Aegira: you will get alerts here if someone lists this number as their trusted contact.';
+      return 'Aegira: Done. If someone saved this number, you will get a message when they need help.';
     }
     this.optIns.join(from);
     return (
-      'Aegira: done (consent v6). If someone lists this number as their trusted contact, ' +
-      'we will text you when they need help. Text STOP to opt out.'
+      'Aegira: Done. If someone saved this number, we will send you a message when they ' +
+      'need help. To stop, send STOP.'
     );
   }
 
   private handleRegister(from: string, args: string[]): string {
     if (args.length < 4) {
-      return 'Aegira: text REG <name> <contact-phone> <safe-pin> <duress-pin>. Use _ for spaces in the name.';
+      return 'Aegira: Send REG your-name their-phone pin1 pin2. Example: REG Meera 9876543210 1234 9999';
     }
     const [name, contactPhone, pinSafe, pinDuress] = args;
     const record = this.registrations.register(
@@ -175,10 +176,9 @@ export class SmsGatewayService {
       this.optIns !== null &&
       !this.optIns.hasJoined(record.contacts[0].address);
     return (
-      `Aegira: registered as ${record.displayName} (consent ${record.consentVersion}). ` +
-      'Text SOS to trigger help. Text STOP to delete this registration.' +
+      `Aegira: Done, ${record.displayName}. In danger, send SOS. To delete your details, send STOP.` +
       (contactMustJoin
-        ? ' IMPORTANT: ask your contact to text JOIN to this number once, or they will not get your alerts.'
+        ? ' IMPORTANT: ask your person to send JOIN to this number once, or they will not get your messages.'
         : '')
     );
   }
@@ -190,7 +190,7 @@ export class SmsGatewayService {
   ): string {
     const registration = this.registrations.find(from);
     if (registration === undefined) {
-      return 'Aegira: not registered. Text REG <name> <contact-phone> <safe-pin> <duress-pin> first.';
+      return 'Aegira: First send REG your-name their-phone pin1 pin2. Example: REG Meera 9876543210 1234 9999';
     }
     // "SOS M near the bus stand": an optional one-letter category, then
     // the place in the sender's own words.
@@ -210,16 +210,16 @@ export class SmsGatewayService {
       const seconds = Math.round(receipt.activationCountdownMs / 1000);
       const whereHint =
         approxLocation === undefined && placeNote === undefined
-          ? ' Tell your circle where you are if you can.'
+          ? ' If you can, send where you are.'
           : '';
       return (
-        `Aegira: SOS received. Your circle will be alerted in ${seconds}s. ` +
-        'Text CANCEL <pin> to stop it.' +
+        `Aegira: Got it. Your people will get a message in ${seconds} seconds. ` +
+        'To stop it, send CANCEL and your PIN.' +
         whereHint
       );
     } catch (error) {
       if (error instanceof ActiveSessionExistsError) {
-        return 'Aegira: you already have a session running. Text STATUS.';
+        return 'Aegira: Help is already running. Send STATUS to check.';
       }
       throw error;
     }
@@ -233,12 +233,12 @@ export class SmsGatewayService {
   ): string {
     const registration = this.registrations.find(from);
     if (registration === undefined) {
-      return 'Aegira: not registered. Text REG <name> <contact-phone> <safe-pin> <duress-pin> first.';
+      return 'Aegira: First send REG your-name their-phone pin1 pin2. Example: REG Meera 9876543210 1234 9999';
     }
     const placeNote = placeFrom(placeWords);
     const minutes = Number(minutesStr);
     if (!Number.isFinite(minutes) || minutes <= 0) {
-      return 'Aegira: text WATCH <minutes>, e.g. WATCH 20 to be watched for 20 minutes.';
+      return 'Aegira: Send WATCH and the minutes. Example: WATCH 20';
     }
     try {
       this.sessions.startWatch(
@@ -254,12 +254,12 @@ export class SmsGatewayService {
         Math.round(minutes * 60 * 1000),
       );
       return (
-        `Aegira: watching your journey for ${minutes} min. Text SAFE <pin> when you arrive, ` +
-        `or EXTEND <min>. If you don't check in, your circle is alerted.`
+        `Aegira: Timer on for ${minutes} min. When you reach, send SAFE and your PIN. ` +
+        `If you don't, your people get a message.`
       );
     } catch (error) {
       if (error instanceof ActiveSessionExistsError) {
-        return 'Aegira: you already have a session running. Text STATUS.';
+        return 'Aegira: Help is already running. Send STATUS to check.';
       }
       throw error;
     }
@@ -276,14 +276,14 @@ export class SmsGatewayService {
     }
     const minutes = Number(minutesStr);
     if (!Number.isFinite(minutes) || minutes <= 0) {
-      return 'Aegira: text EXTEND <minutes>, e.g. EXTEND 10.';
+      return 'Aegira: Send EXTEND and the minutes. Example: EXTEND 10';
     }
     try {
       this.sessions.extendWatch(sessionId, Math.round(minutes * 60 * 1000));
-      return `Aegira: journey watch extended by ${minutes} min.`;
+      return `Aegira: OK, ${minutes} more minutes.`;
     } catch (error) {
       if (error instanceof WatchActionNotAllowedError) {
-        return 'Aegira: no journey watch to extend.';
+        return 'Aegira: No timer is running.';
       }
       throw error;
     }
@@ -307,7 +307,7 @@ export class SmsGatewayService {
         return WRONG_PIN_REPLY;
       }
       if (error instanceof CancelNotAllowedError) {
-        return 'Aegira: this session is live and can no longer be cancelled.';
+        return 'Aegira: Help has already been sent, so it cannot be cancelled now.';
       }
       throw error;
     }
@@ -368,14 +368,14 @@ export class SmsGatewayService {
     const address = normalizePhone(from);
     const sessionIds = this.sessions.dispatchableSessionIdsForContact(address);
     if (sessionIds.length === 0) {
-      return 'Aegira: nothing to dispatch right now.';
+      return 'Aegira: Nobody needs a helper right now.';
     }
     let asked = 0;
     let unlocated = 0;
     for (const sessionId of sessionIds) {
       try {
-        await this.sessions.dispatch(sessionId, this.roster());
-        asked += 1;
+        const candidates = await this.sessions.dispatch(sessionId, this.roster());
+        asked += candidates.length;
       } catch (error) {
         if (!(error instanceof LocationUnknownError)) {
           throw error;
@@ -383,10 +383,13 @@ export class SmsGatewayService {
         unlocated += 1;
       }
     }
+    // Never claim help is coming when nobody could be asked.
     if (asked === 0 && unlocated > 0) {
-      // Never claim help is coming when nobody could be sent.
-      return "Aegira: we don't know where they are, so no helper can be sent. Call them, or call 112.";
+      return "Aegira: We don't know where they are, so no helper can go. Call them, or call 112.";
     }
-    return 'Aegira: verified responders have been asked to help.';
+    if (asked === 0) {
+      return 'Aegira: No trained helper is near them right now. Call them, or call 112.';
+    }
+    return 'Aegira: We have asked trained helpers to go.';
   }
 }

@@ -7,7 +7,7 @@
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>Aegira — help on any phone, without surveillance</title>
+<title>Aegira — help on any phone</title>
 <meta name="description" content="Privacy-first emergency coordination. Help on any phone — even over SMS — without ever storing your location outside a live, self-destructing session.">
 <style>
   :root{--bg:#0b0e14;--panel:#141926;--panel2:#1b2233;--line:#283042;--ink:#eef1f6;--dim:#8b93a3;--red:#e5484d;--green:#46a758;--blue:#4f8ef7;--amber:#f5a623}
@@ -45,6 +45,7 @@
   .wait .msg{margin-top:12px;font-size:14px;min-height:20px}
   .wait .msg.ok{color:var(--green)}.wait .msg.err{color:var(--red)}
   .count{color:var(--dim);font-size:13px;margin-top:8px}
+  .langs{color:var(--dim);font-size:14px;margin-top:14px}
   code{background:var(--panel2);border-radius:5px;padding:1px 5px;font-size:.92em}
   .card a{color:var(--blue)}
   footer{color:#525a6a;font-size:13px;border-top:1px solid var(--line);padding:24px 0 40px;margin-top:24px}
@@ -59,96 +60,90 @@
   <header>
     <div class="logo">aeg<span>ira</span></div>
     <nav>
-      <a href="/app">Try the app</a>
-      <a href="/phone">SMS demo</a>
+      <a href="/app">Try it</a>
       <a href="/guide">How to use</a>
+      <a href="/guide?lang=hi">हिंदी</a>
     </nav>
   </header>
 
   <section class="hero">
-    <h1>Help on any phone,<br><span class="hl">without surveillance.</span></h1>
-    <p>Aegira turns an emergency into a consented, time-boxed session that destroys
-       its own data when it ends. Your location never exists outside a live session —
-       and it works on a smartphone, an old browser, or plain SMS.</p>
+    <h1>Help on any phone.<br><span class="hl">Your location stays private.</span></h1>
+    <p>Press one button. The people you trust get a message with where you are.
+       It works on a smartphone, on an old phone's web browser, and by SMS.
+       When it is over, everything is deleted.</p>
     <div class="cta">
-      <a class="btn primary" href="/app">Open the demo</a>
+      <a class="btn primary" href="/app">Try it now</a>
       <a class="btn ghost" href="#use">How to use it</a>
     </div>
     <div class="pills">
-      <span class="pill">🔒 No location outside a session</span>
-      <span class="pill">🕯️ Crypto-shredded data</span>
-      <span class="pill">🤫 Duress PIN</span>
-      <span class="pill">📟 Works over SMS</span>
+      <span class="pill">🔒 Private</span>
+      <span class="pill">📟 Works by SMS</span>
+      <span class="pill">🤫 Secret danger PIN</span>
+      <span class="pill">🗣️ English · हिंदी</span>
     </div>
   </section>
 
   <section class="grid">
-    <div class="card"><div class="ico">🛡️</div><h3>Privacy by architecture</h3>
-      <p>Not a policy promise — a design guarantee. There is no table, cache, or log
-         where your location exists without a live session.</p></div>
-    <div class="card"><div class="ico">🤫</div><h3>Safe under coercion</h3>
-      <p>A duress PIN returns a response identical to success while silently alerting
-         your circle. The same protection covers journey check-ins.</p></div>
-    <div class="card"><div class="ico">📟</div><h3>Reaches every phone</h3>
-      <p>Smartphone app, a zero-JavaScript page for old browsers, and a full SMS
-         channel for phones with no internet at all.</p></div>
-    <div class="card"><div class="ico">🧭</div><h3>Coordination, not vigilantism</h3>
-      <p>No public incident feed, no trust scores. Verified responders see only a
-         session alias and a ~1&nbsp;km area until they accept.</p></div>
+    <div class="card"><div class="ico">🔒</div><h3>Your location stays private</h3>
+      <p>We know where you are only during an emergency. When it ends, it is deleted for good.</p></div>
+    <div class="card"><div class="ico">🤫</div><h3>Safe even if someone forces you</h3>
+      <p>If someone makes you cancel, type your secret danger PIN. It looks cancelled, but your people are told.</p></div>
+    <div class="card"><div class="ico">📟</div><h3>Works on every phone</h3>
+      <p>A smartphone app, a simple web page for old phones, and SMS for phones with no internet.</p></div>
+    <div class="card"><div class="ico">👥</div><h3>Only the right people know</h3>
+      <p>Only your people and one trained helper are told. No public map, no crowd.</p></div>
   </section>
 
   <section class="how">
     <h3>How it works</h3>
     <ol>
-      <li><b>Trigger</b> — tap SOS, or arm a <b>journey watch</b> before you set out.</li>
-      <li><b>Notify</b> — your chosen trusted contacts are alerted with a live link.</li>
-      <li><b>Match</b> — a nearby verified responder is offered the session, identity-free.</li>
-      <li><b>Verify &amp; resolve</b> — arrival is confirmed by a code; you mark yourself safe.</li>
-      <li><b>Destroy</b> — the per-session key is shredded; the data becomes unreadable.</li>
+      <li>Add one person you trust.</li>
+      <li>In danger, press <b>SOS</b> (or text <b>SOS</b>).</li>
+      <li>They get a message with where you are.</li>
+      <li>If needed, a trained helper comes to you.</li>
+      <li>When you are safe, everything is deleted.</li>
     </ol>
-    <div class="channels">
-      <a href="/app"><b>📱 App</b><small>smartphones (PWA)</small></a>
-      <a href="/lite"><b>🌐 Lite web</b><small>old / low-end browsers</small></a>
-      <a href="/phone"><b>📟 SMS</b><small>any phone, no internet</small></a>
-    </div>
   </section>
 
   <section class="how" id="use">
     <h3>Use it on any phone</h3>
     <div class="grid" style="margin:16px 0 8px">
       <div class="card"><div class="ico">📱</div><h3>Smartphone</h3>
-        <p>1. Open <a href="/app">the app</a> and pick your language.<br>
-           2. Tap <b>I need help</b> and add one trusted person.<br>
-           3. In danger, press <b>SOS</b>. Cancel within 30 s with your PIN.<br>
-           <small>Install it: Android ⋮ → <i>Install app</i>; iPhone Share □↑ → <i>Add to Home Screen</i>.</small></p></div>
+        <p>1. Open <a href="/app">the app</a> and choose your language.<br>
+           2. Tap <b>I need help</b> and add one person you trust.<br>
+           3. In danger, press <b>SOS</b>. You get 30 seconds to cancel.<br>
+           <small>Put it on your home screen: Android ⋮ → <i>Install app</i>. iPhone Share □↑ → <i>Add to Home Screen</i>.</small></p></div>
       <div class="card"><div class="ico">🌐</div><h3>Old phone browser</h3>
-        <p>1. Open <a href="/lite">the basic version</a> (no JavaScript needed).<br>
+        <p>1. Open <a href="/lite">the simple version</a>.<br>
            2. Register once with your number and two PINs.<br>
            3. In danger, press <b>SEND SOS</b>.</p></div>
       <div class="card"><div class="ico">📟</div><h3>Basic phone, no internet</h3>
-        <p id="sms-how">Text <code>REG name contact-number pin pin</code> once, then <code>SOS</code> when in danger.
-           <a href="/phone">Try the simulator</a>.</p></div>
+        <p id="sms-how">Send <code>REG your-name their-number pin pin</code> once. In danger, send <code>SOS</code>.
+           <a href="/phone">Try it here</a>.</p></div>
     </div>
-    <p><a class="btn ghost" href="/guide">Full step-by-step guide</a>
+    <p><a class="btn ghost" href="/guide">Step-by-step guide</a>
        <a class="btn ghost" href="/guide?lang=hi">हिंदी में गाइड</a></p>
+    <p class="langs">🗣️ <b>English and हिंदी now.</b> Coming soon: বাংলা · मराठी · తెలుగు · தமிழ் ·
+       ગુજરાતી · اردو · ಕನ್ನಡ · ଓଡ଼ିଆ · മലയാളം · ਪੰਜਾਬੀ · অসমীয়া.
+       <a href="/app">Open the app</a> and tap yours, so we add it first.</p>
   </section>
 
   <section class="wait" id="waitlist">
-    <h2>Get early access</h2>
-    <p>We're piloting with campuses, gig platforms, and safety NGOs. Leave your email.</p>
+    <h2>Want it for your college, company or group?</h2>
+    <p>Leave your email and we will get in touch.</p>
     <form onsubmit="return joinWaitlist(event)">
       <input id="email" type="email" placeholder="you@example.com" required aria-label="email">
       <input id="country" placeholder="Country (e.g. IN)" maxlength="2" aria-label="country" style="min-width:140px">
-      <button class="btn primary" type="submit">Join waitlist</button>
+      <button class="btn primary" type="submit">Send</button>
     </form>
     <div class="msg" id="msg"></div>
     <div class="count" id="count"></div>
   </section>
 
   <footer class="wrap">
-    Aegira — privacy-first emergency coordination ·
-    <a href="/app">app</a> · <a href="/lite">lite</a> · <a href="/phone">sms</a> · <a href="/console">ops console</a><br>
-    Prototype. Consent v5 governs waitlist emails: stored only to contact you about early access, deletable on request.
+    Aegira · <a href="/app">app</a> · <a href="/lite">simple version</a> · <a href="/phone">SMS</a> ·
+    <a href="/guide">how to use</a> · <a href="https://github.com/heyitsRahul/Aegira">how it is built (for reviewers)</a><br>
+    This is a test version. We keep your email only to contact you, and delete it if you ask (terms v5).
   </footer>
 </div>
 
@@ -166,7 +161,7 @@
       const j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || 'Something went wrong');
       msg.className = 'msg ok';
-      msg.textContent = j.alreadyJoined ? "You're already on the list — thank you!" : "You're in. We'll be in touch.";
+      msg.textContent = j.alreadyJoined ? "You are already on our list. Thank you!" : "Thank you! We will be in touch.";
       document.getElementById('email').value = '';
       refreshCount();
     } catch (err) {
@@ -185,8 +180,8 @@
   // Show the real SMS number when one is set up.
   fetch('/config').then((r) => r.json()).then((c) => {
     if (!c.smsNumber) return;
-    document.getElementById('sms-how').innerHTML = 'Text <code>REG name contact-number pin pin</code> to <b>' +
-      c.smsNumber.replace(/[<>&]/g, '') + '</b> once, then <code>SOS</code> when in danger.';
+    document.getElementById('sms-how').innerHTML = 'Send <code>REG your-name their-number pin pin</code> to <b>' +
+      c.smsNumber.replace(/[<>&]/g, '') + '</b> once. In danger, send <code>SOS</code>.';
   }).catch(() => {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 </script>

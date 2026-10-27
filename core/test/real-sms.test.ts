@@ -149,9 +149,9 @@ describe('SMS opt-in (JOIN, consent v6)', () => {
       () => [],
       optIns,
     );
-    expect(await gateway.handle('+919876543210', 'join')).toContain('consent v6');
+    expect(await gateway.handle('+919876543210', 'join')).toContain('Done');
     expect(optIns.hasJoined('+919876543210')).toBe(true);
-    expect(await gateway.handle('+919876543210', 'STOP')).toContain('deleted');
+    expect(await gateway.handle('+919876543210', 'STOP')).toContain('Deleted');
     expect(optIns.hasJoined('+919876543210')).toBe(false);
   });
 
@@ -160,7 +160,7 @@ describe('SMS opt-in (JOIN, consent v6)', () => {
     const optIns = new SmsOptInService(new InMemorySmsOptInStore(), clock);
     const registrations = new RegistrationService(new InMemoryRegistrationStore(), clock);
     const gateway = new SmsGatewayService({} as never, registrations, () => [], optIns, true);
-    expect(await gateway.handle('+919000011111', 'REG Asha 9876500002 1234 9999')).toContain('text JOIN');
+    expect(await gateway.handle('+919000011111', 'REG Asha 9876500002 1234 9999')).toContain('send JOIN');
     await gateway.handle('+919876500002', 'JOIN');
     expect(await gateway.handle('+919000033333', 'REG Uma 9876500002 1234 9999')).not.toContain('JOIN');
   });

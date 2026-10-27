@@ -79,48 +79,48 @@ const pinFields = (): string =>
 
 export function homePage(): string {
   const areas =
-    '<option value="">Area not listed / not sure</option>' +
+    '<option value="">My area is not in this list</option>' +
     LITE_AREAS.map((a) => `<option value="${a.id}">${esc(a.label)}</option>`).join('');
   const place =
-    '<input name="place" maxlength="140" placeholder="where are you? e.g. near the bus stand">';
+    '<input name="place" maxlength="140" placeholder="Where are you? Example: near the bus stand">';
   return page(
-    'Emergency help',
+    'Get help',
     '<div class="box"><b>How to use</b><br><small>' +
-      '1. First time: fill in <b>Register</b> at the bottom.<br>' +
+      '1. First time: fill in <b>Sign up</b> at the bottom.<br>' +
       '2. In danger: fill in <b>I need help now</b> and press SEND SOS.<br>' +
-      '3. Cancel within 30 seconds with your safe PIN.<br>' +
+      '3. You get 30 seconds to cancel with your safe PIN.<br>' +
       '<a href="/guide">Full guide</a> &middot; <a href="/guide?lang=hi">हिंदी</a></small></div>' +
       '<div class="box"><form method="post" action="/lite/sos">' +
       '<b>I need help now</b><br>' +
       phoneWithDial() +
       `<select name="area">${areas}</select>` +
       place +
-      '<select name="category"><option value="personal_safety">Personal safety</option>' +
+      '<select name="category"><option value="personal_safety">Danger</option>' +
       '<option value="medical">Medical</option><option value="accident">Accident</option>' +
       '<option value="other">Other</option></select>' +
       '<button type="submit">SEND SOS</button>' +
-      '<small>Starts a session with a 30 second cancel window.</small></form></div>' +
+      '<small>Your people get a message after 30 seconds. You can cancel before that.</small></form></div>' +
       '<div class="box"><form method="post" action="/lite/watch">' +
-      '<b>Watch my journey home</b><br>' +
+      '<b>I am going somewhere alone</b><br>' +
       phoneWithDial() +
       `<select name="area">${areas}</select>` +
       place +
-      '<input name="minutes" placeholder="minutes until I arrive" inputmode="numeric">' +
-      '<button type="submit">START WATCH</button>' +
-      '<small>If you do not check in safe in time, your circle is alerted.</small></form></div>' +
+      '<input name="minutes" placeholder="How many minutes will it take?" inputmode="numeric">' +
+      '<button type="submit">START TIMER</button>' +
+      '<small>If you do not say you reached in time, your people get a message.</small></form></div>' +
       '<div class="box"><form method="post" action="/lite/status">' +
-      `<b>Check my session</b><br>${pinFields()}<button type="submit">STATUS</button></form></div>` +
+      `<b>What is happening now?</b><br>${pinFields()}<button type="submit">CHECK</button></form></div>` +
       '<div class="box"><form method="post" action="/lite/register">' +
-      '<b>First time? Register</b><br>' +
+      '<b>First time? Sign up</b><br>' +
       `<select name="dial">${countryOptions()}</select>` +
-      '<input name="phone" placeholder="your phone number" inputmode="tel">' +
-      '<input name="name" placeholder="your name">' +
-      '<input name="contact" placeholder="trusted contact phone" inputmode="tel">' +
-      '<input name="pinSafe" placeholder="safe PIN (cancels)" inputmode="numeric">' +
-      '<input name="pinDuress" placeholder="duress PIN" inputmode="numeric">' +
-      '<button type="submit">REGISTER</button>' +
-      '<small>Works anywhere: pick your country, or type a full +country number. ' +
-      'Over SMS too: text REG to the Aegira number.</small>' +
+      '<input name="phone" placeholder="Your phone number" inputmode="tel">' +
+      '<input name="name" placeholder="Your name">' +
+      '<input name="contact" placeholder="Phone of a person you trust" inputmode="tel">' +
+      '<input name="pinSafe" placeholder="Safe PIN, 4 numbers (really cancels)" inputmode="numeric">' +
+      '<input name="pinDuress" placeholder="Danger PIN, 4 numbers (secret alarm)" inputmode="numeric">' +
+      '<button type="submit">SIGN UP</button>' +
+      '<small>Danger PIN: if someone forces you to cancel, type it. It looks cancelled, ' +
+      'but your person is told. Phones with no internet can use SMS: send REG.</small>' +
       '</form></div>' +
       helplineBlock(),
   );
@@ -128,44 +128,44 @@ export function homePage(): string {
 
 export function messagePage(title: string, message: string, statusForm = false): string {
   const form = statusForm
-    ? `<div class="box"><form method="post" action="/lite/status"><b>Check session</b><br>${pinFields()}<button type="submit">STATUS</button></form></div>`
+    ? `<div class="box"><form method="post" action="/lite/status"><b>What is happening now?</b><br>${pinFields()}<button type="submit">CHECK</button></form></div>`
     : '';
-  return page(title, `<p>${esc(message)}</p>${form}${helplineBlock()}`);
+  return page(title, `<p>${esc(message)}</p>${form}<p><a href="/lite">Back to the start</a></p>${helplineBlock()}`);
 }
 
 export function sosAcceptedPage(seconds: number): string {
   return page(
-    'SOS received',
-    `<p><b>Your circle will be alerted in ${seconds} seconds.</b></p>` +
+    'Help is on its way',
+    `<p><b>Your people will get a message in ${seconds} seconds.</b></p>` +
       '<div class="box"><form method="post" action="/lite/cancel">' +
       `Cancel it? ${pinFields()}<button type="submit">CANCEL</button></form></div>` +
       '<div class="box"><form method="post" action="/lite/status">' +
-      `Or check progress: ${pinFields()}<button type="submit">STATUS</button></form></div>` +
+      `What is happening now? ${pinFields()}<button type="submit">CHECK</button></form></div>` +
       helplineBlock(),
   );
 }
 
 /** Rendered identically for safe and duress cancels (invariant 4). */
 export function cancelledPage(): string {
-  return messagePage('Cancelled', 'Session cancelled. Nobody was notified.');
+  return messagePage('Cancelled', 'Cancelled. Nobody was told.');
 }
 
 export function statusPage(stateText: string, showSafeForm: boolean, isWatch = false): string {
   const safeForm = showSafeForm
     ? '<div class="box"><form method="post" action="/lite/safe">' +
-      `${isWatch ? 'I have arrived' : 'I am safe now'}: ${pinFields()}` +
-      `<button type="submit">${isWatch ? 'CHECK IN SAFE' : 'MARK SAFE'}</button></form></div>`
+      `${isWatch ? 'I have reached' : 'I am safe now'}: ${pinFields()}` +
+      `<button type="submit">${isWatch ? 'I HAVE REACHED' : 'I AM SAFE'}</button></form></div>`
     : '';
   const extendForm = isWatch
     ? '<div class="box"><form method="post" action="/lite/extend">' +
       `Need more time? ${pinFields()}` +
-      '<input name="minutes" placeholder="extra minutes" inputmode="numeric">' +
-      '<button type="submit">EXTEND WATCH</button></form></div>'
+      '<input name="minutes" placeholder="How many more minutes?" inputmode="numeric">' +
+      '<button type="submit">MORE TIME</button></form></div>'
     : '';
   return page(
-    'Session status',
+    'What is happening',
     `<p><b>${esc(stateText)}</b></p>${safeForm}${extendForm}` +
-      '<small>This page does not update itself; use the STATUS form on the home page to check again.</small>',
+      '<small>This page does not change by itself. <a href="/lite">Go back</a> and press CHECK again to see news.</small>',
   );
 }
 

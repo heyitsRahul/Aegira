@@ -41,7 +41,7 @@ export function normalizePhone(raw: string, defaultDialCode: string = DEFAULT_DI
     digits = defaultDialCode.replace(/\D/g, '') + national;
   }
   if (digits.length < E164_MIN_DIGITS || digits.length > E164_MAX_DIGITS) {
-    throw new InvalidInputError('phone number must be a valid international number');
+    throw new InvalidInputError('that phone number does not look right. Use 10 digits, or + and the country code');
   }
   return `+${digits}`;
 }

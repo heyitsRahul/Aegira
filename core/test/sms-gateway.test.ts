@@ -42,23 +42,24 @@ async function registered(rig = buildSmsRig()) {
 
 describe('SMS registration (consent v4)', () => {
   it('registers with underscored names and confirms the consent version', async () => {
-    const { gateway } = buildSmsRig();
+    const { gateway, registrations } = buildSmsRig();
     const reply = await gateway.handle(SEEKER, `REG Meera_Krishnan ${CONTACT} 1234 9999`);
     expect(reply).toContain('Meera Krishnan');
-    expect(reply).toContain('v4');
+    expect(reply).toContain('Done');
+    expect(registrations.find(SEEKER)!.consentVersion).toBe('v4');
   });
 
   it('rejects malformed registrations with usable guidance', async () => {
     const { gateway } = buildSmsRig();
-    expect(await gateway.handle(SEEKER, 'REG Meera')).toContain('REG <name>');
+    expect(await gateway.handle(SEEKER, 'REG Meera')).toContain('REG your-name');
     expect(await gateway.handle(SEEKER, `REG Meera ${CONTACT} 12 9999`)).toContain('4-6 digits');
     expect(await gateway.handle(SEEKER, `REG Meera ${CONTACT} 1234 1234`)).toContain('differ');
   });
 
   it('STOP deletes the registration, as consent v4 promises', async () => {
     const rig = await registered();
-    expect(await rig.gateway.handle(SEEKER, 'STOP')).toContain('deleted');
-    expect(await rig.gateway.handle(SEEKER, 'SOS', TOWER)).toContain('not registered');
+    expect(await rig.gateway.handle(SEEKER, 'STOP')).toContain('Deleted');
+    expect(await rig.gateway.handle(SEEKER, 'SOS', TOWER)).toContain('First send REG');
   });
 });
 
@@ -66,7 +67,7 @@ describe('SOS over SMS', () => {
   it('triggers a session using only the carrier position from the webhook', async () => {
     const rig = await registered();
     const reply = await rig.gateway.handle(SEEKER, 'SOS', TOWER);
-    expect(reply).toContain('30s');
+    expect(reply).toContain('30 seconds');
     const sessionId = rig.service.latestSessionIdForUser(
       rig.registrations.find(SEEKER)!.phoneRef,
     );
@@ -77,8 +78,8 @@ describe('SOS over SMS', () => {
   it('with no carrier position, still alerts the circle and says so (no stored fallback, invariant 1)', async () => {
     const rig = await registered();
     const reply = await rig.gateway.handle(SEEKER, 'SOS');
-    expect(reply).toContain('30s');
-    expect(reply).toContain('Tell your circle where you are');
+    expect(reply).toContain('30 seconds');
+    expect(reply).toContain('send where you are');
     rig.clock.advance(TEST_CONFIG.activationCountdownMs);
     await rig.service.evaluateTimers(rig.clock.now());
     const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
@@ -90,7 +91,7 @@ describe('SOS over SMS', () => {
   it('carries the place in the sender\'s own words to the circle', async () => {
     const rig = await registered();
     const reply = await rig.gateway.handle(SEEKER, 'SOS near Andheri station gate 2');
-    expect(reply).not.toContain('Tell your circle');
+    expect(reply).not.toContain('send where you are');
     rig.clock.advance(TEST_CONFIG.activationCountdownMs);
     await rig.service.evaluateTimers(rig.clock.now());
     const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
@@ -113,7 +114,7 @@ describe('SOS over SMS', () => {
     await rig.gateway.handle(SEEKER, 'SOS');
     await rig.gateway.handle(SEEKER, 'CANCEL 9999');
     const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
-    expect(alert!.text).toContain('DURESS');
+    expect(alert!.text).toContain('SECRET ALARM');
     expect(alert!.text).toContain('Location unknown.');
     expect(alert!.text).not.toContain('Location unknown - call them');
   });
@@ -124,7 +125,7 @@ describe('SOS over SMS', () => {
     rig.clock.advance(TEST_CONFIG.activationCountdownMs);
     await rig.service.evaluateTimers(rig.clock.now());
     const reply = await rig.gateway.handle(CONTACT, 'SEND');
-    expect(reply).toContain('no helper can be sent');
+    expect(reply).toContain('no helper can go');
     expect(rig.sms.messages.filter((m) => m.text.startsWith('AEGIRA DISPATCH'))).toHaveLength(0);
   });
 
@@ -190,7 +191,7 @@ describe('duress over SMS (invariant 4)', () => {
     await rig.gateway.handle(SEEKER, 'CANCEL 9999');
     const toContact = rig.sms.messages.filter((m) => m.to === CONTACT_E164);
     expect(toContact.length).toBe(1);
-    expect(toContact[0].text).toContain('DURESS');
+    expect(toContact[0].text).toContain('SECRET ALARM');
     expect(toContact[0].text).toContain('DO NOT call');
   });
 
@@ -218,12 +219,20 @@ describe('the full feature-phone rescue', () => {
     expect(alert!.text).toContain('Reply SEND');
 
     // The contact replies SEND; responders get identity-free offers.
-    expect(await rig.gateway.handle(CONTACT, 'SEND')).toContain('responders');
+    expect(await rig.gateway.handle(CONTACT, 'SEND')).toContain('trained helpers');
     const offers = rig.sms.messages.filter((m) => m.text.startsWith('AEGIRA DISPATCH'));
     expect(offers.length).toBeGreaterThan(0);
 
     // The seeker resolves by text.
-    expect(await rig.gateway.handle(SEEKER, 'SAFE 1234')).toContain('resolved');
+    expect(await rig.gateway.handle(SEEKER, 'SAFE 1234')).toContain('you are safe');
+  });
+
+  it('SEND is honest when no trained helper is near', async () => {
+    const rig = await registered();
+    await rig.gateway.handle(SEEKER, 'SOS', { lat: 19.0596, lng: 72.8295 }); // Mumbai; helpers are in Bengaluru
+    rig.clock.advance(TEST_CONFIG.activationCountdownMs);
+    await rig.service.evaluateTimers(rig.clock.now());
+    expect(await rig.gateway.handle(CONTACT, 'SEND')).toContain('No trained helper is near');
   });
 
   it('SEND from a stranger dispatches nothing', async () => {
@@ -231,12 +240,12 @@ describe('the full feature-phone rescue', () => {
     await rig.gateway.handle(SEEKER, 'SOS', TOWER);
     rig.clock.advance(TEST_CONFIG.activationCountdownMs);
     await rig.service.evaluateTimers(rig.clock.now());
-    expect(await rig.gateway.handle('+91 70000 00000', 'SEND')).toContain('nothing');
+    expect(await rig.gateway.handle('+91 70000 00000', 'SEND')).toContain('Nobody needs a helper');
   });
 
   it('unknown commands get the help text', async () => {
     const { gateway } = buildSmsRig();
-    expect(await gateway.handle(SEEKER, 'hello?')).toContain('Aegira commands');
+    expect(await gateway.handle(SEEKER, 'hello?')).toContain('First send REG');
   });
 });
 
@@ -283,7 +292,7 @@ describe('journey watch over SMS', () => {
     expect(rig.service.opsView(sessionId).state).toBe('WATCHING');
     expect(rig.sms.messages.filter((m) => m.to === CONTACT_E164)).toHaveLength(0);
 
-    expect(await rig.gateway.handle(SEEKER, 'SAFE 1234')).toContain('checked in safe');
+    expect(await rig.gateway.handle(SEEKER, 'SAFE 1234')).toContain('reached safely');
     expect(rig.service.opsView(sessionId).state).toBe('RESOLVED');
   });
 
@@ -295,7 +304,7 @@ describe('journey watch over SMS', () => {
     rig.clock.advance(20 * MIN);
     await rig.service.evaluateTimers(rig.clock.now());
     const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
-    expect(alert!.text).toContain('did not check in');
+    expect(alert!.text).toContain('did not reach on time');
     expect(alert!.text).toContain('They said: "walking home to Powai"');
   });
 
@@ -305,7 +314,7 @@ describe('journey watch over SMS', () => {
     rig.clock.advance(20 * MIN);
     await rig.service.evaluateTimers(rig.clock.now());
     const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
-    expect(alert?.text).toContain('did not check in');
+    expect(alert?.text).toContain('did not reach on time');
     expect(alert?.text).toContain('Reply SEND');
   });
 
@@ -313,7 +322,7 @@ describe('journey watch over SMS', () => {
     const rig = await registered();
     await rig.gateway.handle(SEEKER, 'WATCH 20', TOWER);
     rig.clock.advance(15 * MIN);
-    expect(await rig.gateway.handle(SEEKER, 'EXTEND 20')).toContain('extended');
+    expect(await rig.gateway.handle(SEEKER, 'EXTEND 20')).toContain('more minutes');
     rig.clock.advance(10 * MIN);
     await rig.service.evaluateTimers(rig.clock.now());
     const sessionId = rig.service.latestSessionIdForUser(rig.registrations.find(SEEKER)!.phoneRef)!;
@@ -332,6 +341,6 @@ describe('journey watch over SMS', () => {
     expect(duressReply).toBe(safeReply);
     const sid = duress.service.latestSessionIdForUser(duress.registrations.find(SEEKER)!.phoneRef)!;
     expect(duress.service.opsView(sid).state).toBe('ACTIVE');
-    expect(duress.sms.messages.find((m) => m.to === CONTACT_E164)?.text).toContain('DURESS');
+    expect(duress.sms.messages.find((m) => m.to === CONTACT_E164)?.text).toContain('SECRET ALARM');
   });
 });

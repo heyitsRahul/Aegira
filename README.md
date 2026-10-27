@@ -82,7 +82,7 @@ enforced by the test suite in CI.
   send real SMS.
 - **Resilient notifications.** A failed SMS channel is counted, never allowed
   to stop the emergency or the other channels.
-- **362 tests**, typecheck and build in GitHub Actions on every push.
+- **369 tests**, typecheck and build in GitHub Actions on every push.
 
 **Stack:** TypeScript (strict), NestJS, Node 22 built-in SQLite, Vitest,
 vanilla JS PWA, Twilio adapter, Docker, Render / Fly.io.
@@ -104,7 +104,7 @@ core/test/             Vitest: state machine, privacy-negative, hygiene, clock-d
 ```bash
 cd core
 npm install
-npm test                      # 362 tests
+npm test                      # 369 tests
 npm run build && npm start    # http://localhost:3000
 ```
 

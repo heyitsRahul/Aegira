@@ -30,6 +30,14 @@ export class StubSmsTransport implements SmsTransport {
   }
 }
 
+/** Everyday words for each category, as they appear in alert texts. */
+const CATEGORY_WORDS: Readonly<Record<string, string>> = {
+  personal_safety: 'danger',
+  medical: 'medical',
+  accident: 'accident',
+  other: 'other',
+};
+
 /**
  * Where they are, in words: their own description if they gave one, and a
  * plain warning when the phone sent no position (basic-phone SOS).
@@ -44,47 +52,47 @@ function whereText(payload: ContactAlertPayload): string {
 
 /** Only offer SEND when a helper could actually be matched. */
 function sendHint(payload: ContactAlertPayload): string {
-  return payload.locationKnown ? 'Reply SEND to dispatch a verified responder.' : '';
+  return payload.locationKnown ? 'Reply SEND to send a trained helper.' : '';
 }
 
 export function renderContactAlertSms(payload: ContactAlertPayload): string {
-  const category = payload.category.replace(/_/g, ' ');
+  const category = CATEGORY_WORDS[payload.category] ?? payload.category.replace(/_/g, ' ');
   const where = whereText(payload);
   if (payload.duress) {
     return (
-      `AEGIRA DURESS ALERT: ${payload.helpseekerDisplayName} needs help (${category}). ` +
-      `Their phone shows "cancelled" - the cancel was coerced. DO NOT call them. ` +
+      `AEGIRA SECRET ALARM: ${payload.helpseekerDisplayName} needs help (${category}). ` +
+      `Someone forced them to cancel. DO NOT call them. ` +
       where +
-      `Live view: ${payload.liveSessionLink} ` +
+      `See where: ${payload.liveSessionLink} ` +
       sendHint(payload)
     );
   }
   if (payload.watchExpired) {
     return (
-      `AEGIRA: ${payload.helpseekerDisplayName} did not check in from their journey (${category}) ` +
-      `and may need help. ${where}Live view: ${payload.liveSessionLink} ` +
+      `AEGIRA: ${payload.helpseekerDisplayName} did not reach on time and may need help. ` +
+      `${where}See where: ${payload.liveSessionLink} ` +
       sendHint(payload)
     );
   }
   if (payload.escalation) {
     return (
-      `AEGIRA ESCALATION: ${payload.helpseekerDisplayName} still has no responder (${category}). ` +
-      `${where}Live view: ${payload.liveSessionLink} ` +
+      `AEGIRA: ${payload.helpseekerDisplayName} still needs help (${category}). Please act now. ` +
+      `${where}See where: ${payload.liveSessionLink} ` +
       sendHint(payload)
     );
   }
   return (
     `AEGIRA ALERT: ${payload.helpseekerDisplayName} needs help (${category}). ` +
-    `${where}Live view: ${payload.liveSessionLink} ` +
+    `${where}See where: ${payload.liveSessionLink} ` +
     sendHint(payload)
   );
 }
 
 export function renderResponderOfferSms(payload: ResponderOfferPayload): string {
-  const category = payload.category.replace(/_/g, ' ');
+  const category = CATEGORY_WORDS[payload.category] ?? payload.category.replace(/_/g, ' ');
   return (
-    `AEGIRA DISPATCH: ${payload.alias} needs help (${category}) in area ` +
-    `${payload.coarseCell} (~1 km). Open the responder app to accept.`
+    `AEGIRA DISPATCH: someone needs help (${category}) near area ${payload.coarseCell} ` +
+    `(about 1 km). Ref ${payload.alias}. Open the helper app to say you will go.`
   );
 }
 
