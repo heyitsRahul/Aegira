@@ -88,36 +88,65 @@ export function renderResponderOfferSms(payload: ResponderOfferPayload): string 
   );
 }
 
-/** Notifier that delivers over SMS. */
+/**
+ * Notifier that delivers over SMS. Responder offers are addressed by
+ * responder id, which the simulator understands but a real carrier does
+ * not, so real-SMS channels pass `responderOffers: false`.
+ */
 export class SmsNotifier implements Notifier {
-  constructor(private readonly transport: SmsTransport) {}
+  constructor(
+    private readonly transport: SmsTransport,
+    private readonly options: { responderOffers: boolean } = { responderOffers: true },
+  ) {}
 
   async sendContactAlert(payload: ContactAlertPayload): Promise<void> {
     await this.transport.send(payload.to, renderContactAlertSms(payload), payload.sentAt);
   }
 
   async sendResponderOffer(payload: ResponderOfferPayload): Promise<void> {
+    if (!this.options.responderOffers) {
+      return;
+    }
     await this.transport.send(payload.to, renderResponderOfferSms(payload), payload.sentAt);
   }
 }
 
-/** Fans every notification out to all channels (app stub + SMS, etc.). */
+/**
+ * Fans every notification out to all channels (app stub + SMS, etc.). One
+ * channel failing (a carrier outage, the gateway phone offline) must never
+ * stop the others or the emergency itself: failures are counted, not thrown.
+ */
 export class CompositeNotifier implements Notifier {
   private readonly notifiers: readonly Notifier[];
+  private onFailure: () => void = () => {};
 
   constructor(...notifiers: Notifier[]) {
     this.notifiers = notifiers;
   }
 
+  /** Called once per failed channel delivery (e.g. to count a metric). */
+  onChannelFailure(handler: () => void): this {
+    this.onFailure = handler;
+    return this;
+  }
+
   async sendContactAlert(payload: ContactAlertPayload): Promise<void> {
     for (const notifier of this.notifiers) {
-      await notifier.sendContactAlert(payload);
+      await this.attempt(() => notifier.sendContactAlert(payload));
     }
   }
 
   async sendResponderOffer(payload: ResponderOfferPayload): Promise<void> {
     for (const notifier of this.notifiers) {
-      await notifier.sendResponderOffer(payload);
+      await this.attempt(() => notifier.sendResponderOffer(payload));
+    }
+  }
+
+  private async attempt(send: () => Promise<void>): Promise<void> {
+    try {
+      await send();
+    } catch {
+      this.onFailure();
     }
   }
 }

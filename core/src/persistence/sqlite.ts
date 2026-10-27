@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { KeyDestroyedError, KeyNotFoundError, KeyVault } from '../crypto/shredder';
 import { RegistrationRecord, RegistrationStore } from '../services/registration.service';
+import { SmsOptIn, SmsOptInStore } from '../services/sms-optin.service';
 import { WaitlistEntry, WaitlistStore } from '../services/waitlist.service';
 import { SessionRepository, SessionSnapshot } from './session-repository';
 
@@ -37,6 +38,12 @@ export function openDatabase(path: string): DatabaseSync {
     -- no location, no session link — see migrations/0011)
     CREATE TABLE IF NOT EXISTS waitlist (
       email_ref TEXT PRIMARY KEY,
+      entry     TEXT NOT NULL
+    );
+    -- retention_class: durable (JOIN opt-ins for alert SMS, consent v6;
+    -- number hash only, no location — see migrations/0012)
+    CREATE TABLE IF NOT EXISTS sms_optins (
+      phone_ref TEXT PRIMARY KEY,
       entry     TEXT NOT NULL
     );
   `);
@@ -116,6 +123,29 @@ export class SqliteWaitlistStore implements WaitlistStore {
       .prepare('SELECT entry FROM waitlist ORDER BY rowid DESC LIMIT ?')
       .all(limit) as Array<{ entry: string }>;
     return rows.map((r) => JSON.parse(r.entry) as WaitlistEntry);
+  }
+}
+
+export class SqliteSmsOptInStore implements SmsOptInStore {
+  constructor(private readonly db: DatabaseSync) {}
+
+  save(entry: SmsOptIn): void {
+    this.db
+      .prepare(
+        `INSERT INTO sms_optins (phone_ref, entry) VALUES (?, ?)
+         ON CONFLICT(phone_ref) DO UPDATE SET entry = excluded.entry`,
+      )
+      .run(entry.phoneRef, JSON.stringify(entry));
+  }
+
+  has(phoneRef: string): boolean {
+    return (
+      this.db.prepare('SELECT 1 FROM sms_optins WHERE phone_ref = ?').get(phoneRef) !== undefined
+    );
+  }
+
+  delete(phoneRef: string): boolean {
+    return this.db.prepare('DELETE FROM sms_optins WHERE phone_ref = ?').run(phoneRef).changes > 0;
   }
 }
 

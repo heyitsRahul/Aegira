@@ -13,7 +13,8 @@ phones with no internet at all.
 **Live demo:** _coming soon_ · **Design doc:** [civic-safety-architecture.md](docs/civic-safety-architecture.md) · **Pitch:** [pitch.md](docs/pitch.md)
 
 > ⚠️ **This is a working prototype, not an emergency service.** No real
-> responders are connected and no real SMS is sent. In danger, call your local
+> responders are connected yet. Real text messages work once a phone number
+> is connected ([how](docs/real-phone-number.md)). In danger, call your local
 > emergency number (112 in India and the EU).
 
 <p>
@@ -27,7 +28,9 @@ phones with no internet at all.
 
 ## Try it in two minutes
 
-Open the live demo (or run it locally, below), then:
+New here? Open **`/guide`** on the live site: step-by-step instructions for
+every kind of phone, in English and Hindi. Or open the live demo (or run it
+locally, below) and try this:
 
 1. **Call for help** — open `/app`, pick a language (English or हिंदी), choose
    *I need help*, and press **SOS**. A 30-second countdown starts; enter PIN
@@ -36,8 +39,10 @@ Open the live demo (or run it locally, below), then:
    The screen says *cancelled*. Now open `/console`: the server truth shows the
    session is still live and your contacts were told it's a duress alert.
 3. **Use it with no smartphone** — open `/phone`, a basic-phone simulator.
-   Text `REG Asha 9876543210 1234 9999`, then `SOS`. Switch the number to
-   `9876543210` to see the alert your trusted contact receives.
+   Text `REG Asha 9876543210 1234 9999`, then `SOS near Andheri station`.
+   Switch the number to `9876543210` to see the alert your trusted contact
+   receives. With a real number connected, the same commands work from any
+   real phone.
 4. **Try the journey watch** — in the app, choose *Watch my journey*. If you
    don't check in before the timer ends, your contacts are alerted.
 5. **Old browser?** `/lite` is the same flow with zero JavaScript.
@@ -52,7 +57,9 @@ Open the live demo (or run it locally, below), then:
 | **No cancel after activation** | Once help is in motion there is no "cancel" button an attacker can force you to press. |
 | **Responders never see identity** | Before accepting, responders see an alias and a ~1 km area only. Privacy-negative tests assert names, numbers and exact coordinates never appear. |
 | **No vigilante feed, no trust scores** | No API lists nearby incidents. Misbehaviour creates reviewable strikes, never a hidden score. Matching is deterministic, no ML. |
-| **Works for everyone** | PWA, zero-JS web, SMS gateway; E.164 phone handling and helplines for every country; Hindi + English UI with icon-first screens and spoken prompts. |
+| **Works for everyone** | Installable app, zero-JS web, real SMS on any phone; E.164 phone handling and helplines for every country; Hindi + English UI with icon-first screens and spoken prompts. |
+| **Honest without a location** | A basic phone's SOS carries no position. Trusted people are still alerted, with the place in the sender's own words, but no stranger is ever sent blind. |
+| **No spam from a public demo** | Real alerts reach only numbers that texted `JOIN`, under daily caps; webhooks are signature-checked. |
 
 These are written down as [11 non-negotiable invariants](CLAUDE.md) and
 enforced by the test suite in CI.
@@ -70,7 +77,9 @@ enforced by the test suite in CI.
 - **Production lock-down.** In production, secrets have no dev fallbacks, the
   ops console and simulators can be switched off, and a public demo can never
   send real SMS.
-- **310 tests**, typecheck and build in GitHub Actions on every push.
+- **Resilient notifications.** A failed SMS channel is counted, never allowed
+  to stop the emergency or the other channels.
+- **362 tests**, typecheck and build in GitHub Actions on every push.
 
 **Stack:** TypeScript (strict), NestJS, Node 22 built-in SQLite, Vitest,
 vanilla JS PWA, Twilio adapter, Docker, Render / Fly.io.
@@ -92,7 +101,7 @@ core/test/             Vitest: state machine, privacy-negative, hygiene, clock-d
 ```bash
 cd core
 npm install
-npm test                      # 310 tests
+npm test                      # 362 tests
 npm run build && npm start    # http://localhost:3000
 ```
 
@@ -102,6 +111,8 @@ Requires Node 22+. Demo PINs: safe `1234`, duress `9999`.
 
 - **Free public demo:** [render.yaml](render.yaml) — on render.com choose
   *New → Blueprint* and pick this repo. See [docs/publish.md](docs/publish.md).
+- **Real phone number:** a spare Android phone + SIM as the SMS gateway. See
+  [docs/real-phone-number.md](docs/real-phone-number.md).
 - **Durable deployment:** [fly.toml](fly.toml) with a persistent volume. See
   [docs/deploy.md](docs/deploy.md).
 
@@ -112,7 +123,12 @@ Requires Node 22+. Demo PINs: safe `1234`, duress `9999`.
 | `AEGIRA_GATEWAY_SECRET` | secret for the JSON SMS webhook; in production, unset = closed |
 | `AEGIRA_BASE_URL` | base URL for contact links (auto-detected on Render) |
 | `AEGIRA_DB` | SQLite path (`:memory:` for throwaway) |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | real SMS (ignored in demo mode) |
+| `AEGIRA_SMS_NUMBER` | the number people text, shown in the guide and app |
+| `SMSGATE_USERNAME` / `SMSGATE_PASSWORD` / `SMSGATE_SIGNING_KEY` | real SMS through an Android phone ([SMS Gateway for Android](https://sms-gate.app)) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | real SMS through Twilio |
+
+In demo mode, real SMS alerts only reach numbers that texted `JOIN`, at most
+100 a day.
 
 ## What's real and what's a stand-in
 
@@ -120,11 +136,13 @@ Requires Node 22+. Demo PINs: safe `1234`, duress `9999`.
 |---|---|
 | Session lifecycle and state machine | Responder network (two seeded demo responders) |
 | Per-session crypto-shredding | KMS (`KeyVault` backed by SQLite) |
-| Capability-token auth for 3 roles | SMS delivery (stub; Twilio adapter built) |
-| Duress for cancel and journey check-in | Push notifications |
-| Journey watch with timed check-in | Postgres (SQLite adapter today) |
-| Phone numbers and helplines for every country | Official 112 integration |
-| Restart-safe, chain-verified persistence | — |
+| Capability-token auth for 3 roles | Push notifications |
+| Real SMS via an Android SIM gateway or Twilio | Postgres (SQLite adapter today) |
+| Real GPS in the app, location-less SOS by SMS | Official 112 integration |
+| Duress for cancel and journey check-in | |
+| Journey watch with timed check-in | |
+| Phone numbers and helplines for every country | |
+| Restart-safe, chain-verified persistence | |
 
 ## License
 

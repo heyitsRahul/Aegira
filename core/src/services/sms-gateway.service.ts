@@ -10,6 +10,7 @@ import { SessionCategory, SessionState } from '../domain/types';
 import { ResponderProfile } from './matching.service';
 import { normalizePhone, RegistrationService } from './registration.service';
 import { SessionService } from './session.service';
+import { SmsOptInService } from './sms-optin.service';
 
 /**
  * The SMS command channel: everything a help seeker needs on a phone that
@@ -25,7 +26,10 @@ import { SessionService } from './session.service';
  *   STATUS                                               masked status
  *   SAFE <pin>                                           check in / resolve
  *   SEND                                                 (contacts) dispatch
+ *   JOIN                                                 (contacts) agree to
+ *                                                        receive alert SMS
  *   STOP                                                 delete registration
+ *                                                        and any JOIN
  *
  * Duress discipline: the reply to CANCEL is one constant string for both
  * PINs; SAFE on a journey watch likewise replies identically for safe and
@@ -60,7 +64,7 @@ function placeFrom(words: string[]): string | undefined {
 const HELP_TEXT =
   'Aegira commands: REG name contact-phone safe-pin duress-pin | SOS [place] | ' +
   'WATCH minutes | EXTEND minutes | CANCEL pin | STATUS | SAFE pin | ' +
-  'SEND (contacts) | STOP';
+  'SEND (contacts) | JOIN (contacts) | STOP';
 
 const CANCELLED_REPLY = 'Aegira: session cancelled. Nobody was notified.';
 const CHECKED_IN_REPLY = 'Aegira: checked in safe. Take care.';
@@ -85,6 +89,9 @@ export class SmsGatewayService {
     private readonly sessions: SessionService,
     private readonly registrations: RegistrationService,
     private readonly roster: () => readonly ResponderProfile[],
+    private readonly optIns: SmsOptInService | null = null,
+    /** True when alerts only reach contacts who texted JOIN (public demo). */
+    private readonly contactOptInRequired = false,
   ) {}
 
   /**
@@ -117,10 +124,17 @@ export class SmsGatewayService {
           return await this.handleSafe(from, parts[1] ?? '');
         case 'SEND':
           return await this.handleSend(from);
-        case 'STOP':
-          return this.registrations.unregister(from)
-            ? 'Aegira: registration deleted. Text REG to start again.'
+        case 'JOIN':
+          return this.handleJoin(from);
+        case 'STOP': {
+          // STOP deletes everything this number gave us: its registration
+          // (consent v4) and its alert opt-in (consent v6).
+          const unregistered = this.registrations.unregister(from);
+          const left = this.optIns?.leave(from) ?? false;
+          return unregistered || left
+            ? 'Aegira: deleted. You will get no more texts from Aegira. Text JOIN or REG to come back.'
             : HELP_TEXT;
+        }
         default:
           return HELP_TEXT;
       }
@@ -130,6 +144,17 @@ export class SmsGatewayService {
       }
       throw error;
     }
+  }
+
+  private handleJoin(from: string): string {
+    if (this.optIns === null) {
+      return 'Aegira: you will get alerts here if someone lists this number as their trusted contact.';
+    }
+    this.optIns.join(from);
+    return (
+      'Aegira: done (consent v6). If someone lists this number as their trusted contact, ' +
+      'we will text you when they need help. Text STOP to opt out.'
+    );
   }
 
   private handleRegister(from: string, args: string[]): string {
@@ -144,9 +169,17 @@ export class SmsGatewayService {
       pinSafe,
       pinDuress,
     );
+    // If alerts need the contact's agreement, say so now, not after an SOS.
+    const contactMustJoin =
+      this.contactOptInRequired &&
+      this.optIns !== null &&
+      !this.optIns.hasJoined(record.contacts[0].address);
     return (
       `Aegira: registered as ${record.displayName} (consent ${record.consentVersion}). ` +
-      'Text SOS to trigger help. Text STOP to delete this registration.'
+      'Text SOS to trigger help. Text STOP to delete this registration.' +
+      (contactMustJoin
+        ? ' IMPORTANT: ask your contact to text JOIN to this number once, or they will not get your alerts.'
+        : '')
     );
   }
 

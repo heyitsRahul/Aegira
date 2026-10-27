@@ -7,20 +7,29 @@ import {
   SqliteKeyVault,
   SqliteRegistrationStore,
   SqliteSessionRepository,
+  SqliteSmsOptInStore,
   SqliteWaitlistStore,
 } from '../persistence/sqlite';
+import {
+  AndroidGatewaySmsTransport,
+  androidGatewayConfigFromEnv,
+} from '../services/android-gateway';
 import { MatchingService } from '../services/matching.service';
 import { InMemoryMetrics } from '../services/metrics';
 import { Notifier, StubNotifier } from '../services/notification.service';
 import { RegistrationService } from '../services/registration.service';
 import { SessionService, SessionServiceConfig } from '../services/session.service';
-import { CompositeNotifier, SmsNotifier, StubSmsTransport } from '../services/sms';
+import { CompositeNotifier, SmsNotifier, SmsTransport, StubSmsTransport } from '../services/sms';
 import { SmsGatewayService } from '../services/sms-gateway.service';
+import { DEMO_SMS_LIMITS, GuardedSmsTransport, SmsGuard, SmsKind } from '../services/sms-guard';
+import { SmsOptInService } from '../services/sms-optin.service';
 import { twilioConfigFromEnv, TwilioSmsTransport } from '../services/twilio';
 import { WaitlistService } from '../services/waitlist.service';
 import { DEMO_MODE, DevController, OUTBOX, SMS_TRANSPORT } from './dev.controller';
 import {
-  ALLOW_UNSIGNED_TWILIO,
+  ALLOW_UNSIGNED_WEBHOOKS,
+  ANDROID_GATEWAY,
+  GATEWAY_CLOCK,
   GATEWAY_SECRET,
   GatewayController,
   PUBLIC_BASE_URL,
@@ -93,16 +102,44 @@ function buildWiring() {
   const metrics = new InMemoryMetrics();
   const appOutbox = new StubNotifier();
   const smsStub = new StubSmsTransport();
+  const registrations = new RegistrationService(new SqliteRegistrationStore(db), clock);
+  const optIns = new SmsOptInService(new SqliteSmsOptInStore(db), clock);
 
-  // The stub SMS always runs (so the /phone simulator works). Real Twilio
-  // delivery is added on top when configured — never in demo mode, where
-  // anyone can type any contact number into the public app.
+  // Real SMS from a public demo is guarded: alerts only reach numbers that
+  // agreed (JOIN, or registered themselves), under daily caps (sms-guard.ts).
+  const guard = new SmsGuard(
+    clock,
+    DEMO_SMS_LIMITS,
+    (to) => {
+      try {
+        return optIns.hasJoined(to) || registrations.find(to) !== undefined;
+      } catch {
+        return false;
+      }
+    },
+    metrics,
+  );
+  const real = (transport: SmsTransport, kind: SmsKind): SmsTransport =>
+    RUNTIME.demoMode ? new GuardedSmsTransport(transport, guard, kind) : transport;
+
+  // The stub SMS always runs (so the /phone simulator works). Real carriers
+  // are added on top when configured; they carry contact alerts only, since
+  // responders are addressed by id, not by phone number.
   const channels: Notifier[] = [appOutbox, new SmsNotifier(smsStub)];
   const twilioConfig = twilioConfigFromEnv(process.env);
-  if (twilioConfig !== null && !RUNTIME.demoMode) {
-    channels.push(new SmsNotifier(new TwilioSmsTransport(twilioConfig)));
+  if (twilioConfig !== null) {
+    channels.push(
+      new SmsNotifier(real(new TwilioSmsTransport(twilioConfig), 'alert'), { responderOffers: false }),
+    );
   }
-  const notifier = new CompositeNotifier(...channels);
+  const androidConfig = androidGatewayConfigFromEnv(process.env);
+  const androidTransport = androidConfig === null ? null : new AndroidGatewaySmsTransport(androidConfig);
+  if (androidTransport !== null) {
+    channels.push(new SmsNotifier(real(androidTransport, 'alert'), { responderOffers: false }));
+  }
+  const notifier = new CompositeNotifier(...channels).onChannelFailure(() =>
+    metrics.increment('notify.channel_failed'),
+  );
 
   const registry = buildResponderRegistry();
   const sessions = new SessionService(
@@ -114,8 +151,14 @@ function buildWiring() {
     new SqliteSessionRepository(db),
     metrics,
   );
-  const registrations = new RegistrationService(new SqliteRegistrationStore(db), clock);
-  const gateway = new SmsGatewayService(sessions, registrations, () => registry.all());
+  const gateway = new SmsGatewayService(
+    sessions,
+    registrations,
+    () => registry.all(),
+    optIns,
+    // Only real SMS is guarded; the simulator always delivers.
+    RUNTIME.demoMode && (twilioConfig !== null || androidConfig !== null),
+  );
   const waitlist = new WaitlistService(new SqliteWaitlistStore(db), clock);
   return {
     appOutbox,
@@ -127,6 +170,11 @@ function buildWiring() {
     gateway,
     waitlist,
     twilioAuthToken: twilioConfig?.authToken ?? null,
+    android:
+      androidConfig === null || androidTransport === null
+        ? null
+        : { config: androidConfig, reply: real(androidTransport, 'reply') },
+    clock,
   };
 }
 
@@ -152,7 +200,9 @@ const wiring = buildWiring();
     { provide: REGISTRATIONS, useValue: wiring.registrations },
     { provide: SMS_GATEWAY, useValue: wiring.gateway },
     { provide: GATEWAY_SECRET, useValue: RUNTIME.gatewaySecret },
-    { provide: ALLOW_UNSIGNED_TWILIO, useValue: !RUNTIME.production },
+    { provide: ALLOW_UNSIGNED_WEBHOOKS, useValue: !RUNTIME.production },
+    { provide: ANDROID_GATEWAY, useValue: wiring.android },
+    { provide: GATEWAY_CLOCK, useValue: wiring.clock },
     { provide: DEMO_MODE, useValue: RUNTIME.demoMode },
     { provide: TWILIO_AUTH_TOKEN, useValue: wiring.twilioAuthToken },
     { provide: PUBLIC_BASE_URL, useValue: PUBLIC_URL },

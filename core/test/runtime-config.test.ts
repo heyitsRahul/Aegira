@@ -76,6 +76,8 @@ describe('tokenMatches', () => {
   });
 });
 
+const FIXED_CLOCK = { now: () => new Date('2026-10-27T10:00:00.000Z') };
+
 describe('production lock-down of founder and gateway surfaces', () => {
   const gatewayStub = { handle: async () => 'ok' } as unknown as SmsGatewayService;
 
@@ -90,14 +92,14 @@ describe('production lock-down of founder and gateway surfaces', () => {
   });
 
   it('closes the JSON SMS webhook when no secret is configured', async () => {
-    const gateway = new GatewayController(gatewayStub, null, null, 'https://x', false);
+    const gateway = new GatewayController(gatewayStub, null, null, 'https://x', false, null, FIXED_CLOCK);
     await expect(
       gateway.inbound({ from: '+919876543210', text: 'STATUS' }, DEV_GATEWAY_SECRET),
     ).rejects.toThrow(NotAuthenticatedError);
   });
 
   it('rejects unsigned Twilio webhooks in production', async () => {
-    const gateway = new GatewayController(gatewayStub, 's', null, 'https://x', false);
+    const gateway = new GatewayController(gatewayStub, 's', null, 'https://x', false, null, FIXED_CLOCK);
     const req = { originalUrl: '/gateway/twilio' } as never;
     await expect(gateway.twilio({ From: '+1', Body: 'SOS' }, req)).rejects.toThrow(
       NotAuthenticatedError,
@@ -105,7 +107,7 @@ describe('production lock-down of founder and gateway surfaces', () => {
   });
 
   it('accepts unsigned Twilio webhooks in local dev only', async () => {
-    const gateway = new GatewayController(gatewayStub, 's', null, 'https://x', true);
+    const gateway = new GatewayController(gatewayStub, 's', null, 'https://x', true, null, FIXED_CLOCK);
     const req = { originalUrl: '/gateway/twilio' } as never;
     await expect(gateway.twilio({ From: '+1', Body: 'SOS' }, req)).resolves.toContain('ok');
   });

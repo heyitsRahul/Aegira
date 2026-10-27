@@ -18,9 +18,12 @@ Replace `<link>` with your live Render link.
   screens, and spoken prompts.
 - Benchmarked global safety apps and added the most-requested missing feature,
   a journey watch that alerts contacts if you don't check in on time.
+- Made SOS work from a basic phone with no internet or GPS: a real Indian
+  number (an Android phone as the SMS gateway), opt-in so a public demo can't
+  spam strangers, and alerts that carry the place in the sender's own words.
 - Built with AI-assisted development (Claude Code): I set the product spec,
   safety rules and priorities, and reviewed every feature against them;
-  310 automated tests, CI on every push.
+  362 automated tests, CI on every push.
 
 Pick the 3–4 bullets that fit the job. For product roles, lead with the rules,
 the duress PIN and the accessibility bullets. For engineering roles, add a

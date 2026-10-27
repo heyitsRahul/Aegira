@@ -5,9 +5,12 @@ import { DomainErrorFilter } from './domain-error.filter';
 import { SESSION_SERVICE } from './session.controller';
 import { SystemClock } from './system-clock';
 import { SessionService } from '../services/session.service';
+import { androidGatewayConfigFromEnv, ensureAndroidWebhook } from '../services/android-gateway';
+import { resolveRuntimeConfig } from './runtime-config';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: the Android SMS gateway signs the exact bytes it sent.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.useGlobalFilters(new DomainErrorFilter());
 
   // The timer sweep that drives countdown activation, auto-close, and
@@ -25,6 +28,16 @@ async function bootstrap(): Promise<void> {
   }
 
   await app.listen(Number(process.env.PORT ?? 3000));
+
+  // A real phone number via an Android SIM gateway: point its incoming texts
+  // at us. Only over https (the gateway refuses plain http to the internet).
+  const android = androidGatewayConfigFromEnv(process.env);
+  const baseUrl = resolveRuntimeConfig(process.env).baseUrl;
+  if (android !== null && baseUrl.startsWith('https://')) {
+    ensureAndroidWebhook(android, `${baseUrl}/gateway/android`)
+      .then((result) => console.log(`SMS gateway webhook: ${result}`))
+      .catch((error: Error) => console.error(`SMS gateway webhook: ${error.message}`));
+  }
 }
 
 void bootstrap();

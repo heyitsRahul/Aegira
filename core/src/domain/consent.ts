@@ -38,9 +38,15 @@ export const CONSENT_RECORD: Readonly<Record<string, string>> = Object.freeze({
     'address (and optional country) to contact you about early access. No ' +
     'location and no emergency-session data are involved. You can ask us to ' +
     'delete it at any time.',
+  v6:
+    'By texting JOIN you agree to Aegira texting this number when someone ' +
+    'who lists you as a trusted contact needs help. Aegira stores only a ' +
+    'one-way hash of this number and the time you joined: no name, no ' +
+    'location. Text STOP at any time to opt out.',
 });
 
 export const CURRENT_CONSENT_VERSION = 'v1';
+export const SMS_OPT_IN_CONSENT_VERSION = 'v6';
 export const SMS_REGISTRATION_CONSENT_VERSION = 'v4';
 export const WAITLIST_CONSENT_VERSION = 'v5';
 

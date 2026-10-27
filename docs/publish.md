@@ -45,12 +45,20 @@ Things to know:
    `nestjs`, `pwa`, `sms`.
 3. Use the bullets in [resume.md](resume.md).
 
+## Optional — a real phone number
+
+To let anyone text SOS from a basic phone to a real Indian number, follow
+[real-phone-number.md](real-phone-number.md). It needs a spare Android
+phone and the $7/month Render plan, because the free plan forgets
+registrations whenever it sleeps.
+
 ## What recruiters should click
 
 | Link | What it shows |
 |---|---|
 | `/` | landing page |
+| `/guide` | how to use it on any phone (English and हिंदी) |
 | `/app` | the app (pick a language → *I need help* → SOS) |
 | `/phone` | the no-smartphone SMS version |
 | `/console` | behind the scenes: the duress PIN that lies |
-| GitHub repo | code, 310 tests, design doc |
+| GitHub repo | code, 362 tests, design doc |
