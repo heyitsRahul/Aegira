@@ -1,5 +1,8 @@
 # Publish Aegira for your resume
 
+**Done:** live at <https://aegira.onrender.com>, code public at
+<https://github.com/heyitsRahul/Aegira>. The steps below are kept for reference.
+
 Goal: a permanent link like `https://aegira.onrender.com` that stays up
 without your laptop, plus a public GitHub page recruiters can read.
 It takes about 15 minutes, costs nothing, and needs no coding.

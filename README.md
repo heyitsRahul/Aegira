@@ -10,12 +10,15 @@ inside that session, and is destroyed when it ends. It works as a smartphone
 app, as a no-JavaScript web page for old browsers, and over plain SMS for
 phones with no internet at all.
 
-**Live demo:** _coming soon_ · **Design doc:** [civic-safety-architecture.md](docs/civic-safety-architecture.md) · **Pitch:** [pitch.md](docs/pitch.md)
+**Live demo:** [aegira.onrender.com](https://aegira.onrender.com) · **How to use:** [/guide](https://aegira.onrender.com/guide) · **Design doc:** [civic-safety-architecture.md](docs/civic-safety-architecture.md) · **Pitch:** [pitch.md](docs/pitch.md)
 
 > ⚠️ **This is a working prototype, not an emergency service.** No real
 > responders are connected yet. Real text messages work once a phone number
 > is connected ([how](docs/real-phone-number.md)). In danger, call your local
 > emergency number (112 in India and the EU).
+>
+> The demo runs on a free server that sleeps when unused: the first visit can
+> take up to a minute to wake it.
 
 <p>
   <img src="docs/screenshots/app-home.jpg" width="200" alt="Role picker: I need help, I watch over someone, I'm a verified helper">

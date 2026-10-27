@@ -1,10 +1,10 @@
 # Aegira on your resume
 
-Replace `<link>` with your live Render link.
+Live link: <https://aegira.onrender.com>
 
 ## Project entry
 
-**Aegira — Privacy-first emergency coordination app** · [Live demo](<link>) · [GitHub](https://github.com/heyitsRahul/Aegira)
+**Aegira — Privacy-first emergency coordination app** · [Live demo](https://aegira.onrender.com) · [GitHub](https://github.com/heyitsRahul/Aegira)
 
 - Conceived and shipped a working emergency-coordination prototype for India
   that alerts trusted contacts and nearby verified helpers on a smartphone,
