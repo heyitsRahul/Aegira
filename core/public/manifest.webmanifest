@@ -1,12 +1,19 @@
 {
   "name": "Aegira — Emergency Coordination",
   "short_name": "Aegira",
-  "description": "Privacy-first emergency coordination. All capability is session-shaped.",
+  "description": "Privacy-first emergency coordination. Tell the people you trust when you are in danger.",
+  "id": "/app",
   "start_url": "/app",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en-IN",
   "background_color": "#0b0e14",
   "theme_color": "#0b0e14",
   "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }

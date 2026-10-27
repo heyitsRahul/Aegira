@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0e14">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Aegira — help on any phone, without surveillance</title>
 <meta name="description" content="Privacy-first emergency coordination. Help on any phone — even over SMS — without ever storing your location outside a live, self-destructing session.">
 <style>
@@ -43,6 +45,8 @@
   .wait .msg{margin-top:12px;font-size:14px;min-height:20px}
   .wait .msg.ok{color:var(--green)}.wait .msg.err{color:var(--red)}
   .count{color:var(--dim);font-size:13px;margin-top:8px}
+  code{background:var(--panel2);border-radius:5px;padding:1px 5px;font-size:.92em}
+  .card a{color:var(--blue)}
   footer{color:#525a6a;font-size:13px;border-top:1px solid var(--line);padding:24px 0 40px;margin-top:24px}
   footer a{color:var(--dim)}
   @media (max-width:600px){.hero h1{font-size:30px}.hero p{font-size:16px}}
@@ -57,7 +61,7 @@
     <nav>
       <a href="/app">Try the app</a>
       <a href="/phone">SMS demo</a>
-      <a href="https://github.com" onclick="return false">Docs</a>
+      <a href="/guide">How to use</a>
     </nav>
   </header>
 
@@ -68,7 +72,7 @@
        and it works on a smartphone, an old browser, or plain SMS.</p>
     <div class="cta">
       <a class="btn primary" href="/app">Open the demo</a>
-      <a class="btn ghost" href="#waitlist">Join the waitlist</a>
+      <a class="btn ghost" href="#use">How to use it</a>
     </div>
     <div class="pills">
       <span class="pill">🔒 No location outside a session</span>
@@ -109,6 +113,26 @@
     </div>
   </section>
 
+  <section class="how" id="use">
+    <h3>Use it on any phone</h3>
+    <div class="grid" style="margin:16px 0 8px">
+      <div class="card"><div class="ico">📱</div><h3>Smartphone</h3>
+        <p>1. Open <a href="/app">the app</a> and pick your language.<br>
+           2. Tap <b>I need help</b> and add one trusted person.<br>
+           3. In danger, press <b>SOS</b>. Cancel within 30 s with your PIN.<br>
+           <small>Install it: Android ⋮ → <i>Install app</i>; iPhone Share □↑ → <i>Add to Home Screen</i>.</small></p></div>
+      <div class="card"><div class="ico">🌐</div><h3>Old phone browser</h3>
+        <p>1. Open <a href="/lite">the basic version</a> (no JavaScript needed).<br>
+           2. Register once with your number and two PINs.<br>
+           3. In danger, press <b>SEND SOS</b>.</p></div>
+      <div class="card"><div class="ico">📟</div><h3>Basic phone, no internet</h3>
+        <p id="sms-how">Text <code>REG name contact-number pin pin</code> once, then <code>SOS</code> when in danger.
+           <a href="/phone">Try the simulator</a>.</p></div>
+    </div>
+    <p><a class="btn ghost" href="/guide">Full step-by-step guide</a>
+       <a class="btn ghost" href="/guide?lang=hi">हिंदी में गाइड</a></p>
+  </section>
+
   <section class="wait" id="waitlist">
     <h2>Get early access</h2>
     <p>We're piloting with campuses, gig platforms, and safety NGOs. Leave your email.</p>
@@ -124,7 +148,7 @@
   <footer class="wrap">
     Aegira — privacy-first emergency coordination ·
     <a href="/app">app</a> · <a href="/lite">lite</a> · <a href="/phone">sms</a> · <a href="/console">ops console</a><br>
-    Prototype. Consent v3 governs waitlist emails: stored only to contact you about early access, deletable on request.
+    Prototype. Consent v5 governs waitlist emails: stored only to contact you about early access, deletable on request.
   </footer>
 </div>
 
@@ -158,6 +182,13 @@
     } catch {}
   }
   refreshCount();
+  // Show the real SMS number when one is set up.
+  fetch('/config').then((r) => r.json()).then((c) => {
+    if (!c.smsNumber) return;
+    document.getElementById('sms-how').innerHTML = 'Text <code>REG name contact-number pin pin</code> to <b>' +
+      c.smsNumber.replace(/[<>&]/g, '') + '</b> once, then <code>SOS</code> when in danger.';
+  }).catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 </script>
 </body>
 </html>

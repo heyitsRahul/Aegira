@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Inject, NotFoundException, Param, Post, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Body, Controller, Get, Inject, NotFoundException, Param, Post, Req, Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { join } from 'node:path';
 import { StubNotifier } from '../services/notification.service';
 import { SessionService } from '../services/session.service';
@@ -88,6 +88,17 @@ export class DevController {
   @Get('icon.svg')
   icon(@Res() res: Response): void {
     res.sendFile(join(PUBLIC_DIR, 'icon.svg'));
+  }
+
+  /** Install-time assets: app icons and the service worker. */
+  @Get(['sw.js', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'])
+  installAsset(@Req() req: Request, @Res() res: Response): void {
+    const file = req.path.slice(1);
+    if (file === 'sw.js') {
+      // Always revalidate, so a fixed service worker reaches phones promptly.
+      res.setHeader('cache-control', 'no-cache');
+    }
+    res.sendFile(join(PUBLIC_DIR, file));
   }
 
   /** Everything the stub notifier "sent" — the simulated phones read this. */

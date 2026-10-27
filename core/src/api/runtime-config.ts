@@ -23,6 +23,8 @@ export interface RuntimeConfig {
   dbPath: string | null;
   adminToken: string | null;
   gatewaySecret: string | null;
+  /** The number people text, shown in guides (display only). */
+  smsNumber: string | null;
 }
 
 export const DEV_ADMIN_TOKEN = 'dev-admin-token';
@@ -53,5 +55,6 @@ export function resolveRuntimeConfig(env: Env): RuntimeConfig {
     dbPath: read(env, 'DB') ?? null,
     adminToken: read(env, 'ADMIN_TOKEN') ?? (production ? null : DEV_ADMIN_TOKEN),
     gatewaySecret: read(env, 'GATEWAY_SECRET') ?? (production ? null : DEV_GATEWAY_SECRET),
+    smsNumber: read(env, 'SMS_NUMBER') ?? null,
   };
 }

@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Aegira">
 <title>Aegira</title>
 <script>
 // Older browsers (Opera Mini, KaiOS, old stock Android) lack what this
@@ -144,6 +146,9 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
   .modebar button{flex:1;font-size:15px;padding:16px 8px;background:var(--panel);border:2px solid var(--line);color:var(--dim);margin:0;border-radius:16px}
   .modebar button.on{border-color:var(--red);color:var(--ink)}
   .modebar button .mi{font-size:22px;display:block;margin-bottom:4px}
+  .steps{margin:8px 0 4px 20px;padding:0}.steps li{margin:6px 0;font-size:14px}
+  .card.how{border-color:var(--blue)}.card.how .row{align-items:center;margin-top:6px}
+  .loc{font-size:13px;color:var(--dim);margin-top:14px}
   @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
   @media (prefers-color-scheme: light) {
     :root { --bg:#f6f7f9; --panel:#fff; --panel2:#eef1f5; --line:#d4dae3; --ink:#11151c; --dim:#5b6472; }
@@ -277,6 +282,33 @@ const STR = {
     setup_title: 'Add your trusted people', your_name: 'Your name', country: 'Country',
     contact_name: 'Trusted person — name', contact_phone: 'Trusted person — phone',
     safe_pin: 'Safe PIN (cancels)', duress_pin: 'Danger PIN (pretends)', i_consent: 'I agree — continue',
+    // help + install + location
+    how_title: 'How it works', how_1: 'Add one person you trust.', how_2: 'In danger, press SOS.',
+    how_3: 'They get a text with your live location.', full_guide: 'Full guide', got_it: 'Got it',
+    help: 'Help', install: 'Install app', install_ios: 'To install: tap Share □↑, then “Add to Home Screen”.',
+    help_seeker: [
+      'Press the red <b>SOS</b> button.',
+      'You have 30 seconds to cancel with your <b>safe PIN</b>.',
+      'Then your trusted person gets a text with your live location.',
+      'If someone forces you to cancel, type your <b>danger PIN</b>. It looks cancelled, but your person is secretly told.',
+      'Going somewhere alone? Use <b>Watch my journey</b>. If you don’t check in, your person is told.',
+      'When you are safe, tap <b>I am safe</b>. Everything is erased.',
+    ],
+    help_contact: [
+      'When someone you protect presses SOS, you get a text with a link.',
+      'Open it to see where they are, and call them.',
+      'If it says <b>DURESS</b>, do not call. They may not be alone.',
+      'Tap <b>Send a verified helper</b> if someone needs to go to them.',
+    ],
+    help_responder: [
+      'You get requests with an area (~1 km), never a name.',
+      'Accept to see the exact place.',
+      'When you arrive, type the code shown on their phone.',
+    ],
+    sms_join: 'Ask {name} to text JOIN to {number} once, so they can get your alerts by SMS.',
+    loc_gps: '📍 Using your phone’s location', loc_finding: '📍 Finding your location…',
+    loc_off: 'Location is off. Choose your area:', loc_pick: 'Your area',
+    loc_allow: 'Allow location, so help can find you', your_person: 'your trusted person', open_maps: 'Open in Maps',
     // spoken
     v_sos: 'Sending help. Enter your PIN to cancel.',
     v_active: 'Your people have been alerted. Help is on the way.',
@@ -315,6 +347,32 @@ const STR = {
     setup_title: 'अपने भरोसेमंद लोग जोड़ें', your_name: 'आपका नाम', country: 'देश',
     contact_name: 'भरोसेमंद व्यक्ति — नाम', contact_phone: 'भरोसेमंद व्यक्ति — फ़ोन',
     safe_pin: 'सुरक्षित PIN (रद्द करता है)', duress_pin: 'ख़तरे वाला PIN (दिखावा)', i_consent: 'मैं सहमत हूँ — आगे बढ़ें',
+    how_title: 'यह कैसे काम करता है', how_1: 'एक भरोसेमंद व्यक्ति जोड़ें।', how_2: 'ख़तरे में SOS दबाएँ।',
+    how_3: 'उन्हें आपकी लाइव जगह के साथ SMS जाता है।', full_guide: 'पूरी जानकारी', got_it: 'समझ गया',
+    help: 'मदद', install: 'ऐप लगाएँ', install_ios: 'लगाने के लिए: Share □↑ दबाएँ, फिर “Add to Home Screen”।',
+    help_seeker: [
+      'लाल <b>SOS</b> बटन दबाएँ।',
+      '30 सेकंड में अपने <b>सुरक्षित PIN</b> से रद्द कर सकते हैं।',
+      'फिर आपके भरोसेमंद व्यक्ति को आपकी लाइव जगह के साथ SMS जाता है।',
+      'अगर कोई ज़बरदस्ती रद्द करवाए, तो <b>ख़तरे वाला PIN</b> डालें। रद्द दिखेगा, पर आपके व्यक्ति को चुपचाप बताया जाएगा।',
+      'अकेले जा रहे हैं? <b>मेरी यात्रा पर नज़र</b> लगाएँ। समय पर नहीं बताया तो आपके व्यक्ति को सूचना जाएगी।',
+      'सुरक्षित होने पर <b>मैं सुरक्षित हूँ</b> दबाएँ। सब मिटा दिया जाता है।',
+    ],
+    help_contact: [
+      'जिसका आप ध्यान रखते हैं, वह SOS दबाए तो आपको लिंक के साथ SMS आएगा।',
+      'लिंक खोलकर देखें वे कहाँ हैं, और उन्हें कॉल करें।',
+      'अगर <b>DURESS</b> लिखा हो, तो कॉल न करें। हो सकता है वे अकेले न हों।',
+      'पास में किसी की ज़रूरत हो तो <b>प्रमाणित सहायक भेजें</b> दबाएँ।',
+    ],
+    help_responder: [
+      'आपको इलाक़ा (~1 किमी) दिखता है, नाम कभी नहीं।',
+      'स्वीकार करने पर सही जगह दिखती है।',
+      'पहुँचने पर उनके फ़ोन पर दिखा कोड डालें।',
+    ],
+    sms_join: '{name} से कहें कि एक बार {number} पर JOIN भेजें, ताकि उन्हें SMS से सूचना मिले।',
+    loc_gps: '📍 आपके फ़ोन की जगह इस्तेमाल हो रही है', loc_finding: '📍 आपकी जगह ढूँढ रहे हैं…',
+    loc_off: 'लोकेशन बंद है। अपना इलाक़ा चुनें:', loc_pick: 'आपका इलाक़ा',
+    loc_allow: 'लोकेशन चालू करें, ताकि मदद आप तक पहुँचे', your_person: 'अपने भरोसेमंद व्यक्ति', open_maps: 'मैप में खोलें',
     v_sos: 'मदद भेजी जा रही है। रद्द करने के लिए पिन डालें।',
     v_active: 'आपके अपनों को सूचना दे दी गई है। मदद आ रही है।',
     v_safe: 'आप सुरक्षित हैं।', v_checkin: 'आप सुरक्षित रूप से पहुँच गए।',
@@ -397,8 +455,51 @@ function renderTopCtl() {
   const next = (LANGS.find((x, i) => x.code === langCode()) && LANGS[(LANGS.findIndex((x) => x.code === langCode()) + 1) % LANGS.length]) || LANGS[0];
   ctl.innerHTML =
     `<button onclick="setLang('${next.code}')" aria-label="${t('language')}">🌐 ${esc(next.name)}</button>` +
-    `<button onclick="toggleSound()">${soundOn() ? '🔊' : '🔇'}</button>` +
-    (location.hash ? `<button onclick="go('')">⇄</button>` : '');
+    `<button onclick="toggleSound()" aria-label="sound">${soundOn() ? '🔊' : '🔇'}</button>` +
+    `<button onclick="go('help')" aria-label="${esc(t('help'))}">?</button>` +
+    (location.hash ? `<button onclick="go('')" aria-label="home">⇄</button>` : '');
+}
+
+/* ------------------------ install + public config ------------------------ */
+// Display-only server settings (the SMS number people can text).
+let CFG = { smsNumber: null, demoMode: true };
+const cfgReady = fetch('/config').then((r) => r.json()).then((d) => { CFG = d; }).catch(() => {});
+// Android/desktop Chrome hand us an install prompt; iPhone needs instructions.
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; if (!location.hash) render(); });
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+function installBlock() {
+  if (isStandalone()) return '';
+  if (installPrompt) return `<button class="subtle" onclick="installApp()">📲 ${esc(t('install'))}</button>`;
+  if (isIos()) return `<div class="foot">📲 ${esc(t('install_ios'))}</div>`;
+  return '';
+}
+async function installApp() {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  try { await installPrompt.userChoice; } catch {}
+  installPrompt = null; render();
+}
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+
+/* -------------------------------- help -------------------------------- */
+const guideLink = () => `/guide${langCode() === 'hi' ? '?lang=hi' : ''}`;
+function helpList(key) { return `<ol class="steps">${t(key).map((s) => `<li>${s}</li>`).join('')}</ol>`; }
+function renderHelp() {
+  document.getElementById('role-tag').textContent = '· ' + t('help');
+  $m.innerHTML = `
+    <h1>${esc(t('how_title'))}</h1>
+    <div class="card"><div class="k">🆘 ${esc(t('role_seeker'))}</div>${helpList('help_seeker')}</div>
+    <div class="card"><div class="k">👁️ ${esc(t('role_contact'))}</div>${helpList('help_contact')}</div>
+    <div class="card"><div class="k">🏃 ${esc(t('role_responder'))}</div>${helpList('help_responder')}</div>
+    <a class="bigbtn" style="text-decoration:none;color:inherit" href="${guideLink()}">
+      <span class="ic">📖</span><span><b>${esc(t('full_guide'))}</b><span class="s">SMS · ${esc(t('no_smartphone'))}</span></span></a>
+    ${installBlock()}
+    <button onclick="history.length > 1 ? history.back() : go('')">${esc(t('back'))}</button>
+    ${helplineCard()}`;
 }
 
 function render() {
@@ -411,6 +512,7 @@ function render() {
     h.startsWith('seeker') ? '· ' + t('role_seeker') :
     h.startsWith('contact') ? '· ' + t('role_contact') :
     h.startsWith('responder') ? '· ' + t('role_responder') : '';
+  if (h === 'help') return renderHelp();
   if (h.startsWith('seeker')) return renderSeeker();
   if (h.startsWith('contact/')) return renderContactSession(h.split('/')[1]);
   if (h.startsWith('contact')) return renderContactInbox();
@@ -433,7 +535,16 @@ function renderLanguagePicker() {
 
 /* ------------------------------ landing ------------------------------- */
 function renderLanding() {
+  // One-time "how it works" card for first visits.
+  const how = store.get('seen_how', false) ? '' : `
+    <div class="card how">
+      <div class="k">${esc(t('how_title'))}</div>
+      <ol class="steps"><li>👤 ${esc(t('how_1'))}</li><li>🆘 ${esc(t('how_2'))}</li><li>📍 ${esc(t('how_3'))}</li></ol>
+      <div class="row"><a href="${guideLink()}">${esc(t('full_guide'))} →</a>
+        <button class="subtle" style="margin:0;padding:8px" onclick="store.set('seen_how',true);render()">${esc(t('got_it'))}</button></div>
+    </div>`;
   $m.innerHTML = `
+    ${how}
     <h1>${esc(t('choose_role'))}</h1>
     <button class="bigbtn" onclick="go('seeker')">
       <span class="ic">🆘</span><span><b>${esc(t('role_seeker'))}</b><span class="s">${esc(t('role_seeker_sub'))}</span></span></button>
@@ -441,8 +552,9 @@ function renderLanding() {
       <span class="ic">👁️</span><span><b>${esc(t('role_contact'))}</b><span class="s">${esc(t('role_contact_sub'))}</span></span></button>
     <button class="bigbtn" onclick="go('responder')">
       <span class="ic">🏃</span><span><b>${esc(t('role_responder'))}</b><span class="s">${esc(t('role_responder_sub'))}</span></span></button>
+    ${installBlock()}
     <div class="foot">${esc(t('no_smartphone'))}<br>
-      <a href="/lite">web</a> · <a href="/phone">SMS</a> · <a href="/console">ops</a> · PINs 1234 / 9999</div>`;
+      <a href="${guideLink()}">${esc(t('full_guide'))}</a> · <a href="/lite">web</a> · <a href="/phone">SMS</a>${CFG.demoMode ? ' · <a href="/console">ops</a> · PINs 1234 / 9999' : ''}</div>`;
 }
 
 /* --------------------------- seeker: screens --------------------------- */
@@ -468,6 +580,7 @@ function renderOnboarding() {
       <div><label>${esc(t('safe_pin'))}</label><input id="ob-pin-safe" value="1234" inputmode="numeric" maxlength="6" type="password"></div>
       <div><label>${esc(t('duress_pin'))}</label><input id="ob-pin-duress" value="9999" inputmode="numeric" maxlength="6" type="password"></div>
     </div>
+    ${CFG.smsNumber ? `<div class="foot">📟 ${esc(t('sms_join', { name: t('your_person'), number: CFG.smsNumber }))}</div>` : ''}
     <button class="primary" onclick="saveProfile()">${esc(t('i_consent'))}</button>
     ${helplineCard()}`;
 }
@@ -501,9 +614,12 @@ let seekerCity = DEMO_CITIES[0].id;
 let seekerMode = 'sos'; // 'sos' | 'watch'
 let watchEta = 20;
 function renderSeekerHome(profile) {
-  const citySelect = `<label>${esc(t('demo_location'))}</label>
-    <select id="city" onchange="seekerCity=this.value">${DEMO_CITIES.map((c) =>
+  const areaSelect = `<select id="city" aria-label="${esc(t('loc_pick'))}" onchange="seekerCity=this.value">${DEMO_CITIES.map((c) =>
       `<option value="${c.id}"${c.id === seekerCity ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select>`;
+  const citySelect =
+    gpsPerm === 'granted' ? `<p class="loc">${esc(t('loc_gps'))}</p>` :
+    gpsPerm === 'prompt' ? `<button class="subtle" onclick="askGps()">📍 ${esc(t('loc_allow'))}</button>` :
+    `<p class="loc">${esc(t('loc_off'))}</p>${areaSelect}`;
   const modeToggle = `<div class="modebar" role="group" aria-label="mode">
       <button class="${seekerMode === 'sos' ? 'on' : ''}" aria-pressed="${seekerMode === 'sos'}" onclick="seekerMode='sos';render()"><span class="mi">🆘</span>${esc(t('mode_sos'))}</button>
       <button class="${seekerMode === 'watch' ? 'on' : ''}" aria-pressed="${seekerMode === 'watch'}" onclick="seekerMode='watch';render()"><span class="mi">🛡️</span>${esc(t('mode_watch'))}</button>
@@ -531,23 +647,78 @@ function renderSeekerHome(profile) {
     ${helplineCard(profile.country)}
     <div class="card"><div class="k">${esc(t('your_circle'))}</div>
       ${profile.contacts.map((c) => `<div>${esc(c.name)} · ${esc(c.address)}</div>`).join('')}
+      ${CFG.smsNumber ? `<div class="foot">📟 ${esc(t('sms_join', { name: profile.contacts[0].name.split(' ')[0], number: CFG.smsNumber }))}</div>` : ''}
     </div>
     <button class="subtle" onclick="store.del('profile');render()">${esc(t('edit_circle'))}</button>`;
 }
 
+/* ---------------------------- real location ---------------------------- */
+// The phone's GPS is read only when you press SOS or start a watch, and
+// followed only while a session is live — never in the background
+// (invariant 1). If location is off, you choose your area instead.
+let gpsPerm = navigator.geolocation ? 'prompt' : 'denied'; // 'granted' | 'prompt' | 'denied'
+if (navigator.permissions && navigator.geolocation) {
+  navigator.permissions.query({ name: 'geolocation' }).then((p) => {
+    gpsPerm = p.state; p.onchange = () => { gpsPerm = p.state; if (!typing()) render(); };
+    if (!typing()) render();
+  }).catch(() => {});
+}
+function readGps(timeoutMs) {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => { gpsPerm = 'granted'; resolve({ lat: p.coords.latitude, lng: p.coords.longitude }); },
+      (err) => { if (err.code === 1) gpsPerm = 'denied'; resolve(null); },
+      { enableHighAccuracy: true, timeout: timeoutMs || 8000, maximumAge: 30000 });
+  });
+}
+// Asks for permission ahead of an emergency; the reading itself is discarded.
+async function askGps() { await readGps(10000); render(); }
+function pickedArea() {
+  const c = DEMO_CITIES.find((x) => x.id === seekerCity) || DEMO_CITIES[0];
+  return { lat: c.lat, lng: c.lng };
+}
+async function sessionStartLocation() {
+  const gps = gpsPerm === 'denied' ? null : await readGps(8000);
+  return gps ? { loc: gps, realLoc: true } : { loc: pickedArea(), realLoc: false };
+}
+let gpsWatch = null;
+let latestFix = null;
+function followGps() {
+  if (gpsWatch !== null || !navigator.geolocation) return;
+  gpsWatch = navigator.geolocation.watchPosition(
+    (p) => { latestFix = { lat: p.coords.latitude, lng: p.coords.longitude }; },
+    () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
+}
+function stopGps() {
+  if (gpsWatch !== null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatch);
+  gpsWatch = null; latestFix = null;
+}
+
+// One identity per device (random, never derived from name or number), so
+// two people who type the same name never collide on "one live session".
+function deviceUserId() {
+  let id = store.get('device', null);
+  if (!id) {
+    const b = new Uint8Array(12); (window.crypto || window.msCrypto).getRandomValues(b);
+    id = 'user-' + Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    store.set('device', id);
+  }
+  return id;
+}
+
 async function trigger() {
   const profile = store.get('profile');
-  const city = DEMO_CITIES.find((c) => c.id === seekerCity) || DEMO_CITIES[0];
-  const loc = { lat: city.lat + (Math.random() - .5) * .004, lng: city.lng + (Math.random() - .5) * .004 };
+  const { loc, realLoc } = await sessionStartLocation();
   try {
     const r = await api('/sessions', {
-      userId: 'user-' + phoneTail(profile.contacts[0].address) + '-' + profile.name.toLowerCase().replace(/\s+/g, '-'),
+      userId: deviceUserId(),
       displayName: profile.name,
       contacts: profile.contacts.map((c) => ({ id: c.id, address: c.address })),
       location: loc, category: seekerCat,
       pins: profile.pins,
     });
-    store.set('session', { id: r.sessionId, token: r.seekerToken, t0: Date.now(), countdownMs: r.activationCountdownMs, loc, dispatched: false });
+    store.set('session', { id: r.sessionId, token: r.seekerToken, t0: Date.now(), countdownMs: r.activationCountdownMs, loc, realLoc, dispatched: false });
     speakKey('v_sos');
     render();
   } catch (e) { toast(e.message); }
@@ -555,17 +726,16 @@ async function trigger() {
 
 async function startWatch() {
   const profile = store.get('profile');
-  const city = DEMO_CITIES.find((c) => c.id === seekerCity) || DEMO_CITIES[0];
-  const loc = { lat: city.lat + (Math.random() - .5) * .004, lng: city.lng + (Math.random() - .5) * .004 };
+  const { loc, realLoc } = await sessionStartLocation();
   try {
     const r = await api('/sessions/watch', {
-      userId: 'user-' + phoneTail(profile.contacts[0].address) + '-' + profile.name.toLowerCase().replace(/\s+/g, '-'),
+      userId: deviceUserId(),
       displayName: profile.name,
       contacts: profile.contacts.map((c) => ({ id: c.id, address: c.address })),
       location: loc, category: 'personal_safety', pins: profile.pins,
       etaMinutes: watchEta,
     });
-    store.set('session', { id: r.sessionId, token: r.seekerToken, mode: 'watch', loc, dispatched: false, deadline: r.watchDeadline });
+    store.set('session', { id: r.sessionId, token: r.seekerToken, mode: 'watch', loc, realLoc, dispatched: false, deadline: r.watchDeadline });
     render();
   } catch (e) { toast(e.message); }
 }
@@ -675,15 +845,19 @@ async function requestResponder() {
   catch (e) { toast(e.message); }
 }
 async function resolveSession() { try { await api(`/sessions/${store.get('session').id}/resolve`, {}, 'POST', seekerAuth()); routeTick(); } catch (e) { toast(e.message); } }
-function clearSession() { store.del('session'); render(); }
+function clearSession() { stopGps(); store.del('session'); render(); }
 
+// Live location updates: real GPS fixes only, and only while the session
+// is live. A hand-picked area is sent once at the start and never "moves".
 let lastPing = 0;
 async function sendPing(state) {
   const sess = store.get('session');
-  if (!sess || Date.now() - lastPing < 8000) return;
-  if (!['WATCHING', 'PENDING', 'ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(state)) return;
+  if (!sess || !['WATCHING', 'PENDING', 'ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(state)) { stopGps(); return; }
+  if (!sess.realLoc) return;
+  followGps();
+  if (!latestFix || Date.now() - lastPing < 8000) return;
   lastPing = Date.now();
-  sess.loc = { lat: sess.loc.lat + (Math.random() - .5) * .0006, lng: sess.loc.lng + (Math.random() - .5) * .0006 };
+  sess.loc = latestFix;
   store.set('session', sess);
   api(`/sessions/${sess.id}/location`, sess.loc, 'POST', seekerAuth()).catch(() => {});
 }
@@ -754,9 +928,11 @@ function renderContactSession(sid) {
       <h1>${esc(v.helpseekerDisplayName || 'Session')} <span class="chip ${v.state}">${v.state}</span></h1>
       <p class="lead">${esc(catLabel(v.category))}</p>
       ${v.location ? mapSvg(null, v.location, { dot: true, hideCell: true }) +
-        `<p class="lead center">${freshness(v.locationAgeMs)} · ${v.location.lat.toFixed(5)}, ${v.location.lng.toFixed(5)}</p>` :
+        `<p class="lead center">${freshness(v.locationAgeMs)} · ${v.location.lat.toFixed(5)}, ${v.location.lng.toFixed(5)}</p>
+         <a class="bigbtn" style="text-decoration:none;color:inherit" target="_blank" rel="noopener"
+           href="https://www.google.com/maps/search/?api=1&query=${v.location.lat},${v.location.lng}"><span class="ic">🗺️</span><b>${esc(t('open_maps'))}</b></a>` :
         `<p class="lead" style="margin-top:20px">${live ? 'Waiting for a location…' : 'This session has ended; its location data is gone.'}</p>`}
-      ${v.state === 'ACTIVE' ? `<button class="primary" onclick="contactDispatch('${sid}')">Dispatch verified responders</button>` : ''}
+      ${v.state === 'ACTIVE' ? `<button class="primary" onclick="contactDispatch('${sid}')">Send a verified helper</button>` : ''}
       ${v.state === 'DISPATCHED' ? `<p class="lead center" style="margin-top:8px">A responder is on the way.</p>` : ''}
       <button class="subtle" onclick="go('contact')">← all alerts</button>`;
     if (html !== last) { document.getElementById('dyn').innerHTML = html; last = html; }
@@ -862,6 +1038,7 @@ render();
 // Reference data (country list, helplines) arrives async; re-render once it
 // lands so the country picker and helpline cards populate.
 refReady.then(() => { if (!typing()) render(); });
+cfgReady.then(() => { if (!typing()) render(); });
 </script>
 </body>
 </html>

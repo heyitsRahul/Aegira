@@ -81,7 +81,12 @@ export function homePage(): string {
   const areas = LITE_AREAS.map((a) => `<option value="${a.id}">${esc(a.label)}</option>`).join('');
   return page(
     'Emergency help',
-    '<div class="box"><form method="post" action="/lite/sos">' +
+    '<div class="box"><b>How to use</b><br><small>' +
+      '1. First time: fill in <b>Register</b> at the bottom.<br>' +
+      '2. In danger: fill in <b>I need help now</b> and press SEND SOS.<br>' +
+      '3. Cancel within 30 seconds with your safe PIN.<br>' +
+      '<a href="/guide">Full guide</a> &middot; <a href="/guide?lang=hi">हिंदी</a></small></div>' +
+      '<div class="box"><form method="post" action="/lite/sos">' +
       '<b>I need help now</b><br>' +
       phoneWithDial() +
       `<select name="area">${areas}</select>` +

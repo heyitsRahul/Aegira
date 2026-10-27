@@ -53,8 +53,12 @@
   </div>
   <div class="panel">
     <h1>Any phone is enough</h1>
+    <p id="real-number" style="display:none;background:#1d2433;padding:10px;border-radius:8px;color:#e8ebf0"></p>
+    <p><b>Try it in 3 taps:</b> press <b>REG</b> then <b>SEND SMS</b>; press <b>SOS</b> then
+       <b>SEND SMS</b>; wait 30 seconds, or press <b>CANCEL</b>.</p>
     <p>This simulates a basic phone talking to Aegira's SMS gateway — the channel for the
-       hundreds of millions of phones that have no apps and no browser.</p>
+       hundreds of millions of phones that have no apps and no browser.
+       <a href="/guide">Full guide</a> · <a href="/guide?lang=hi">हिंदी</a></p>
     <p>Commands: <code>REG name contact pin pin</code>, <code>SOS</code>, <code>CANCEL pin</code>,
        <code>STATUS</code>, <code>SAFE pin</code>, <code>SEND</code> (as a contact), <code>STOP</code>.</p>
     <p>The tower selector stands in for the carrier's approximate network position — it enters the
@@ -102,6 +106,14 @@ async function sendSms() {
   }).then((x) => x.json()).catch(() => ({ reply: '(network error)' }));
   add('in', r.reply || r.error || '(no reply)');
 }
+
+// When a real number is set up, say so: real phones can text it directly.
+fetch('/config').then((r) => r.json()).then((c) => {
+  if (!c.smsNumber) return;
+  const el = document.getElementById('real-number');
+  el.textContent = 'Have a real phone? Text these same commands to ' + c.smsNumber + '.';
+  el.style.display = 'block';
+}).catch(() => {});
 
 // Incoming SMS (alerts, offers) addressed to this phone's number.
 setInterval(async () => {

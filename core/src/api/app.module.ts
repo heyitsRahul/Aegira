@@ -28,6 +28,7 @@ import {
   TWILIO_AUTH_TOKEN,
 } from './gateway.controller';
 import { AdminController, ADMIN_TOKEN } from './admin.controller';
+import { GuideController, PUBLIC_CONFIG } from './guide.controller';
 import { LiteController, REGISTRATIONS } from './lite.controller';
 import { METRICS, PublicController, WAITLIST } from './public.controller';
 import { ReferenceController } from './reference.controller';
@@ -140,6 +141,7 @@ const wiring = buildWiring();
     ReferenceController,
     PublicController,
     AdminController,
+    GuideController,
   ],
   providers: [
     { provide: NOTIFIER, useValue: wiring.appOutbox },
@@ -157,6 +159,7 @@ const wiring = buildWiring();
     { provide: WAITLIST, useValue: wiring.waitlist },
     { provide: METRICS, useValue: wiring.metrics },
     { provide: ADMIN_TOKEN, useValue: RUNTIME.adminToken },
+    { provide: PUBLIC_CONFIG, useValue: { smsNumber: RUNTIME.smsNumber, demoMode: RUNTIME.demoMode } },
   ],
 })
 export class AppModule {}
