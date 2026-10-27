@@ -53,12 +53,12 @@ const WINDOW_MS = 60_000;
  * X-Forwarded-For is not used: behind two proxies its last entry is the
  * proxy, which would lump many visitors into one count.
  */
-function clientKey(req: Request): string {
+function clientKey(req: Request): { key: string; source: 'cloudflare' | 'connection' } {
   const cloudflare = req.headers['cf-connecting-ip'];
   if (typeof cloudflare === 'string' && cloudflare.length > 0 && cloudflare.length <= 45) {
-    return cloudflare;
+    return { key: cloudflare, source: 'cloudflare' };
   }
-  return req.socket?.remoteAddress ?? req.ip ?? 'unknown';
+  return { key: req.socket?.remoteAddress ?? req.ip ?? 'unknown', source: 'connection' };
 }
 
 /**
@@ -68,6 +68,7 @@ function clientKey(req: Request): string {
 export function postLimiter(limit: number, now: () => number) {
   let windowStart = now();
   let counts = new Map<string, number>();
+  let reported = false;
   return (req: Request, res: Response, next: NextFunction): void => {
     if (req.method !== 'POST' || req.path.startsWith('/gateway/')) {
       next();
@@ -77,7 +78,12 @@ export function postLimiter(limit: number, now: () => number) {
       windowStart = now();
       counts = new Map();
     }
-    const key = clientKey(req);
+    const { key, source } = clientKey(req);
+    if (!reported) {
+      // Once, and never the address itself: which kind of address counts.
+      reported = true;
+      console.log(`flood limit: counting visitors by ${source} address`);
+    }
     const count = (counts.get(key) ?? 0) + 1;
     counts.set(key, count);
     if (count > limit) {
