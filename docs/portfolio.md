@@ -8,6 +8,56 @@ Live demo: <https://aegira.onrender.com> · Code: <https://github.com/heyitsRahu
 
 ---
 
+## The simple version
+
+**What is it?**
+An app that gets you help in an emergency. It works on any phone, even an
+old one with no internet, by SMS.
+
+**How does it work?**
+You press SOS. Your family gets a message with your location. A trained
+helper close by can come too.
+
+**What is special about it?**
+- **Secret PIN.** If someone forces you to stop the alarm, you type a
+  secret PIN. Your phone looks normal, but help keeps coming.
+- **No stop button once help is coming.** Nobody can force you to stop it.
+- **Your location is deleted.** When the emergency ends, your location is
+  gone for good.
+
+**How do you know it works?**
+I tested it like an attacker would: thousands of random and broken actions.
+The tests found real problems, and I fixed them. It now has 414 automated
+tests.
+
+**Who built it?**
+I designed it and set the rules. I built it with an AI coding assistant
+(Claude Code).
+
+**Is it real?**
+It's a working demo, not a real emergency service. In danger, call 112.
+
+**Simple LinkedIn post**
+
+> I built Aegira, an emergency app for India that works on any phone, even
+> without internet.
+>
+> 🆘 Press SOS, and your family gets your location.
+> 🔒 A secret PIN: if someone forces you to stop the alarm, your phone looks
+> normal, but help keeps coming.
+> 🗑️ Your location is deleted when the emergency ends.
+>
+> I tested it like an attacker would, and fixed what broke.
+> Built with AI (Claude Code). I designed it and set the rules.
+>
+> Try the demo (not a real emergency service): https://aegira.onrender.com
+>
+> #India #Safety #Privacy #BuildInPublic
+
+---
+
+The sections below go into more detail, for interviews.
+
 ## The one-line version
 
 Aegira is an emergency app for India that works on any phone, even a basic
