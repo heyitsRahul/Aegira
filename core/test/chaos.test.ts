@@ -121,7 +121,17 @@ async function step(rig: TestRig, sessions: Tracked[], rand: () => number, pick:
         return service.verifyArrival(s.id, pick(accepted), code);
       },
     ],
-    ['resolve', () => service.resolve(s.id)],
+    ['resolve-safe', () => service.resolve(s.id, TEST_CONFIG.pins.safe)],
+    [
+      'resolve-duress',
+      async () => {
+        const res = await service.resolve(s.id, TEST_CONFIG.pins.duress);
+        // Exactly what a real "I'm safe" returns.
+        expect(res).toEqual({ sessionId: s.id, state: 'RESOLVED' });
+        s.masked ??= 'RESOLVED';
+      },
+    ],
+    ['resolve-wrong', () => service.resolve(s.id, pick(['0000', '', '99999']))],
     [
       'stolen-token',
       () => {

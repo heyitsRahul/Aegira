@@ -178,9 +178,19 @@ Two payload types, both closed shapes (no index signatures):
    victim armed a watch may force them to "check in safe." Mitigated exactly like
    the duress cancel: the duress PIN at check-in returns the identical response
    and shows a benign RESOLVED timeline, while the session silently escalates to
-   ACTIVE and the circle is alerted. A wrong/duress PIN on a *resolve* of an
-   already-live emergency is treated as a plain wrong PIN (deniable), since a
-   forced "all clear" must not look distinguishable either.
+   ACTIVE and the circle is alerted.
+8. **Coercer forcing "I'm safe" mid-emergency** — once help is in motion, the
+   attacker's remaining lever is a forced "all clear". Resolving a live
+   emergency (ACTIVE, DISPATCHED, ARRIVED) therefore always needs a PIN, on
+   every channel (app, lite, SMS); a device token alone cannot end it. The
+   safe PIN resolves. The duress PIN returns the identical response and shows
+   the benign RESOLVED timeline on the device, while the real state is
+   unchanged (any helper keeps coming), an `ESCALATION_RAISED` self-loop with
+   `reason: duress_resolve` is recorded, and the circle gets a duress alert.
+   Re-alert self-loops do not restart the escalation or arrival-timeout
+   clocks, and public counters move exactly as for a real resolve.
+   (Earlier drafts answered a duress PIN here as a "wrong PIN"; that was
+   distinguishable from success, so it failed invariant 4.)
 
 ## §9 Open questions (tracked, not yet designed)
 
@@ -189,7 +199,8 @@ self-loop, single re-alert), responder no-show recovery (RESPONDER_WITHDREW
 with arrival-timeout sweep), capability-token auth for all three roles,
 per-session PIN enrollment, restart-safe persistence with chain-verified
 rehydration (SQLite standing in for Postgres+KMS), and journey watch / timed
-check-in (§3.1) with its own duress discipline (§8.7) across app, lite, and SMS.
+check-in (§3.1) with its own duress discipline (§8.7) across app, lite, and SMS,
+and duress on resolving an already-live emergency (§8.8).
 
 Still open:
 
@@ -199,8 +210,6 @@ Still open:
 * Contact acknowledgement / coordination (a contact signalling "I've got it /
   called 112" to the seeker and other contacts) — needs per-contact identity,
   which today's single shared contact token does not provide.
-* Duress semantics on resolving an *already-live* emergency (coerced "all clear"
-  mid-emergency); the watch check-in case is now handled.
 * Contact-side consent (contacts currently never opt in to receiving alerts).
 * Real map tiles (the grid is a schematic stand-in).
 * Localized UI strings (Hindi + regional languages). The system is already

@@ -181,8 +181,8 @@ export function contactViewPage(view: {
   token: string;
 }): string {
   const duressBox = view.duress
-    ? '<div class="box" style="border-color:#c4302b"><b>DURESS:</b> their phone shows ' +
-      '"cancelled". Do NOT call them. The attacker may be present.</div>'
+    ? '<div class="box" style="border-color:#c4302b"><b>SECRET ALARM:</b> they used their secret PIN, ' +
+      'so their phone pretends all is fine. Someone may be forcing them. Do NOT call them.</div>'
     : '';
   const said =
     view.placeNote === null ? '' : `<p>They said they are: <b>${esc(view.placeNote)}</b></p>`;

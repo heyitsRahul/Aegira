@@ -108,8 +108,9 @@ const EN: Copy = {
   ],
   pins: 'Why two PINs?',
   pinsText:
-    'If someone forces you to cancel, type your danger PIN. The screen says “cancelled”, ' +
-    'but your person is secretly told you are in danger.',
+    'If someone forces you to cancel, or to say you are safe, type your danger PIN. The screen ' +
+    'looks normal (“cancelled” or “you are safe”), but help keeps coming and your person is ' +
+    'secretly told you are in danger.',
   tryDemo: 'Trying the demo?',
   tryDemoSteps: [
     'Use safe PIN <b>1234</b> and danger PIN <b>9999</b>.',
@@ -133,7 +134,7 @@ const HI: Copy = {
     'अपनी भाषा दबाएँ।',
     '<b>🆘 मुझे मदद चाहिए</b> दबाएँ।',
     'अपना नाम और एक भरोसेमंद व्यक्ति का फ़ोन नंबर लिखें।',
-    'दो PIN चुनें: <b>सुरक्षित PIN</b> जो सच में रद्द करता है, और <b>ख़तरे वाला PIN</b> जो सिर्फ़ रद्द होने का दिखावा करता है।',
+    'दो PIN चुनें: <b>सुरक्षित PIN</b> जो सच में रद्द करता है, और <b>ख़तरे वाला PIN</b> जो गुप्त अलार्म है।',
     'ख़तरे में? बड़ा लाल <b>SOS</b> बटन दबाएँ।',
     '30 सेकंड में सुरक्षित PIN से रद्द कर सकते हैं। फिर आपके भरोसेमंद व्यक्ति को आपकी लाइव जगह के साथ सूचना जाती है।',
     'सुरक्षित होने पर <b>मैं अब सुरक्षित हूँ</b> दबाएँ। फिर सब मिटा दिया जाता है।',
@@ -182,8 +183,9 @@ const HI: Copy = {
   ],
   pins: 'दो PIN क्यों?',
   pinsText:
-    'अगर कोई आपसे ज़बरदस्ती रद्द करवाए, तो ख़तरे वाला PIN डालें। स्क्रीन पर "रद्द" दिखेगा, ' +
-    'पर आपके भरोसेमंद व्यक्ति को चुपचाप बताया जाएगा कि आप ख़तरे में हैं।',
+    'अगर कोई आपसे ज़बरदस्ती रद्द करवाए, या "मैं सुरक्षित हूँ" कहलवाए, तो ख़तरे वाला PIN डालें। ' +
+    'स्क्रीन पर सब सामान्य दिखेगा ("रद्द" या "आप सुरक्षित हैं"), पर मदद आती रहेगी और आपके ' +
+    'भरोसेमंद व्यक्ति को चुपचाप बताया जाएगा कि आप ख़तरे में हैं।',
   tryDemo: 'डेमो आज़मा रहे हैं?',
   tryDemoSteps: [
     'सुरक्षित PIN <b>1234</b> और ख़तरे वाला PIN <b>9999</b> इस्तेमाल करें।',

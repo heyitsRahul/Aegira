@@ -27,7 +27,7 @@ Live link: <https://aegira.onrender.com>
   fixed crash, clickjacking and flooding gaps before launch.
 - Built with AI-assisted development (Claude Code): I set the product spec,
   safety rules and priorities, and reviewed every feature against them;
-  394 automated tests, CI on every push.
+  414 automated tests, CI on every push.
 
 Pick the 3–4 bullets that fit the job. For product roles, lead with the rules,
 the duress PIN and the accessibility bullets. For engineering roles, add a
@@ -48,8 +48,9 @@ over SMS, and deletes location data by destroying its encryption key.
   can't be read even from backups.
 - **Why no cancel after help is on the way?** An attacker could force the
   victim to press it.
-- **Why does the duress PIN lie?** Someone standing over you sees "cancelled";
-  your contacts see "duress".
+- **Why does the duress PIN lie?** Someone standing over you sees "cancelled"
+  or "you are safe"; your contacts see "duress", and help keeps coming. It
+  works the same at every point where an attacker could force an "all clear".
 - **What's not real yet?** There are no real responders or real SMS. It is a
   prototype, and the README says so.
 - **How did you build it?** With an AI coding assistant. You decided what to

@@ -35,7 +35,7 @@ describe('aggregate metrics', () => {
     );
     const { sessionId } = service.trigger(TRIGGER_FIXTURE);
     await service.confirm(sessionId);
-    service.resolve(sessionId);
+    await service.resolve(sessionId, '1234');
     const snap = metrics.snapshot();
     expect(snap['session.triggered']).toBe(1);
     expect(snap['session.activated']).toBe(1);

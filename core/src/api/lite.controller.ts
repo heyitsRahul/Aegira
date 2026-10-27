@@ -319,13 +319,19 @@ export class LiteController {
         return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
       }
     }
-    if (this.registrations.verifyPin(phone, text(body.pin)) !== 'safe') {
-      return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
-    }
     if (state !== 'ACTIVE' && state !== 'DISPATCHED' && state !== 'ARRIVED') {
       return messagePage('Nothing running', 'Nothing is running right now.');
     }
-    this.sessions.resolve(sessionId);
+    // On a live emergency, the safe PIN ends it; the duress PIN keeps help
+    // coming and secretly alerts their people. Both get this same page.
+    try {
+      await this.sessions.resolve(sessionId, text(body.pin));
+    } catch (error) {
+      if (error instanceof InvalidPinError) {
+        return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
+      }
+      throw error;
+    }
     return messagePage('You are safe', 'Good. Take care.');
   }
 

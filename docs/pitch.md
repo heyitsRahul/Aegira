@@ -59,7 +59,7 @@ revenue.)
 
 A working, security-credible product across three channels, with an exhaustively
 tested lifecycle, per-session crypto-shredding, duress handling, and a journey
-watch — 394 tests, deployable today. Most safety startups spend a year getting
+watch — 414 tests, deployable today. Most safety startups spend a year getting
 here.
 
 ## Competition

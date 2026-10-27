@@ -295,6 +295,7 @@ const STR = {
     no_helpers_contact: 'No trained helper is near them right now. Call them, or call 112.',
     show_code: 'Show this number to your helper:', responder_here: 'Your helper is with you.',
     i_am_safe: 'I am safe now', youre_safe: 'You are safe.',
+    enter_pin_safe: 'Your PIN, to say you are safe',
     youre_safe_sub: 'Everything about this will be deleted soon.', done: 'Done',
     cancelled: 'Cancelled', nobody_notified: 'Nobody was told.', back: 'Back',
     watch_title: 'Going somewhere',
@@ -304,7 +305,7 @@ const STR = {
     until_alerted: 'left. Then your people get a message.',
     setup_title: 'Who should we tell?', your_name: 'Your name', country: 'Country',
     contact_name: 'Name of a person you trust', contact_phone: 'Their phone number',
-    safe_pin: 'Safe PIN (really cancels)', duress_pin: 'Danger PIN (secret alarm)',
+    safe_pin: 'Safe PIN (to cancel, or to say you are safe)', duress_pin: 'Danger PIN (secret alarm)',
     pin_hint: 'If someone forces you to cancel, type the danger PIN. It looks cancelled, but your person is told you are in danger.',
     consent_short: 'Your location is shared only during an emergency: with your people, and with the one helper who comes. Then it is deleted.',
     consent_full: 'Read the full terms',
@@ -350,10 +351,10 @@ const STR = {
     ct_setup_title: 'Your phone number', ct_setup_sub: 'Type the number your friend or family member saved for you.',
     ct_start: 'Show my alerts', ct_alerts: 'Alerts', ct_for: 'for {number}', ct_change: 'change',
     ct_none: 'No alerts. You will only hear from us if your person needs help.',
-    ct_alert: 'NEEDS HELP', ct_alert_duress: 'SECRET ALARM — THEY WERE FORCED TO CANCEL',
+    ct_alert: 'NEEDS HELP', ct_alert_duress: 'SECRET ALARM — SOMEONE MAY BE FORCING THEM',
     ct_alert_watch: 'DID NOT REACH ON TIME', ct_alert_escalation: 'STILL NO HELPER — PLEASE ACT',
     ct_needs_help: '{name} needs help',
-    ct_duress_box: 'Their phone shows “cancelled”, but they used the secret danger PIN. Do <b>not</b> call them — someone may be with them. Get help from here.',
+    ct_duress_box: 'They used the secret danger PIN, so their phone pretends all is fine. Do <b>not</b> call them — someone may be with them. Get help from here.',
     ct_no_loc: 'We don’t know where they are — call them.', ct_no_loc_duress: 'We don’t know where they are.',
     ct_waiting_loc: 'Waiting for their location…', ct_ended: 'This has ended. Their location is deleted.',
     ct_said: 'THEY SAID THEY ARE', ct_send_helper: 'Send a trained helper', ct_helper_coming: 'A helper is on the way.',
@@ -401,6 +402,7 @@ const STR = {
     no_helpers_contact: 'अभी उनके पास कोई प्रशिक्षित सहायक नहीं है। उन्हें कॉल करें, या 112 पर कॉल करें।',
     show_code: 'यह नंबर अपने सहायक को दिखाएँ:', responder_here: 'आपका सहायक आपके साथ है।',
     i_am_safe: 'मैं अब सुरक्षित हूँ', youre_safe: 'आप सुरक्षित हैं।',
+    enter_pin_safe: 'सुरक्षित होने के लिए अपना PIN डालें',
     youre_safe_sub: 'इससे जुड़ी हर जानकारी जल्द मिटा दी जाएगी।', done: 'ठीक है',
     cancelled: 'रद्द किया गया', nobody_notified: 'किसी को नहीं बताया गया।', back: 'वापस',
     watch_title: 'कहीं जा रहे हैं',
@@ -410,7 +412,7 @@ const STR = {
     until_alerted: 'बाक़ी। फिर आपके अपनों को संदेश जाएगा।',
     setup_title: 'हम किसे बताएँ?', your_name: 'आपका नाम', country: 'देश',
     contact_name: 'किसी भरोसेमंद व्यक्ति का नाम', contact_phone: 'उनका फ़ोन नंबर',
-    safe_pin: 'सुरक्षित PIN (सच में रद्द करता है)', duress_pin: 'ख़तरे वाला PIN (गुप्त अलार्म)',
+    safe_pin: 'सुरक्षित PIN (रद्द करने या “मैं सुरक्षित हूँ” कहने के लिए)', duress_pin: 'ख़तरे वाला PIN (गुप्त अलार्म)',
     pin_hint: 'अगर कोई ज़बरदस्ती रद्द करवाए, तो ख़तरे वाला PIN डालें। रद्द दिखेगा, पर आपके व्यक्ति को बताया जाएगा कि आप ख़तरे में हैं।',
     consent_short: 'आपकी जगह सिर्फ़ आपातकाल में बताई जाती है: आपके अपनों को, और आने वाले एक सहायक को। फिर मिटा दी जाती है।',
     consent_full: 'पूरी शर्तें पढ़ें',
@@ -454,10 +456,10 @@ const STR = {
     ct_setup_title: 'आपका फ़ोन नंबर', ct_setup_sub: 'वह नंबर डालें जो आपके दोस्त या परिवार ने आपके लिए सहेजा है।',
     ct_start: 'मेरे संदेश दिखाएँ', ct_alerts: 'संदेश', ct_for: '{number} के लिए', ct_change: 'बदलें',
     ct_none: 'कोई संदेश नहीं। आपके व्यक्ति को मदद चाहिए होगी, तभी हम आपको बताएँगे।',
-    ct_alert: 'मदद चाहिए', ct_alert_duress: 'गुप्त अलार्म — उनसे ज़बरदस्ती रद्द करवाया गया',
+    ct_alert: 'मदद चाहिए', ct_alert_duress: 'गुप्त अलार्म — शायद कोई उन पर ज़बरदस्ती कर रहा है',
     ct_alert_watch: 'समय पर नहीं पहुँचे', ct_alert_escalation: 'अभी तक कोई सहायक नहीं — कृपया कुछ करें',
     ct_needs_help: '{name} को मदद चाहिए',
-    ct_duress_box: 'उनके फ़ोन पर “रद्द” दिख रहा है, पर उन्होंने गुप्त ख़तरे वाला PIN डाला है। उन्हें कॉल <b>न</b> करें — कोई उनके साथ हो सकता है। यहीं से मदद बुलाएँ।',
+    ct_duress_box: 'उन्होंने गुप्त ख़तरे वाला PIN डाला है, इसलिए उनका फ़ोन दिखा रहा है कि सब ठीक है। उन्हें कॉल <b>न</b> करें — कोई उनके साथ हो सकता है। यहीं से मदद बुलाएँ।',
     ct_no_loc: 'हमें नहीं पता वे कहाँ हैं — उन्हें कॉल करें।', ct_no_loc_duress: 'हमें नहीं पता वे कहाँ हैं।',
     ct_waiting_loc: 'उनकी जगह का इंतज़ार…', ct_ended: 'यह ख़त्म हो गया। उनकी जगह मिटा दी गई है।',
     ct_said: 'उन्होंने बताया वे यहाँ हैं', ct_send_helper: 'प्रशिक्षित सहायक भेजें', ct_helper_coming: 'सहायक रास्ते में है।',
@@ -981,6 +983,7 @@ function seekerScreen(state, sess, code) {
       ${state === 'ACTIVE' && sess.dispatched ? `<p class="lead center" style="margin-top:10px">${esc(t(sess.noHelpers ? 'no_helpers' : 'waiting_accept'))}</p>` : ''}
       ${state === 'DISPATCHED' && code ? `<p class="lead center" style="margin-top:12px">${esc(t('show_code'))}</p><div class="code">${code}</div>` : ''}
       ${state === 'ARRIVED' ? `<p class="lead center" style="margin-top:12px">🤝 ${esc(t('responder_here'))}</p>` : ''}
+      <label for="safe-pin">${esc(t('enter_pin_safe'))}</label><input id="safe-pin" inputmode="numeric" maxlength="6" type="password" autocomplete="off" placeholder="••••">
       <button onclick="resolveSession()">✅ ${esc(t('i_am_safe'))}</button>
       ${help}`;
   }
@@ -1009,7 +1012,13 @@ async function requestResponder() {
   }
   catch (e) { toast(friendlyError(e)); }
 }
-async function resolveSession() { try { await api(`/sessions/${store.get('session').id}/resolve`, {}, 'POST', seekerAuth()); routeTick(); } catch (e) { toast(friendlyError(e)); } }
+// Needs a PIN, like cancel: the danger PIN shows the same "You are safe"
+// screen while help keeps coming and their people get a secret alarm.
+async function resolveSession() {
+  const pin = document.getElementById('safe-pin').value;
+  try { await api(`/sessions/${store.get('session').id}/resolve`, { pin }, 'POST', seekerAuth()); routeTick(); }
+  catch (e) { toast(friendlyError(e)); }
+}
 function clearSession() { stopGps(); store.del('session'); render(); }
 
 // Live location updates: real GPS fixes only, and only while the session

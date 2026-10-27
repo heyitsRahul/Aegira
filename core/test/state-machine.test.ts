@@ -27,7 +27,9 @@ const EXPECTED: ReadonlyArray<[SessionState, SessionEventType, SessionState]> = 
   ['DISPATCHED', 'RESPONDER_ARRIVED', 'ARRIVED'],
   ['DISPATCHED', 'SESSION_RESOLVED', 'RESOLVED'],
   ['DISPATCHED', 'RESPONDER_WITHDREW', 'ACTIVE'],
+  ['DISPATCHED', 'ESCALATION_RAISED', 'DISPATCHED'],
   ['ARRIVED', 'SESSION_RESOLVED', 'RESOLVED'],
+  ['ARRIVED', 'ESCALATION_RAISED', 'ARRIVED'],
   ['RESOLVED', 'SESSION_CLOSED', 'CLOSED'],
   ['CANCELLED', 'SESSION_CLOSED', 'CLOSED'],
   ['CLOSED', 'DATA_PURGED', 'PURGED'],
@@ -99,9 +101,12 @@ describe('state machine — structural invariants', () => {
     expect(transition('DISPATCHED', 'RESPONDER_WITHDREW')).toBe('ACTIVE');
   });
 
-  it('escalation is a self-loop on ACTIVE, never a new capability', () => {
-    expect(transition('ACTIVE', 'ESCALATION_RAISED')).toBe('ACTIVE');
-    expect(legalTransitions().filter((t) => t.event === 'ESCALATION_RAISED')).toHaveLength(1);
+  it('escalation is a self-loop on the live emergency states only, never a new capability', () => {
+    const escalations = legalTransitions().filter((t) => t.event === 'ESCALATION_RAISED');
+    expect(escalations.map((t) => t.from).sort()).toEqual(['ACTIVE', 'ARRIVED', 'DISPATCHED']);
+    for (const t of escalations) {
+      expect(t.to).toBe(t.from);
+    }
   });
 
   it('every non-terminal state has a path to PURGED', () => {

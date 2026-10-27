@@ -237,12 +237,23 @@ const CONTACT_VISIBLE_STATES: readonly SessionState[] = [
   'DISPATCHED',
   'ARRIVED',
 ];
+/** States a helpseeker can end with "I'm safe". */
+const RESOLVABLE_STATES: readonly SessionState[] = ['ACTIVE', 'DISPATCHED', 'ARRIVED'];
 const VALID_CATEGORIES: readonly SessionCategory[] = [
   'personal_safety',
   'medical',
   'accident',
   'other',
 ];
+
+function lastLifecycleEvent(events: readonly SessionEvent[]): SessionEvent {
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].type !== 'ESCALATION_RAISED') {
+      return events[i];
+    }
+  }
+  return events[0];
+}
 
 function validateTrigger(input: TriggerInput): void {
   if (typeof input.displayName !== 'string' || input.displayName.trim().length === 0) {
@@ -868,14 +879,40 @@ export class SessionService {
     return { sessionId, state: record.aggregate.state };
   }
 
-  resolve(sessionId: string): ClientStatus {
+  /**
+   * "I'm safe" on a live emergency, with PIN. Same discipline as cancel and
+   * check-in (invariant 4): the safe PIN resolves; the duress PIN returns
+   * the identical response and shows a benign RESOLVED timeline on the
+   * device, while the session stays live and the circle gets a duress
+   * alert (a coerced "all clear"); a wrong PIN is rejected. The state gate
+   * runs first, so outside a live emergency every PIN gets the same error.
+   */
+  async resolve(sessionId: string, pin: string): Promise<ClientStatus> {
     const record = this.mustGet(sessionId);
-    record.aggregate.apply('SESSION_RESOLVED', this.clock.now().toISOString(), {
-      reason: 'helpseeker_confirmed_safe',
-    });
-    this.persist(record);
-    this.metrics.increment('session.resolved');
-    return { sessionId, state: record.aggregate.state };
+    const state = record.aggregate.state;
+    if (!RESOLVABLE_STATES.includes(state)) {
+      throw new IllegalTransitionError(state, 'SESSION_RESOLVED');
+    }
+    const at = this.clock.now().toISOString();
+    if (matchesHash(pin, record.pinSafeHash)) {
+      record.aggregate.apply('SESSION_RESOLVED', at, { reason: 'helpseeker_confirmed_safe' });
+      this.persist(record);
+      this.metrics.increment('session.resolved');
+      return { sessionId, state: record.aggregate.state };
+    }
+    if (matchesHash(pin, record.pinDuressHash)) {
+      // Recorded as a re-alert of the circle (self-loop): the real state,
+      // and any helper on the way, are untouched.
+      record.aggregate.apply('ESCALATION_RAISED', at, { reason: 'duress_resolve' });
+      // A device already showing a benign timeline keeps it unchanged.
+      record.duressMask ??= { atIso: at, benign: 'RESOLVED' };
+      this.persist(record);
+      // The public counters move exactly as for a real resolve.
+      this.metrics.increment('session.resolved');
+      await this.notifyContacts(record, { duress: true, escalation: false, watchExpired: false });
+      return { sessionId, state: 'RESOLVED' };
+    }
+    throw new InvalidPinError();
   }
 
   /**
@@ -886,7 +923,9 @@ export class SessionService {
   async evaluateTimers(now: Date): Promise<void> {
     const nowIso = now.toISOString();
     for (const record of this.sessions.values()) {
-      const sinceLastEvent = now.getTime() - Date.parse(record.aggregate.lastEvent.at);
+      // Re-alerts (ESCALATION_RAISED self-loops) do not restart the clocks
+      // below: a duress "I'm safe" must not delay a no-show withdrawal.
+      const sinceLastEvent = now.getTime() - Date.parse(lastLifecycleEvent(record.aggregate.events).at);
       switch (record.aggregate.state) {
         case 'WATCHING':
           // Deadline missed with no check-in → escalate to a real emergency
@@ -918,7 +957,9 @@ export class SessionService {
         case 'ACTIVE':
           if (
             sinceLastEvent >= this.config.escalationAfterMs &&
-            !record.aggregate.events.some((e) => e.type === 'ESCALATION_RAISED')
+            !record.aggregate.events.some(
+              (e) => e.type === 'ESCALATION_RAISED' && e.data.reason === 'no_responder_accepted',
+            )
           ) {
             record.aggregate.apply('ESCALATION_RAISED', nowIso, {
               reason: 'no_responder_accepted',

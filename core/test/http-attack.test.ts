@@ -304,6 +304,58 @@ describe('the secret alarm PIN, seen from outside (invariant 4)', () => {
   });
 });
 
+describe('the secret alarm PIN at "I am safe" (invariant 4)', () => {
+  async function live(): Promise<{ id: string; token: string }> {
+    const s = await startSession();
+    await call('POST', `/sessions/${s.id}/confirm`, {}, seeker(s.token));
+    return s;
+  }
+
+  it('"I am safe" without the PIN is refused, and help keeps going', async () => {
+    const s = await live();
+    expect((await call('POST', `/sessions/${s.id}/resolve`, {}, seeker(s.token))).status).toBe(403);
+    expect((await call('POST', `/sessions/${s.id}/resolve`, { pin: '0000' }, seeker(s.token))).status).toBe(403);
+    const contact = await contactToken(s.id);
+    expect((await call('GET', `/sessions/${s.id}/contact-view?t=${contact}`)).json.state).toBe('ACTIVE');
+  });
+
+  it('a forced "I am safe" is byte-identical to a real one, while contacts see the truth', async () => {
+    const real = await live();
+    const forced = await live();
+    const a = await call('POST', `/sessions/${real.id}/resolve`, { pin: '1234' }, seeker(real.token));
+    const b = await call('POST', `/sessions/${forced.id}/resolve`, { pin: '9999' }, seeker(forced.token));
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(a.status);
+    expect(b.text.replace(forced.id, 'ID')).toBe(a.text.replace(real.id, 'ID'));
+    expect(b.headers.get('content-length')).toBe(a.headers.get('content-length'));
+    const phone = await call('GET', `/sessions/${forced.id}`, undefined, seeker(forced.token));
+    expect(phone.json.state).toBe('RESOLVED');
+    const contact = await contactToken(forced.id);
+    const view = await call('GET', `/sessions/${forced.id}/contact-view?t=${contact}`);
+    expect(view.json.state).toBe('ACTIVE');
+    expect(view.json.duress).toBe(true);
+  });
+
+  it('on the simple web version, the safe and the secret PIN show the same page', async () => {
+    const form = async (path: string, fields: Record<string, string>) =>
+      (await fetch(base + path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(fields).toString(),
+      })).text();
+    const pages: string[] = [];
+    for (const [phone, pin] of [['9000054321', '2468'], ['9000054322', '1357']]) {
+      await form('/lite/register', { phone, name: 'Asha', contact: '9123400001', pinSafe: '2468', pinDuress: '1357', dial: '91' });
+      await form('/lite/sos', { phone, dial: '91', area: 'mg-road' });
+      const { SESSION_SERVICE } = await import('../src/api/session.controller');
+      await app.get<{ evaluateTimers(now: Date): Promise<void> }>(SESSION_SERVICE).evaluateTimers(new Date(Date.now() + 60_000));
+      pages.push(await form('/lite/safe', { phone, dial: '91', pin }));
+    }
+    expect(pages[0]).toContain('You are safe');
+    expect(pages[1]).toBe(pages[0]);
+  });
+});
+
 describe('many requests at the same moment', () => {
   it('25 SOS taps at once from one person start exactly one emergency', async () => {
     const body = person();

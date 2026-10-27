@@ -98,7 +98,7 @@ describe('the place note is contact-only and crypto-mortal (invariants 6, 7)', (
 
   it('is gone after purge (key destroyed)', async () => {
     const { service, sessionId, clock } = await activeLocationless();
-    service.resolve(sessionId);
+    await service.resolve(sessionId, '1234');
     clock.advance(TEST_CONFIG.closeAfterResolveMs);
     await service.evaluateTimers(clock.now());
     clock.advance(TEST_CONFIG.purgeAfterCloseMs + DAY);

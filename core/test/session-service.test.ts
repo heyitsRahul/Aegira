@@ -201,7 +201,7 @@ describe('dispatch, arrival, resolution', () => {
   it('location pings are accepted only while the session is live', async () => {
     const { service, sessionId } = await liveSession();
     service.recordLocation(sessionId, 12.972, 77.595);
-    service.resolve(sessionId);
+    await service.resolve(sessionId, '1234');
     expect(() => service.recordLocation(sessionId, 12.973, 77.596)).toThrow(
       LocationRejectedError,
     );
@@ -218,7 +218,7 @@ describe('close, purge, and crypto-shred (invariant 7)', () => {
       rig.service.accept(sessionId, 'responder-a');
       const code = rig.service.getArrivalCode(sessionId);
       rig.service.verifyArrival(sessionId, 'responder-a', code);
-      rig.service.resolve(sessionId);
+      await rig.service.resolve(sessionId, '1234');
       return { ...rig, sessionId };
     })();
 
@@ -331,7 +331,7 @@ describe('event log hygiene (invariant 1 + conventions)', () => {
     service.recordLocation(sessionId, 12.9716, 77.5946);
     await service.dispatch(sessionId, ROSTER_FIXTURE);
     service.accept(sessionId, 'responder-a');
-    service.resolve(sessionId);
+    await service.resolve(sessionId, '1234');
     clock.advance(DAY);
     await service.evaluateTimers(clock.now());
     clock.advance(7 * DAY);

@@ -115,7 +115,10 @@
             arrive — it is how arrival is verified:</div>
           <div class="code" id="hs-code">······</div>
         </div>
+        <input id="safe-pin" placeholder="PIN to say you are safe" maxlength="4" inputmode="numeric">
         <button id="hs-resolve" onclick="resolveSession()">I am safe — resolve</button>
+        <div class="note">Safe PIN <b>1234</b> ends it. Duress PIN <b>9999</b> shows the same
+          “resolved” screen while help keeps coming and contacts get a secret alarm.</div>
       </div>
 
       <div id="hs-cancelled" class="hidden">
@@ -224,7 +227,7 @@ async function verifyArrival() {
   if (r.error) alert(r.error);
 }
 async function resolveSession() {
-  const r = await post(`/sessions/${sessionId}/resolve`, undefined, seekerHeaders());
+  const r = await post(`/sessions/${sessionId}/resolve`, { pin: $('safe-pin').value }, seekerHeaders());
   if (r.error) alert(r.error);
 }
 function resetDemo() { location.reload(); }

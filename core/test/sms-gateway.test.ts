@@ -195,13 +195,29 @@ describe('duress over SMS (invariant 4)', () => {
     expect(toContact[0].text).toContain('DO NOT call');
   });
 
-  it('a duress PIN on SAFE behaves exactly like any wrong PIN', async () => {
-    const rig = await registered();
-    await rig.gateway.handle(SEEKER, 'SOS', TOWER);
-    rig.clock.advance(TEST_CONFIG.activationCountdownMs);
-    await rig.service.evaluateTimers(rig.clock.now());
-    const wrongReply = await rig.gateway.handle(SEEKER, 'SAFE 0000');
-    expect(await rig.gateway.handle(SEEKER, 'SAFE 9999')).toBe(wrongReply);
+  it('a forced "SAFE" with the duress PIN looks like a real one, while help keeps coming', async () => {
+    const live = async () => {
+      const rig = await registered();
+      await rig.gateway.handle(SEEKER, 'SOS', TOWER);
+      rig.clock.advance(TEST_CONFIG.activationCountdownMs);
+      await rig.service.evaluateTimers(rig.clock.now());
+      return rig;
+    };
+    const real = await live();
+    const forced = await live();
+    const realReply = await real.gateway.handle(SEEKER, 'SAFE 1234');
+    const forcedReply = await forced.gateway.handle(SEEKER, 'SAFE 9999');
+    expect(forcedReply).toBe(realReply);
+    expect(await forced.gateway.handle(SEEKER, 'STATUS 1234')).toBe(
+      await real.gateway.handle(SEEKER, 'STATUS 1234'),
+    );
+    // Behind the scenes: still a live emergency, and the contact is warned.
+    const sessionId = forced.service.latestSessionIdForUser(forced.registrations.find(SEEKER)!.phoneRef)!;
+    expect(forced.service.opsView(sessionId).state).toBe('ACTIVE');
+    const toContact = forced.sms.messages.filter((m) => m.to === CONTACT_E164);
+    expect(toContact.at(-1)!.text).toContain('SECRET ALARM');
+    // A wrong PIN is still just a wrong PIN.
+    expect(await forced.gateway.handle(SEEKER, 'SAFE 0000')).not.toBe(realReply);
   });
 });
 

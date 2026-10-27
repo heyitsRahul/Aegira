@@ -39,8 +39,9 @@ safety apps have three gaps:
 ## Three ideas that make it different
 
 - **A secret alarm PIN.** You set two PINs. If someone forces you to cancel,
-  you type the second one. Your screen says "cancelled", exactly as normal,
-  but your people are told it's a real emergency.
+  or to say "I'm safe", you type the second one. Your screen looks exactly as
+  normal, but help keeps coming and your people are told it's a real
+  emergency.
 - **No cancel once help is coming.** After help is on its way, there is no
   button that someone can force you to press.
 - **Location only during an emergency.** The app can't see where you are
@@ -57,7 +58,7 @@ safety apps have three gaps:
 
 ## How I tested it
 
-The project has 394 automated tests that run every time the code changes.
+The project has 414 automated tests that run every time the code changes.
 Some of them are deliberately hard:
 
 - **Chaos testing.** A program does 300 runs of 60 random actions each (press
@@ -114,8 +115,8 @@ recording of the demo.
 > basic one over SMS.
 >
 > Three ideas I'm proud of:
-> 🔒 A secret alarm PIN. If someone forces you to cancel, the screen says
-> "cancelled", but your family is told it's real.
+> 🔒 A secret alarm PIN. If someone forces you to cancel or say "I'm safe",
+> the screen looks normal, but help keeps coming and your family is told it's real.
 > 🚫 No cancel button once help is on the way, so nobody can force you to stop it.
 > 🗑️ Your location exists only during the emergency. Afterwards it is
 > destroyed, not just hidden.
@@ -143,7 +144,7 @@ recording of the demo.
 > • works as an app, as a simple web page for old phones, and over plain SMS
 > • alerts your trusted people, and can send a trained helper close by
 > • gives helpers only a nickname and a rough area until they accept
-> • has a secret alarm PIN for when someone forces you to cancel
+> • has a secret alarm PIN for when someone forces you to cancel or say "I'm safe"
 > • destroys your location data when the emergency ends
 >
 > I wrote 11 rules the app must never break, then tried hard to break them:

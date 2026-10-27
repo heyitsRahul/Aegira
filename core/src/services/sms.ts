@@ -61,7 +61,7 @@ export function renderContactAlertSms(payload: ContactAlertPayload): string {
   if (payload.duress) {
     return (
       `AEGIRA SECRET ALARM: ${payload.helpseekerDisplayName} needs help (${category}). ` +
-      `Someone forced them to cancel. DO NOT call them. ` +
+      `They used their secret PIN: someone may be forcing them. DO NOT call them. ` +
       where +
       `See where: ${payload.liveSessionLink} ` +
       sendHint(payload)

@@ -120,6 +120,23 @@ await check('the secret alarm PIN looks exactly like a normal cancel', async () 
   const after = await call('GET', `/sessions/${duress.sessionId}`, undefined, { authorization: `Bearer ${duress.seekerToken}` });
   assert(after.json.state === 'CANCELLED', `phone shows ${after.json.state}`);
 });
+await check('"I am safe" needs a PIN, and the secret PIN looks exactly like the real one', async () => {
+  const start = async () => {
+    const s = (await call('POST', '/sessions', fakePerson())).json;
+    await call('POST', `/sessions/${s.sessionId}/confirm`, {}, { authorization: `Bearer ${s.seekerToken}` });
+    return s;
+  };
+  const real = await start();
+  const forced = await start();
+  const auth = (s) => ({ authorization: `Bearer ${s.seekerToken}` });
+  assert((await call('POST', `/sessions/${real.sessionId}/resolve`, {}, auth(real))).status === 403, 'no-PIN resolve allowed');
+  const a = await call('POST', `/sessions/${real.sessionId}/resolve`, { pin: '1234' }, auth(real));
+  const b = await call('POST', `/sessions/${forced.sessionId}/resolve`, { pin: '9999' }, auth(forced));
+  assert(a.status === b.status, 'different status');
+  assert(a.text.replace(real.sessionId, 'ID') === b.text.replace(forced.sessionId, 'ID'), 'different body');
+  const after = await call('GET', `/sessions/${forced.sessionId}`, undefined, auth(forced));
+  assert(after.json.state === 'RESOLVED', `phone shows ${after.json.state}`);
+});
 await check('5 SOS taps at once start only one emergency', async () => {
   const person = fakePerson();
   const results = await Promise.all(Array.from({ length: 5 }, () => call('POST', '/sessions', person)));

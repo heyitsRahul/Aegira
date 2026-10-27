@@ -12,6 +12,9 @@ import { SessionEventType, SessionState } from './types';
  *    is emitted by the crypto-shred purge path (invariant 7).
  *  - PURGED is terminal.
  *  - TRIGGERED and WATCH_ARMED are genesis-only and absent from every row.
+ *  - ESCALATION_RAISED is a self-loop in every live emergency state: it
+ *    records that the circle was re-alerted (nobody accepted in time, or a
+ *    duress PIN was given at "I'm safe") without changing the state.
  *  - WATCHING (timed journey check-in) ends benignly via CHECKIN_SAFE →
  *    RESOLVED (nobody was ever alerted), or escalates to a real emergency
  *    via WATCH_ESCALATED → ACTIVE (deadline missed, or a duress check-in).
@@ -40,12 +43,16 @@ const TRANSITION_TABLE: Readonly<
   DISPATCHED: {
     RESPONDER_ARRIVED: 'ARRIVED',
     SESSION_RESOLVED: 'RESOLVED',
+    // Self-loop: contacts re-alerted mid-dispatch (a duress "I'm safe").
+    ESCALATION_RAISED: 'DISPATCHED',
     // A no-show or withdrawal returns the session to ACTIVE so it can be
     // re-dispatched instead of hanging forever.
     RESPONDER_WITHDREW: 'ACTIVE',
   },
   ARRIVED: {
     SESSION_RESOLVED: 'RESOLVED',
+    // Self-loop: contacts re-alerted (a duress "I'm safe" with the helper there).
+    ESCALATION_RAISED: 'ARRIVED',
   },
   RESOLVED: {
     SESSION_CLOSED: 'CLOSED',

@@ -162,8 +162,12 @@ export class SessionController {
   }
 
   @Post(':id/resolve')
-  resolve(@Param('id') id: string, @Headers('authorization') auth?: string) {
+  resolve(
+    @Param('id') id: string,
+    @Body() body: { pin: string },
+    @Headers('authorization') auth?: string,
+  ) {
     this.sessions.authorizeSeeker(id, bearer(auth));
-    return this.sessions.resolve(id);
+    return this.sessions.resolve(id, body?.pin);
   }
 }

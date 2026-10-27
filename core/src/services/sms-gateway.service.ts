@@ -351,15 +351,19 @@ export class SmsGatewayService {
       }
     }
 
-    // On a live emergency, SAFE resolves — safe PIN only. A duress PIN here
-    // behaves exactly like any wrong PIN: deniability for a victim forced
-    // to send "all clear". (Duress-resolve semantics are tracked in §9.)
+    // On a live emergency, SAFE resolves with the safe PIN. With the duress
+    // PIN (someone forcing an "all clear") the reply is identical, while help
+    // keeps coming and their people get a secret alarm (invariant 4).
     if (state === 'ACTIVE' || state === 'DISPATCHED' || state === 'ARRIVED') {
-      if (this.registrations.verifyPin(from, pin) !== 'safe') {
-        return WRONG_PIN_REPLY;
+      try {
+        await this.sessions.resolve(sessionId, pin);
+        return RESOLVED_REPLY;
+      } catch (error) {
+        if (error instanceof InvalidPinError) {
+          return WRONG_PIN_REPLY;
+        }
+        throw error;
       }
-      this.sessions.resolve(sessionId);
-      return RESOLVED_REPLY;
     }
     return NO_SESSION_REPLY;
   }
