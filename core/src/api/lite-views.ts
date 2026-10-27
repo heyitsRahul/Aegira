@@ -78,7 +78,11 @@ const pinFields = (): string =>
   phoneWithDial() + '<input name="pin" placeholder="PIN" inputmode="numeric" type="password">';
 
 export function homePage(): string {
-  const areas = LITE_AREAS.map((a) => `<option value="${a.id}">${esc(a.label)}</option>`).join('');
+  const areas =
+    '<option value="">Area not listed / not sure</option>' +
+    LITE_AREAS.map((a) => `<option value="${a.id}">${esc(a.label)}</option>`).join('');
+  const place =
+    '<input name="place" maxlength="140" placeholder="where are you? e.g. near the bus stand">';
   return page(
     'Emergency help',
     '<div class="box"><b>How to use</b><br><small>' +
@@ -90,6 +94,7 @@ export function homePage(): string {
       '<b>I need help now</b><br>' +
       phoneWithDial() +
       `<select name="area">${areas}</select>` +
+      place +
       '<select name="category"><option value="personal_safety">Personal safety</option>' +
       '<option value="medical">Medical</option><option value="accident">Accident</option>' +
       '<option value="other">Other</option></select>' +
@@ -99,6 +104,7 @@ export function homePage(): string {
       '<b>Watch my journey home</b><br>' +
       phoneWithDial() +
       `<select name="area">${areas}</select>` +
+      place +
       '<input name="minutes" placeholder="minutes until I arrive" inputmode="numeric">' +
       '<button type="submit">START WATCH</button>' +
       '<small>If you do not check in safe in time, your circle is alerted.</small></form></div>' +
@@ -169,6 +175,7 @@ export function contactViewPage(view: {
   duress: boolean;
   category: string;
   location: { lat: number; lng: number } | null;
+  placeNote: string | null;
   canDispatch: boolean;
   sessionId: string;
   token: string;
@@ -177,9 +184,14 @@ export function contactViewPage(view: {
     ? '<div class="box" style="border-color:#c4302b"><b>DURESS:</b> their phone shows ' +
       '"cancelled". Do NOT call them. The attacker may be present.</div>'
     : '';
-  const where = view.location
-    ? `<p>Last location: <b>${view.location.lat.toFixed(5)}, ${view.location.lng.toFixed(5)}</b></p>`
-    : '<p>No live location available.</p>';
+  const said =
+    view.placeNote === null ? '' : `<p>They said they are: <b>${esc(view.placeNote)}</b></p>`;
+  const where =
+    said +
+    (view.location
+      ? `<p>Last location: <b>${view.location.lat.toFixed(5)}, ${view.location.lng.toFixed(5)}</b> ` +
+        `<a href="https://www.google.com/maps/search/?api=1&amp;query=${view.location.lat},${view.location.lng}">open map</a></p>`
+      : `<p>Location unknown.${view.duress ? '' : ' Call them.'}</p>`);
   const dispatch = view.canDispatch
     ? `<form method="post" action="/lite/c/${esc(view.sessionId)}/dispatch?t=${esc(view.token)}">` +
       '<button type="submit">SEND VERIFIED RESPONDERS</button></form>'

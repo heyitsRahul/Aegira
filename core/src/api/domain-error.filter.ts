@@ -7,6 +7,7 @@ import {
   InvalidArrivalCodeError,
   InvalidInputError,
   InvalidPinError,
+  LocationUnknownError,
   NotAuthenticatedError,
   ResponderNotAuthorizedError,
   SessionNotFoundError,
@@ -52,7 +53,8 @@ export class DomainErrorFilter implements ExceptionFilter {
       exception instanceof CancelNotAllowedError ||
       exception instanceof IllegalTransitionError ||
       exception instanceof ActiveSessionExistsError ||
-      exception instanceof WatchActionNotAllowedError
+      exception instanceof WatchActionNotAllowedError ||
+      exception instanceof LocationUnknownError
     ) {
       response.status(409).json({ error: exception.message });
       return;

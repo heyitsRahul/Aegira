@@ -30,34 +30,53 @@ export class StubSmsTransport implements SmsTransport {
   }
 }
 
+/**
+ * Where they are, in words: their own description if they gave one, and a
+ * plain warning when the phone sent no position (basic-phone SOS).
+ */
+function whereText(payload: ContactAlertPayload): string {
+  const said = payload.placeNote === null ? '' : `They said: "${payload.placeNote}". `;
+  if (payload.locationKnown) {
+    return said;
+  }
+  return said + (payload.duress ? 'Location unknown. ' : 'Location unknown - call them. ');
+}
+
+/** Only offer SEND when a helper could actually be matched. */
+function sendHint(payload: ContactAlertPayload): string {
+  return payload.locationKnown ? 'Reply SEND to dispatch a verified responder.' : '';
+}
+
 export function renderContactAlertSms(payload: ContactAlertPayload): string {
   const category = payload.category.replace(/_/g, ' ');
+  const where = whereText(payload);
   if (payload.duress) {
     return (
       `AEGIRA DURESS ALERT: ${payload.helpseekerDisplayName} needs help (${category}). ` +
       `Their phone shows "cancelled" - the cancel was coerced. DO NOT call them. ` +
+      where +
       `Live view: ${payload.liveSessionLink} ` +
-      `Reply SEND to dispatch a verified responder.`
+      sendHint(payload)
     );
   }
   if (payload.watchExpired) {
     return (
       `AEGIRA: ${payload.helpseekerDisplayName} did not check in from their journey (${category}) ` +
-      `and may need help. Live view: ${payload.liveSessionLink} ` +
-      `Reply SEND to dispatch a verified responder.`
+      `and may need help. ${where}Live view: ${payload.liveSessionLink} ` +
+      sendHint(payload)
     );
   }
   if (payload.escalation) {
     return (
       `AEGIRA ESCALATION: ${payload.helpseekerDisplayName} still has no responder (${category}). ` +
-      `Live view: ${payload.liveSessionLink} ` +
-      `Reply SEND to dispatch a verified responder.`
+      `${where}Live view: ${payload.liveSessionLink} ` +
+      sendHint(payload)
     );
   }
   return (
     `AEGIRA ALERT: ${payload.helpseekerDisplayName} needs help (${category}). ` +
-    `Live view: ${payload.liveSessionLink} ` +
-    `Reply SEND to dispatch a verified responder.`
+    `${where}Live view: ${payload.liveSessionLink} ` +
+    sendHint(payload)
   );
 }
 

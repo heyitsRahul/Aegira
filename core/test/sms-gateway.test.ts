@@ -74,9 +74,71 @@ describe('SOS over SMS', () => {
     expect(rig.service.opsView(sessionId!).state).toBe('PENDING');
   });
 
-  it('refuses an SOS when the carrier supplies no position (invariant 1: no stored fallback)', async () => {
+  it('with no carrier position, still alerts the circle and says so (no stored fallback, invariant 1)', async () => {
     const rig = await registered();
-    expect(await rig.gateway.handle(SEEKER, 'SOS')).toContain('position is unavailable');
+    const reply = await rig.gateway.handle(SEEKER, 'SOS');
+    expect(reply).toContain('30s');
+    expect(reply).toContain('Tell your circle where you are');
+    rig.clock.advance(TEST_CONFIG.activationCountdownMs);
+    await rig.service.evaluateTimers(rig.clock.now());
+    const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
+    expect(alert!.text).toContain('AEGIRA ALERT');
+    expect(alert!.text).toContain('Location unknown - call them');
+    expect(alert!.text).not.toContain('Reply SEND');
+  });
+
+  it('carries the place in the sender\'s own words to the circle', async () => {
+    const rig = await registered();
+    const reply = await rig.gateway.handle(SEEKER, 'SOS near Andheri station gate 2');
+    expect(reply).not.toContain('Tell your circle');
+    rig.clock.advance(TEST_CONFIG.activationCountdownMs);
+    await rig.service.evaluateTimers(rig.clock.now());
+    const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
+    expect(alert!.text).toContain('They said: "near Andheri station gate 2"');
+  });
+
+  it('a category letter and a place can be combined', async () => {
+    const rig = await registered();
+    await rig.gateway.handle(SEEKER, 'SOS M outside Lilavati hospital');
+    const sessionId = rig.service.latestSessionIdForUser(rig.registrations.find(SEEKER)!.phoneRef)!;
+    rig.clock.advance(TEST_CONFIG.activationCountdownMs);
+    await rig.service.evaluateTimers(rig.clock.now());
+    const view = rig.service.contactView(sessionId);
+    expect(view.category).toBe('medical');
+    expect(view.placeNote).toBe('outside Lilavati hospital');
+  });
+
+  it('a duress alert with no position never tells the contact to call', async () => {
+    const rig = await registered();
+    await rig.gateway.handle(SEEKER, 'SOS');
+    await rig.gateway.handle(SEEKER, 'CANCEL 9999');
+    const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
+    expect(alert!.text).toContain('DURESS');
+    expect(alert!.text).toContain('Location unknown.');
+    expect(alert!.text).not.toContain('Location unknown - call them');
+  });
+
+  it('a contact\'s SEND is answered honestly when nobody can be sent', async () => {
+    const rig = await registered();
+    await rig.gateway.handle(SEEKER, 'SOS');
+    rig.clock.advance(TEST_CONFIG.activationCountdownMs);
+    await rig.service.evaluateTimers(rig.clock.now());
+    const reply = await rig.gateway.handle(CONTACT, 'SEND');
+    expect(reply).toContain('no helper can be sent');
+    expect(rig.sms.messages.filter((m) => m.text.startsWith('AEGIRA DISPATCH'))).toHaveLength(0);
+  });
+
+  it('a place note never reaches a responder', async () => {
+    const rig = await registered();
+    await rig.gateway.handle(SEEKER, 'SOS near Andheri station', TOWER);
+    rig.clock.advance(TEST_CONFIG.activationCountdownMs);
+    await rig.service.evaluateTimers(rig.clock.now());
+    await rig.gateway.handle(CONTACT, 'SEND');
+    const offers = rig.sms.messages.filter((m) => m.text.startsWith('AEGIRA DISPATCH'));
+    expect(offers.length).toBeGreaterThan(0);
+    for (const offer of offers) {
+      expect(offer.text).not.toContain('Andheri');
+    }
   });
 
   it('category letters map to categories', async () => {
@@ -225,9 +287,16 @@ describe('journey watch over SMS', () => {
     expect(rig.service.opsView(sessionId).state).toBe('RESOLVED');
   });
 
-  it('WATCH needs a network position (invariant 1: nothing stored without a session)', async () => {
+  it('WATCH works with no network position, taking an optional destination', async () => {
     const rig = await registered();
-    expect(await rig.gateway.handle(SEEKER, 'WATCH 20')).toContain('position is unavailable');
+    expect(await rig.gateway.handle(SEEKER, 'WATCH 20 walking home to Powai')).toContain('20 min');
+    const sessionId = rig.service.latestSessionIdForUser(rig.registrations.find(SEEKER)!.phoneRef)!;
+    expect(rig.service.opsView(sessionId).state).toBe('WATCHING');
+    rig.clock.advance(20 * MIN);
+    await rig.service.evaluateTimers(rig.clock.now());
+    const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
+    expect(alert!.text).toContain('did not check in');
+    expect(alert!.text).toContain('They said: "walking home to Powai"');
   });
 
   it('a missed deadline escalates and alerts the contact with the watch wording', async () => {

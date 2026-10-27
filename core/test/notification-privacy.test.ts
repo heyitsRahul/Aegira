@@ -83,6 +83,8 @@ describe('responder offers never carry identity (invariant 6)', () => {
         'helpseekerDisplayName',
         'kind',
         'liveSessionLink',
+        'locationKnown',
+        'placeNote',
         'sentAt',
         'sessionId',
         'to',

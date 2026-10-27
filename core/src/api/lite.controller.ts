@@ -4,6 +4,7 @@ import {
   CancelNotAllowedError,
   InvalidInputError,
   InvalidPinError,
+  LocationUnknownError,
 } from '../domain/errors';
 import { RegistrationService } from '../services/registration.service';
 import { SessionService } from '../services/session.service';
@@ -21,6 +22,23 @@ import { ResponderRegistry } from './responder-registry';
 import { RESPONDER_REGISTRY, SESSION_SERVICE } from './session.controller';
 
 export const REGISTRATIONS = 'REGISTRATIONS';
+
+/**
+ * Where a lite session starts: a listed area if chosen, plus the place in
+ * the user's own words. "Not listed" sends no coordinates at all rather
+ * than a wrong guess — contacts are told the location is unknown.
+ */
+function startWhere(
+  areaId: string | undefined,
+  place: string | undefined,
+): { location?: { lat: number; lng: number }; placeNote?: string } {
+  const area = LITE_AREAS.find((a) => a.id === areaId);
+  const note = (place ?? '').replace(/\s+/g, ' ').trim().slice(0, 140);
+  return {
+    ...(area === undefined ? {} : { location: { lat: area.lat, lng: area.lng } }),
+    ...(note.length > 0 ? { placeNote: note } : {}),
+  };
+}
 
 const STATE_TEXT: Record<string, string> = {
   WATCHING: 'Journey watch active. Mark safe when you arrive, or extend the time.',
@@ -88,18 +106,20 @@ export class LiteController {
   }
 
   @Post('sos')
-  sos(@Body() body: { phone?: string; area?: string; category?: string; dial?: string }): string {
+  sos(
+    @Body() body: { phone?: string; area?: string; place?: string; category?: string; dial?: string },
+  ): string {
     const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
     if (registration === undefined) {
       return messagePage('Not registered', 'Register first from the home page.');
     }
-    const area = LITE_AREAS.find((a) => a.id === body.area) ?? LITE_AREAS[0];
+    const where = startWhere(body.area, body.place);
     try {
       const receipt = this.sessions.trigger({
         userId: registration.phoneRef,
         displayName: registration.displayName,
         contacts: registration.contacts,
-        location: { lat: area.lat, lng: area.lng },
+        ...where,
         category:
           body.category === 'medical' || body.category === 'accident' || body.category === 'other'
             ? body.category
@@ -116,12 +136,14 @@ export class LiteController {
   }
 
   @Post('watch')
-  watch(@Body() body: { phone?: string; area?: string; minutes?: string; dial?: string }): string {
+  watch(
+    @Body() body: { phone?: string; area?: string; place?: string; minutes?: string; dial?: string },
+  ): string {
     const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
     if (registration === undefined) {
       return messagePage('Not registered', 'Register first from the home page.');
     }
-    const area = LITE_AREAS.find((a) => a.id === body.area) ?? LITE_AREAS[0];
+    const where = startWhere(body.area, body.place);
     const minutes = Number(body.minutes);
     if (!Number.isFinite(minutes) || minutes <= 0) {
       return messagePage('Pick a time', 'Choose how many minutes to be watched for.');
@@ -132,7 +154,7 @@ export class LiteController {
           userId: registration.phoneRef,
           displayName: registration.displayName,
           contacts: registration.contacts,
-          location: { lat: area.lat, lng: area.lng },
+          ...where,
           category: 'personal_safety',
           pinHashes: { safe: registration.pinSafeHash, duress: registration.pinDuressHash },
         },
@@ -267,7 +289,8 @@ export class LiteController {
       duress: view.duress,
       category: view.category,
       location: view.location,
-      canDispatch: view.state === 'ACTIVE',
+      placeNote: view.placeNote,
+      canDispatch: view.state === 'ACTIVE' && view.location !== null,
       sessionId: id,
       token: token ?? '',
     });
@@ -276,7 +299,17 @@ export class LiteController {
   @Post('c/:id/dispatch')
   async contactDispatch(@Param('id') id: string, @Query('t') token?: string): Promise<string> {
     this.sessions.authorizeSeekerOrContact(id, null, token ?? null);
-    await this.sessions.dispatch(id, this.responders.all());
+    try {
+      await this.sessions.dispatch(id, this.responders.all());
+    } catch (error) {
+      if (error instanceof LocationUnknownError) {
+        return messagePage(
+          'No location yet',
+          "We don't know where they are, so no helper can be sent. Call them, or call 112.",
+        );
+      }
+      throw error;
+    }
     return messagePage('Dispatched', 'Verified responders have been asked to help.');
   }
 }

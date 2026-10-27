@@ -88,6 +88,29 @@ byte-identical response to a safe check-in and shows the coerced device a
 benign **RESOLVED** timeline, while the session silently escalates to ACTIVE and
 the circle is alerted with the duress flag.
 
+### §3.2 Sessions with no location (basic-phone SOS)
+
+A basic phone texting SOS to an ordinary SIM number gives the platform **no
+position at all**: no GPS, and no carrier location without a telecom
+integration. Refusing the SOS would fail exactly the users the SMS channel
+exists for, so a session may start without coordinates:
+
+* **Trusted contacts are still alerted**, told plainly "location unknown — call
+  them" (just "location unknown" on a duress alert, where calling is unsafe).
+* **No stranger is summoned blind.** Dispatch needs a coarse cell to match on;
+  without one it fails with `LocationUnknownError`, and every channel says so
+  instead of claiming help is coming. The contact SMS drops its "Reply SEND" line.
+* **The first location fix makes it matchable.** If coordinates arrive later
+  (e.g. an app user's GPS), the coarse cell is set and dispatch works.
+* **A place in the user's own words** (`SOS near Andheri station`, a box in the
+  lite and app forms) is carried as `placeNote`: at most 140 characters, stored
+  inside the session's encrypted PII, shown only to trusted contacts, never in a
+  responder payload or the event log, destroyed with the key on purge.
+
+What this deliberately does **not** do is fall back to a stored location: there
+is still no home area, last-known position or registration address anywhere
+(invariant 1). Unknown means unknown.
+
 ## §4 Event log
 
 Append-only, hash-chained (SHA-256 over canonical JSON, each event carrying the

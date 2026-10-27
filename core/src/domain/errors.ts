@@ -84,3 +84,15 @@ export class WatchActionNotAllowedError extends DomainError {
     super('this session is not an active journey watch');
   }
 }
+
+/**
+ * Dispatch needs at least a coarse area to match responders. A session
+ * started without one (e.g. SOS from a basic phone with no carrier
+ * position) still alerts trusted contacts, but cannot summon strangers
+ * until a location arrives.
+ */
+export class LocationUnknownError extends DomainError {
+  constructor() {
+    super('location unknown: no helper can be matched until a location arrives');
+  }
+}

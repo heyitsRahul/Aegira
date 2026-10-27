@@ -8,6 +8,7 @@ import {
   InvalidInputError,
   InvalidPinError,
   LocationRejectedError,
+  LocationUnknownError,
   NotAuthenticatedError,
   ResponderNotAuthorizedError,
   SessionNotFoundError,
@@ -56,7 +57,18 @@ export interface TriggerInput {
   userId: string;
   displayName: string;
   contacts: ReadonlyArray<{ id: string; address: string }>;
-  location: { lat: number; lng: number };
+  /**
+   * Where the helpseeker is, if known. Optional: a basic phone texting SOS
+   * through an ordinary SIM has no position. Contacts are still alerted;
+   * responders cannot be matched until a location arrives.
+   */
+  location?: { lat: number; lng: number };
+  /**
+   * Free-text place in the helpseeker's own words ("near Andheri station").
+   * Stored inside the encrypted session PII, shown only to trusted contacts,
+   * never to responders, destroyed with the session key.
+   */
+  placeNote?: string;
   category: SessionCategory;
   /** Per-user PINs enrolled for this session; falls back to config. */
   pins?: { safe: string; duress: string };
@@ -119,6 +131,8 @@ export interface ContactView {
    * trusting a stale dot — a gap real safety apps fill with "last seen".
    */
   locationAgeMs: number | null;
+  /** The helpseeker's own description of where they are, if given. */
+  placeNote: string | null;
 }
 
 /** What an offered/accepted responder's app sees. Identity-free. */
@@ -136,6 +150,7 @@ interface SessionPii {
   userId: string;
   displayName: string;
   contacts: Array<{ id: string; address: string }>;
+  placeNote?: string;
 }
 
 /**
@@ -151,7 +166,8 @@ interface DuressMask {
 interface StoredSession {
   aggregate: SessionAggregate;
   alias: string;
-  coarseCell: string;
+  /** ~1 km matching area; null until the session gets its first location. */
+  coarseCell: string | null;
   category: SessionCategory;
   userRef: string;
   encryptedPii: EncryptedBlob | null;
@@ -195,6 +211,9 @@ function matchesHash(presented: string | null | undefined, storedHash: string): 
   }
   return timingSafeEqual(Buffer.from(sha256(presented), 'hex'), Buffer.from(storedHash, 'hex'));
 }
+
+/** Long enough for a landmark, short enough to fit in one alert SMS. */
+const MAX_PLACE_NOTE = 140;
 
 const LIVE_STATES: readonly SessionState[] = [
   'WATCHING',
@@ -240,12 +259,21 @@ function validateTrigger(input: TriggerInput): void {
       throw new InvalidInputError('every contact needs an address');
     }
   }
-  const { lat, lng } = input.location ?? {};
-  if (typeof lat !== 'number' || !Number.isFinite(lat) || lat < -90 || lat > 90) {
-    throw new InvalidInputError('location.lat must be a number in [-90, 90]');
+  // Location is optional (a basic phone may have none), but if given it
+  // must be real coordinates.
+  if (input.location !== undefined && input.location !== null) {
+    const { lat, lng } = input.location;
+    if (typeof lat !== 'number' || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+      throw new InvalidInputError('location.lat must be a number in [-90, 90]');
+    }
+    if (typeof lng !== 'number' || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      throw new InvalidInputError('location.lng must be a number in [-180, 180]');
+    }
   }
-  if (typeof lng !== 'number' || !Number.isFinite(lng) || lng < -180 || lng > 180) {
-    throw new InvalidInputError('location.lng must be a number in [-180, 180]');
+  if (input.placeNote !== undefined && input.placeNote !== null) {
+    if (typeof input.placeNote !== 'string' || input.placeNote.trim().length > MAX_PLACE_NOTE) {
+      throw new InvalidInputError(`place note must be text of at most ${MAX_PLACE_NOTE} characters`);
+    }
   }
   if (!VALID_CATEGORIES.includes(input.category)) {
     throw new InvalidInputError('unknown category');
@@ -381,26 +409,28 @@ export class SessionService {
     const fallbackPins = input.pins ?? this.config.pins;
     const pinSafeHash = input.pinHashes?.safe ?? sha256(fallbackPins.safe);
     const pinDuressHash = input.pinHashes?.duress ?? sha256(fallbackPins.duress);
+    const placeNote = input.placeNote?.trim();
     const pii: SessionPii = {
       userId: input.userId,
       displayName: input.displayName,
       contacts: [...input.contacts],
+      ...(placeNote ? { placeNote } : {}),
     };
-    const initialLocation: PreciseLocation = {
-      sessionId,
-      lat: input.location.lat,
-      lng: input.location.lng,
-      capturedAt: at,
-    };
+    const start = input.location ?? null;
+    const initialLocation: PreciseLocation | null =
+      start === null ? null : { sessionId, lat: start.lat, lng: start.lng, capturedAt: at };
 
     const record: StoredSession = {
       aggregate,
       alias: `helpseeker-${sha256(sessionId).slice(0, 8)}`,
-      coarseCell: cellId(toCell(input.location.lat, input.location.lng)),
+      coarseCell: start === null ? null : cellId(toCell(start.lat, start.lng)),
       category: input.category,
       userRef,
       encryptedPii: this.crypto.encrypt(sessionId, JSON.stringify(pii)),
-      encryptedLocations: [this.crypto.encrypt(sessionId, JSON.stringify(initialLocation))],
+      encryptedLocations:
+        initialLocation === null
+          ? []
+          : [this.crypto.encrypt(sessionId, JSON.stringify(initialLocation))],
       encryptedContactToken: this.crypto.encrypt(sessionId, contactToken),
       contactRefs: input.contacts.map((c) => contactRefOf(c.address)),
       duressMask: null,
@@ -633,9 +663,13 @@ export class SessionService {
     let location: PreciseLocation | null = null;
     let locationAgeMs: number | null = null;
     let displayName = '';
+    let placeNote: string | null = null;
     if (!this.crypto.isShredded(sessionId) && record.encryptedPii !== null) {
       const pii = JSON.parse(this.crypto.decrypt(record.encryptedPii)) as SessionPii;
       displayName = pii.displayName;
+      if (CONTACT_VISIBLE_STATES.includes(state)) {
+        placeNote = pii.placeNote ?? null;
+      }
       // A WATCHING session is pre-alert: contacts are not involved yet, so
       // no location is exposed until it escalates to a real emergency.
       if (CONTACT_VISIBLE_STATES.includes(state) && record.encryptedLocations.length > 0) {
@@ -652,6 +686,7 @@ export class SessionService {
       helpseekerDisplayName: displayName,
       location,
       locationAgeMs,
+      placeNote,
     };
   }
 
@@ -662,7 +697,9 @@ export class SessionService {
    */
   responderView(sessionId: string, responderId: string): ResponderView {
     const record = this.mustGet(sessionId);
-    if (!record.offeredResponderIds.has(responderId)) {
+    // Offers only go out once a cell is known, so a null cell means this
+    // responder was never offered the session.
+    if (!record.offeredResponderIds.has(responderId) || record.coarseCell === null) {
       throw new ResponderNotAuthorizedError();
     }
     const state = record.aggregate.state;
@@ -698,6 +735,10 @@ export class SessionService {
       capturedAt: this.clock.now().toISOString(),
     };
     record.encryptedLocations.push(this.crypto.encrypt(sessionId, JSON.stringify(ping)));
+    // A session started without a location becomes matchable on its first fix.
+    if (record.coarseCell === null) {
+      record.coarseCell = cellId(toCell(lat, lng));
+    }
     this.persist(record);
   }
 
@@ -710,11 +751,11 @@ export class SessionService {
     if (record.aggregate.state !== 'ACTIVE') {
       throw new IllegalTransitionError(record.aggregate.state, 'RESPONDER_ACCEPTED');
     }
-    const candidates = this.matching.match(
-      record.coarseCell,
-      roster,
-      this.config.maxResponderOffers,
-    );
+    const cell = record.coarseCell;
+    if (cell === null) {
+      throw new LocationUnknownError();
+    }
+    const candidates = this.matching.match(cell, roster, this.config.maxResponderOffers);
     const sentAt = this.clock.now().toISOString();
     for (const candidate of candidates) {
       record.offeredResponderIds.add(candidate.responderId);
@@ -723,7 +764,7 @@ export class SessionService {
         sessionId,
         to: candidate.responderId,
         alias: record.alias,
-        coarseCell: record.coarseCell,
+        coarseCell: cell,
         category: record.category,
         sentAt,
       });
@@ -946,6 +987,8 @@ export class SessionService {
         duress: flags.duress,
         escalation: flags.escalation,
         watchExpired: flags.watchExpired,
+        locationKnown: record.coarseCell !== null,
+        placeNote: pii.placeNote ?? null,
         sentAt,
       });
     }

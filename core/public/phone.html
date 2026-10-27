@@ -36,6 +36,7 @@
     <div class="screen" id="screen"><div class="in"><b>AEGIRA</b>Welcome. Text REG to register, SOS for help.</div></div>
     <input id="from" value="+91 90000 12345" title="this phone's number">
     <select id="tower">
+      <option value="">No network position (ordinary SIM)</option>
       <option value="12.9716,77.5946">Tower: MG Road area</option>
       <option value="12.935,77.624">Tower: Koramangala area</option>
       <option value="12.97,77.75">Tower: Whitefield area</option>
@@ -44,7 +45,7 @@
     <button class="send" onclick="sendSms()">SEND SMS</button>
     <div class="quick">
       <button onclick="preset('REG Meera_K 9876543210 1234 9999')">REG</button>
-      <button onclick="preset('SOS')">SOS</button>
+      <button onclick="preset('SOS near Andheri station')">SOS</button>
       <button onclick="preset('CANCEL 1234')">CANCEL</button>
       <button onclick="preset('CANCEL 9999')">CANCEL (duress)</button>
       <button onclick="preset('STATUS')">STATUS</button>
@@ -62,7 +63,9 @@
     <p>Commands: <code>REG name contact pin pin</code>, <code>SOS</code>, <code>CANCEL pin</code>,
        <code>STATUS</code>, <code>SAFE pin</code>, <code>SEND</code> (as a contact), <code>STOP</code>.</p>
     <p>The tower selector stands in for the carrier's approximate network position — it enters the
-       system only with an SOS, never with a registration.</p>
+       system only with an SOS, never with a registration. A real phone texting an ordinary SIM
+       sends no position at all: pick <i>No network position</i> to see that case. The SOS still
+       goes out, with the place in the sender's own words.</p>
     <p>Switch the number to the trusted contact's (<code>9876543210</code>) to receive the alert
        SMS and reply <code>SEND</code>.</p>
     <p><a href="/">smartphone app</a> · <a href="/lite">no-JS lite web</a> · <a href="/console">ops console</a></p>
@@ -93,15 +96,15 @@ async function sendSms() {
   if (!text) return;
   add('out', text);
   msg.value = '';
-  const tower = document.getElementById('tower').value.split(',');
+  const towerValue = document.getElementById('tower').value;
+  const tower = towerValue ? towerValue.split(',') : null;
   const r = await fetch('/dev/phone/sms', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       from: document.getElementById('from').value,
       text,
-      approxLat: Number(tower[0]),
-      approxLng: Number(tower[1]),
+      ...(tower ? { approxLat: Number(tower[0]), approxLng: Number(tower[1]) } : {}),
     }),
   }).then((x) => x.json()).catch(() => ({ reply: '(network error)' }));
   add('in', r.reply || r.error || '(no reply)');

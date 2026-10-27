@@ -308,7 +308,8 @@ const STR = {
     sms_join: 'Ask {name} to text JOIN to {number} once, so they can get your alerts by SMS.',
     loc_gps: '📍 Using your phone’s location', loc_finding: '📍 Finding your location…',
     loc_off: 'Location is off. Choose your area:', loc_pick: 'Your area',
-    loc_allow: 'Allow location, so help can find you', your_person: 'your trusted person', open_maps: 'Open in Maps',
+    loc_allow: 'Allow location, so help can find you', your_person: 'your trusted person',
+    loc_none: 'Not listed / not sure', place_ph: 'Where are you? e.g. near the bus stand', open_maps: 'Open in Maps',
     // spoken
     v_sos: 'Sending help. Enter your PIN to cancel.',
     v_active: 'Your people have been alerted. Help is on the way.',
@@ -372,7 +373,8 @@ const STR = {
     sms_join: '{name} से कहें कि एक बार {number} पर JOIN भेजें, ताकि उन्हें SMS से सूचना मिले।',
     loc_gps: '📍 आपके फ़ोन की जगह इस्तेमाल हो रही है', loc_finding: '📍 आपकी जगह ढूँढ रहे हैं…',
     loc_off: 'लोकेशन बंद है। अपना इलाक़ा चुनें:', loc_pick: 'आपका इलाक़ा',
-    loc_allow: 'लोकेशन चालू करें, ताकि मदद आप तक पहुँचे', your_person: 'अपने भरोसेमंद व्यक्ति', open_maps: 'मैप में खोलें',
+    loc_allow: 'लोकेशन चालू करें, ताकि मदद आप तक पहुँचे', your_person: 'अपने भरोसेमंद व्यक्ति',
+    loc_none: 'सूची में नहीं / पता नहीं', place_ph: 'आप कहाँ हैं? जैसे: बस स्टैंड के पास', open_maps: 'मैप में खोलें',
     v_sos: 'मदद भेजी जा रही है। रद्द करने के लिए पिन डालें।',
     v_active: 'आपके अपनों को सूचना दे दी गई है। मदद आ रही है।',
     v_safe: 'आप सुरक्षित हैं।', v_checkin: 'आप सुरक्षित रूप से पहुँच गए।',
@@ -610,12 +612,16 @@ function saveProfile() {
   render();
 }
 
-let seekerCity = DEMO_CITIES[0].id;
+let seekerCity = 'none';
+let seekerPlace = '';
 let seekerMode = 'sos'; // 'sos' | 'watch'
 let watchEta = 20;
 function renderSeekerHome(profile) {
-  const areaSelect = `<select id="city" aria-label="${esc(t('loc_pick'))}" onchange="seekerCity=this.value">${DEMO_CITIES.map((c) =>
-      `<option value="${c.id}"${c.id === seekerCity ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select>`;
+  const areaSelect = `<select id="city" aria-label="${esc(t('loc_pick'))}" onchange="seekerCity=this.value">` +
+    `<option value="none"${seekerCity === 'none' ? ' selected' : ''}>${esc(t('loc_none'))}</option>` +
+    DEMO_CITIES.map((c) =>
+      `<option value="${c.id}"${c.id === seekerCity ? ' selected' : ''}>${esc(c.label)}</option>`).join('') + `</select>` +
+    `<input id="place" maxlength="140" placeholder="${esc(t('place_ph'))}" aria-label="${esc(t('place_ph'))}" value="${esc(seekerPlace)}" oninput="seekerPlace=this.value">`;
   const citySelect =
     gpsPerm === 'granted' ? `<p class="loc">${esc(t('loc_gps'))}</p>` :
     gpsPerm === 'prompt' ? `<button class="subtle" onclick="askGps()">📍 ${esc(t('loc_allow'))}</button>` :
@@ -674,9 +680,11 @@ function readGps(timeoutMs) {
 }
 // Asks for permission ahead of an emergency; the reading itself is discarded.
 async function askGps() { await readGps(10000); render(); }
+// A chosen area, or null when it isn't listed: better no location than a
+// wrong one. Contacts are then told the location is unknown.
 function pickedArea() {
-  const c = DEMO_CITIES.find((x) => x.id === seekerCity) || DEMO_CITIES[0];
-  return { lat: c.lat, lng: c.lng };
+  const c = DEMO_CITIES.find((x) => x.id === seekerCity);
+  return c ? { lat: c.lat, lng: c.lng } : null;
 }
 async function sessionStartLocation() {
   const gps = gpsPerm === 'denied' ? null : await readGps(8000);
@@ -715,7 +723,8 @@ async function trigger() {
       userId: deviceUserId(),
       displayName: profile.name,
       contacts: profile.contacts.map((c) => ({ id: c.id, address: c.address })),
-      location: loc, category: seekerCat,
+      ...(loc ? { location: loc } : {}), ...(seekerPlace.trim() ? { placeNote: seekerPlace.trim() } : {}),
+      category: seekerCat,
       pins: profile.pins,
     });
     store.set('session', { id: r.sessionId, token: r.seekerToken, t0: Date.now(), countdownMs: r.activationCountdownMs, loc, realLoc, dispatched: false });
@@ -732,7 +741,8 @@ async function startWatch() {
       userId: deviceUserId(),
       displayName: profile.name,
       contacts: profile.contacts.map((c) => ({ id: c.id, address: c.address })),
-      location: loc, category: 'personal_safety', pins: profile.pins,
+      ...(loc ? { location: loc } : {}), ...(seekerPlace.trim() ? { placeNote: seekerPlace.trim() } : {}),
+      category: 'personal_safety', pins: profile.pins,
       etaMinutes: watchEta,
     });
     store.set('session', { id: r.sessionId, token: r.seekerToken, mode: 'watch', loc, realLoc, dispatched: false, deadline: r.watchDeadline });
@@ -816,7 +826,7 @@ function seekerScreen(state, sess, code) {
     return `
       <h1>${esc(t('help_in_motion'))} <span class="chip ${state}">${state}</span></h1>
       <div class="tl">${steps.map((s, i) => `<div class="step ${i < on ? 'on' : ''}">${esc(s)}</div>`).join('')}</div>
-      ${mapSvg(null, sess.loc, { dot: true, hideCell: true })}
+      ${sess.loc ? mapSvg(null, sess.loc, { dot: true, hideCell: true }) : ''}
       ${state === 'ACTIVE' && !sess.dispatched ? `<button class="primary" onclick="requestResponder()">${esc(t('request_responder'))}</button>` : ''}
       ${state === 'ACTIVE' && sess.dispatched ? `<p class="lead center" style="margin-top:10px">${esc(t('waiting_accept'))}</p>` : ''}
       ${state === 'DISPATCHED' && code ? `<p class="lead center" style="margin-top:12px">${esc(t('show_code'))}</p><div class="code">${code}</div>` : ''}
@@ -931,8 +941,9 @@ function renderContactSession(sid) {
         `<p class="lead center">${freshness(v.locationAgeMs)} · ${v.location.lat.toFixed(5)}, ${v.location.lng.toFixed(5)}</p>
          <a class="bigbtn" style="text-decoration:none;color:inherit" target="_blank" rel="noopener"
            href="https://www.google.com/maps/search/?api=1&query=${v.location.lat},${v.location.lng}"><span class="ic">🗺️</span><b>${esc(t('open_maps'))}</b></a>` :
-        `<p class="lead" style="margin-top:20px">${live ? 'Waiting for a location…' : 'This session has ended; its location data is gone.'}</p>`}
-      ${v.state === 'ACTIVE' ? `<button class="primary" onclick="contactDispatch('${sid}')">Send a verified helper</button>` : ''}
+        `<p class="lead" style="margin-top:20px">${live ? (v.duress ? 'Location unknown.' : 'Location unknown — call them.') : 'This session has ended; its location data is gone.'}</p>`}
+      ${v.placeNote ? `<div class="card"><div class="k">THEY SAID THEY ARE</div>${esc(v.placeNote)}</div>` : ''}
+      ${v.state === 'ACTIVE' && v.location ? `<button class="primary" onclick="contactDispatch('${sid}')">Send a verified helper</button>` : ''}
       ${v.state === 'DISPATCHED' ? `<p class="lead center" style="margin-top:8px">A responder is on the way.</p>` : ''}
       <button class="subtle" onclick="go('contact')">← all alerts</button>`;
     if (html !== last) { document.getElementById('dyn').innerHTML = html; last = html; }

@@ -11,7 +11,8 @@ import { SessionCategory, SessionEvent } from '../domain/types';
 export interface SessionSnapshot {
   sessionId: string;
   alias: string;
-  coarseCell: string;
+  /** null for a session that has never had a location. */
+  coarseCell: string | null;
   category: SessionCategory;
   /** sha256 of the user id — concurrency index only, not identity. */
   userRef: string;

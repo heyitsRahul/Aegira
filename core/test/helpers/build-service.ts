@@ -40,7 +40,8 @@ export function buildRig(config: SessionServiceConfig = TEST_CONFIG): TestRig {
   return { clock, crypto, vault, notifier, service };
 }
 
-export const TRIGGER_FIXTURE: TriggerInput = {
+/** The standard fixture always has a location; see LOCATIONLESS tests for the other case. */
+export const TRIGGER_FIXTURE: TriggerInput & { location: { lat: number; lng: number } } = {
   userId: 'user-77',
   displayName: 'Meera Krishnan',
   contacts: [

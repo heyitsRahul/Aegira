@@ -32,6 +32,13 @@ export interface ContactAlertPayload {
   readonly escalation: boolean;
   /** True when a journey watch hit its deadline with no check-in. */
   readonly watchExpired: boolean;
+  /** False when the helpseeker's phone gave no position (e.g. basic-phone SOS). */
+  readonly locationKnown: boolean;
+  /**
+   * The helpseeker's own words for where they are. Contacts only — the
+   * responder offer has no such field (invariant 6).
+   */
+  readonly placeNote: string | null;
   readonly sentAt: string;
 }
 

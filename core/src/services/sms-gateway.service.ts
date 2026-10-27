@@ -3,6 +3,7 @@ import {
   CancelNotAllowedError,
   InvalidInputError,
   InvalidPinError,
+  LocationUnknownError,
   WatchActionNotAllowedError,
 } from '../domain/errors';
 import { SessionCategory, SessionState } from '../domain/types';
@@ -15,9 +16,10 @@ import { SessionService } from './session.service';
  * has neither apps nor a browser. Commands (case-insensitive):
  *
  *   REG <name> <contact-phone> <safe-pin> <duress-pin>   register
- *   SOS [M|A|O]                                          trigger (M edical,
- *                                                        A ccident, O ther)
- *   WATCH <minutes>                                      arm a journey watch
+ *   SOS [M|A|O] [place]                                  trigger (M edical,
+ *                                                        A ccident, O ther),
+ *                                                        e.g. SOS near Andheri
+ *   WATCH <minutes> [place]                              arm a journey watch
  *   EXTEND <minutes>                                     push the watch out
  *   CANCEL <pin>                                         cancel in window
  *   STATUS                                               masked status
@@ -33,7 +35,10 @@ import { SessionService } from './session.service';
  *
  * Location enters only WITH the SOS trigger, from the carrier-supplied
  * approximate position on the inbound webhook (invariant 1: nothing about
- * a registration ever stores where someone is).
+ * a registration ever stores where someone is). An ordinary SIM gateway
+ * supplies no position at all; the SOS still goes ahead, carrying the
+ * place in the sender's own words if they gave one, and trusted contacts
+ * are told the location is unknown.
  */
 
 const CATEGORY_BY_LETTER: Readonly<Record<string, SessionCategory>> = {
@@ -43,8 +48,17 @@ const CATEGORY_BY_LETTER: Readonly<Record<string, SessionCategory>> = {
   S: 'personal_safety',
 };
 
+/** Fits inside one alert SMS alongside the rest of the message. */
+const MAX_PLACE_NOTE = 140;
+
+/** The free-text place after a command, tidied and capped. */
+function placeFrom(words: string[]): string | undefined {
+  const note = words.join(' ').replace(/\s+/g, ' ').trim().slice(0, MAX_PLACE_NOTE);
+  return note.length > 0 ? note : undefined;
+}
+
 const HELP_TEXT =
-  'Aegira commands: REG name contact-phone safe-pin duress-pin | SOS | ' +
+  'Aegira commands: REG name contact-phone safe-pin duress-pin | SOS [place] | ' +
   'WATCH minutes | EXTEND minutes | CANCEL pin | STATUS | SAFE pin | ' +
   'SEND (contacts) | STOP';
 
@@ -90,9 +104,9 @@ export class SmsGatewayService {
         case 'REG':
           return this.handleRegister(from, parts.slice(1));
         case 'SOS':
-          return this.handleSos(from, parts[1], approxLocation);
+          return this.handleSos(from, parts.slice(1), approxLocation);
         case 'WATCH':
-          return this.handleWatch(from, parts[1] ?? '', approxLocation);
+          return this.handleWatch(from, parts[1] ?? '', parts.slice(2), approxLocation);
         case 'EXTEND':
           return this.handleExtend(from, parts[1] ?? '');
         case 'CANCEL':
@@ -138,29 +152,37 @@ export class SmsGatewayService {
 
   private handleSos(
     from: string,
-    categoryLetter: string | undefined,
+    args: string[],
     approxLocation?: { lat: number; lng: number },
   ): string {
     const registration = this.registrations.find(from);
     if (registration === undefined) {
       return 'Aegira: not registered. Text REG <name> <contact-phone> <safe-pin> <duress-pin> first.';
     }
-    if (approxLocation === undefined) {
-      return 'Aegira: your network position is unavailable. Try again, or call your trusted contact.';
-    }
+    // "SOS M near the bus stand": an optional one-letter category, then
+    // the place in the sender's own words.
+    const first = (args[0] ?? '').toUpperCase();
+    const hasCategory = first.length === 1 && CATEGORY_BY_LETTER[first] !== undefined;
+    const placeNote = placeFrom(hasCategory ? args.slice(1) : args);
     try {
       const receipt = this.sessions.trigger({
         userId: registration.phoneRef,
         displayName: registration.displayName,
         contacts: registration.contacts,
-        location: approxLocation,
-        category: CATEGORY_BY_LETTER[(categoryLetter ?? 'S').toUpperCase()] ?? 'personal_safety',
+        ...(approxLocation === undefined ? {} : { location: approxLocation }),
+        ...(placeNote === undefined ? {} : { placeNote }),
+        category: hasCategory ? CATEGORY_BY_LETTER[first] : 'personal_safety',
         pinHashes: { safe: registration.pinSafeHash, duress: registration.pinDuressHash },
       });
       const seconds = Math.round(receipt.activationCountdownMs / 1000);
+      const whereHint =
+        approxLocation === undefined && placeNote === undefined
+          ? ' Tell your circle where you are if you can.'
+          : '';
       return (
         `Aegira: SOS received. Your circle will be alerted in ${seconds}s. ` +
-        'Text CANCEL <pin> to stop it.'
+        'Text CANCEL <pin> to stop it.' +
+        whereHint
       );
     } catch (error) {
       if (error instanceof ActiveSessionExistsError) {
@@ -173,15 +195,14 @@ export class SmsGatewayService {
   private handleWatch(
     from: string,
     minutesStr: string,
+    placeWords: string[],
     approxLocation?: { lat: number; lng: number },
   ): string {
     const registration = this.registrations.find(from);
     if (registration === undefined) {
       return 'Aegira: not registered. Text REG <name> <contact-phone> <safe-pin> <duress-pin> first.';
     }
-    if (approxLocation === undefined) {
-      return 'Aegira: your network position is unavailable. Try again when you have signal.';
-    }
+    const placeNote = placeFrom(placeWords);
     const minutes = Number(minutesStr);
     if (!Number.isFinite(minutes) || minutes <= 0) {
       return 'Aegira: text WATCH <minutes>, e.g. WATCH 20 to be watched for 20 minutes.';
@@ -192,7 +213,8 @@ export class SmsGatewayService {
           userId: registration.phoneRef,
           displayName: registration.displayName,
           contacts: registration.contacts,
-          location: approxLocation,
+          ...(approxLocation === undefined ? {} : { location: approxLocation }),
+          ...(placeNote === undefined ? {} : { placeNote }),
           category: 'personal_safety',
           pinHashes: { safe: registration.pinSafeHash, duress: registration.pinDuressHash },
         },
@@ -315,8 +337,22 @@ export class SmsGatewayService {
     if (sessionIds.length === 0) {
       return 'Aegira: nothing to dispatch right now.';
     }
+    let asked = 0;
+    let unlocated = 0;
     for (const sessionId of sessionIds) {
-      await this.sessions.dispatch(sessionId, this.roster());
+      try {
+        await this.sessions.dispatch(sessionId, this.roster());
+        asked += 1;
+      } catch (error) {
+        if (!(error instanceof LocationUnknownError)) {
+          throw error;
+        }
+        unlocated += 1;
+      }
+    }
+    if (asked === 0 && unlocated > 0) {
+      // Never claim help is coming when nobody could be sent.
+      return "Aegira: we don't know where they are, so no helper can be sent. Call them, or call 112.";
     }
     return 'Aegira: verified responders have been asked to help.';
   }
