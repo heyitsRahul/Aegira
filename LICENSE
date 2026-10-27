@@ -1,0 +1,31 @@
+Copyright (c) 2026 Rahul Verma. All rights reserved.
+
+Aegira's source code, design documents, text and images are published so
+that they can be read and reviewed (for example by employers, recruiters
+and collaborators). Publishing them does not grant a licence to use them.
+
+You may:
+  - read the code and documents, and run the code on your own computer to
+    evaluate it;
+  - link to this repository and to the live demo;
+  - quote short parts when discussing or reviewing the project, with credit.
+
+You may not, without written permission from the copyright holder:
+  - copy, modify, merge, publish, distribute, sublicense or sell the code,
+    or any substantial part of it;
+  - deploy it, or a work based on it, as a product or service;
+  - use the name "Aegira" or the project's design for another product.
+
+To ask for permission, open an issue on the GitHub repository.
+
+NOT AN EMERGENCY SERVICE. Aegira is a prototype. It is not connected to
+police, ambulance, fire or any official emergency service, and it must not
+be relied on in an emergency. In danger, call your local emergency number
+(112 in India and the EU).
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.

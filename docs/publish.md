@@ -64,4 +64,4 @@ registrations whenever it sleeps.
 | `/app` | the app (pick a language → *I need help* → SOS) |
 | `/phone` | the no-smartphone SMS version |
 | `/console` | behind the scenes: the duress PIN that lies |
-| GitHub repo | code, 369 tests, design doc |
+| GitHub repo | code, 393 tests, design doc |

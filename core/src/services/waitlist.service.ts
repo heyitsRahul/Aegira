@@ -57,8 +57,8 @@ export class WaitlistService {
     private readonly clock: Clock,
   ) {}
 
-  join(email: string, country?: string): { ok: true; alreadyJoined: boolean; count: number } {
-    const normalized = (email ?? '').trim().toLowerCase();
+  join(email: unknown, country?: unknown): { ok: true; alreadyJoined: boolean; count: number } {
+    const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
     if (!EMAIL_SHAPE.test(normalized)) {
       throw new InvalidInputError('a valid email is required');
     }
@@ -68,7 +68,7 @@ export class WaitlistService {
       this.store.save({
         emailRef,
         email: normalized,
-        country: country?.trim() ? country.trim().slice(0, 2).toUpperCase() : null,
+        country: typeof country === 'string' && country.trim() ? country.trim().slice(0, 2).toUpperCase() : null,
         consentVersion: WAITLIST_CONSENT_VERSION,
         joinedAt: this.clock.now().toISOString(),
       });

@@ -21,13 +21,20 @@ Live link: <https://aegira.onrender.com>
 - Made SOS work from a basic phone with no internet or GPS: a real Indian
   number (an Android phone as the SMS gateway), opt-in so a public demo can't
   spam strangers, and alerts that carry the place in the sender's own words.
+- Stress-tested it like an attacker would: 300 random "chaos" runs that
+  re-check every safety rule after each step, and 1,000+ malformed requests,
+  stolen links and request floods against the real server. This found and
+  fixed crash, clickjacking and flooding gaps before launch.
 - Built with AI-assisted development (Claude Code): I set the product spec,
   safety rules and priorities, and reviewed every feature against them;
-  369 automated tests, CI on every push.
+  393 automated tests, CI on every push.
 
 Pick the 3–4 bullets that fit the job. For product roles, lead with the rules,
 the duress PIN and the accessibility bullets. For engineering roles, add a
 line about the tech stack (TypeScript, NestJS, SQLite, PWA, Twilio, Docker).
+
+For a plain-language explanation and ready-to-post LinkedIn text, see
+[portfolio.md](portfolio.md).
 
 ## One-line version (LinkedIn headline, short resumes)
 

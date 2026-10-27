@@ -59,6 +59,13 @@ export class DomainErrorFilter implements ExceptionFilter {
       response.status(409).json({ error: exception.message });
       return;
     }
+    // The request reader's own errors (body too large, unreadable body)
+    // carry a 4xx status: they are the caller's mistake, not ours.
+    const status = (exception as { status?: unknown } | null)?.status;
+    if (typeof status === 'number' && status >= 400 && status < 500) {
+      response.status(status).json({ error: status === 413 ? 'request too large' : 'bad request' });
+      return;
+    }
     response.status(500).json({ error: 'internal error' });
   }
 }

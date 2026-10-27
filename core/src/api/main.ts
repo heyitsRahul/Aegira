@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { DomainErrorFilter } from './domain-error.filter';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { configureHttp } from './http-setup';
 import { SESSION_SERVICE } from './session.controller';
 import { SystemClock } from './system-clock';
 import { SessionService } from '../services/session.service';
@@ -10,8 +11,8 @@ import { resolveRuntimeConfig } from './runtime-config';
 
 async function bootstrap(): Promise<void> {
   // rawBody: the Android SMS gateway signs the exact bytes it sent.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
-  app.useGlobalFilters(new DomainErrorFilter());
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
+  configureHttp(app);
 
   // The timer sweep that drives countdown activation, auto-close, and
   // purge. Tests call evaluateTimers with a manual clock; the running app

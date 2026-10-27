@@ -43,6 +43,13 @@ export const REGISTRATIONS = 'REGISTRATIONS';
 const plain = (message: string): string => message.replace(/^invalid input: /, '');
 
 /**
+ * A form field as text. Form posts can also arrive as JSON, or with
+ * `phone[]=` style keys, so a field may be a number, array or object; any
+ * of those reads as empty instead of crashing the page.
+ */
+const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+
+/**
  * The lite channel answers every error with a readable page, never the
  * JSON the app gets: a mistyped phone number on an old phone must still
  * show a way back.
@@ -131,11 +138,11 @@ export class LiteController {
     // user anywhere can register without typing the +code themselves.
     try {
       const record = this.registrations.register(
-        applyDial(body.phone ?? '', body.dial),
-        body.name ?? '',
-        applyDial(body.contact ?? '', body.dial),
-        body.pinSafe ?? '',
-        body.pinDuress ?? '',
+        applyDial(text(body.phone), text(body.dial)),
+        text(body.name),
+        applyDial(text(body.contact), text(body.dial)),
+        text(body.pinSafe),
+        text(body.pinDuress),
       );
       return messagePage(
         'You are signed up',
@@ -153,11 +160,11 @@ export class LiteController {
   sos(
     @Body() body: { phone?: string; area?: string; place?: string; category?: string; dial?: string },
   ): string {
-    const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
+    const registration = this.registrations.find(applyDial(text(body.phone), text(body.dial)));
     if (registration === undefined) {
       return messagePage('Please sign up first', 'Fill in “First time? Sign up” at the bottom of the start page.');
     }
-    const where = startWhere(body.area, body.place);
+    const where = startWhere(text(body.area), text(body.place));
     try {
       const receipt = this.sessions.trigger({
         userId: registration.phoneRef,
@@ -183,12 +190,12 @@ export class LiteController {
   watch(
     @Body() body: { phone?: string; area?: string; place?: string; minutes?: string; dial?: string },
   ): string {
-    const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
+    const registration = this.registrations.find(applyDial(text(body.phone), text(body.dial)));
     if (registration === undefined) {
       return messagePage('Please sign up first', 'Fill in “First time? Sign up” at the bottom of the start page.');
     }
-    const where = startWhere(body.area, body.place);
-    const minutes = Number(body.minutes);
+    const where = startWhere(text(body.area), text(body.place));
+    const minutes = Number(text(body.minutes));
     if (!Number.isFinite(minutes) || minutes <= 0) {
       return messagePage('How many minutes?', 'Type how many minutes it will take you to reach.');
     }
@@ -220,8 +227,8 @@ export class LiteController {
 
   @Post('extend')
   extend(@Body() body: { phone?: string; pin?: string; minutes?: string; dial?: string }): string {
-    const phone = applyDial(body.phone ?? '', body.dial);
-    if (this.registrations.verifyPin(phone, body.pin ?? '') === 'invalid') {
+    const phone = applyDial(text(body.phone), text(body.dial));
+    if (this.registrations.verifyPin(phone, text(body.pin)) === 'invalid') {
       return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
     }
     const registration = this.registrations.find(phone);
@@ -229,7 +236,7 @@ export class LiteController {
       registration === undefined
         ? null
         : this.sessions.latestSessionIdForUser(registration.phoneRef);
-    const minutes = Number(body.minutes);
+    const minutes = Number(text(body.minutes));
     if (sessionId === null || !Number.isFinite(minutes) || minutes <= 0) {
       return messagePage('No timer', 'No timer is running.');
     }
@@ -243,7 +250,7 @@ export class LiteController {
 
   @Post('cancel')
   async cancel(@Body() body: { phone?: string; pin?: string; dial?: string }): Promise<string> {
-    const registration = this.registrations.find(applyDial(body.phone ?? '', body.dial));
+    const registration = this.registrations.find(applyDial(text(body.phone), text(body.dial)));
     const sessionId =
       registration === undefined
         ? null
@@ -252,7 +259,7 @@ export class LiteController {
       return messagePage('Nothing running', 'Nothing is running right now.');
     }
     try {
-      await this.sessions.cancel(sessionId, body.pin ?? '');
+      await this.sessions.cancel(sessionId, text(body.pin));
       // One shared page for safe and duress cancels (invariant 4).
       return cancelledPage();
     } catch (error) {
@@ -268,8 +275,8 @@ export class LiteController {
 
   @Post('status')
   status(@Body() body: { phone?: string; pin?: string; dial?: string }): string {
-    const phone = applyDial(body.phone ?? '', body.dial);
-    if (this.registrations.verifyPin(phone, body.pin ?? '') === 'invalid') {
+    const phone = applyDial(text(body.phone), text(body.dial));
+    if (this.registrations.verifyPin(phone, text(body.pin)) === 'invalid') {
       return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
     }
     const registration = this.registrations.find(phone);
@@ -292,7 +299,7 @@ export class LiteController {
 
   @Post('safe')
   async safe(@Body() body: { phone?: string; pin?: string; dial?: string }): Promise<string> {
-    const phone = applyDial(body.phone ?? '', body.dial);
+    const phone = applyDial(text(body.phone), text(body.dial));
     const registration = this.registrations.find(phone);
     const sessionId =
       registration === undefined
@@ -306,13 +313,13 @@ export class LiteController {
     // duress PIN escalates, and both render this identical page (invariant 4).
     if (state === 'WATCHING') {
       try {
-        await this.sessions.checkInSafe(sessionId, body.pin ?? '');
+        await this.sessions.checkInSafe(sessionId, text(body.pin));
         return messagePage('You reached safely', 'Good. Take care.');
       } catch {
         return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
       }
     }
-    if (this.registrations.verifyPin(phone, body.pin ?? '') !== 'safe') {
+    if (this.registrations.verifyPin(phone, text(body.pin)) !== 'safe') {
       return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
     }
     if (state !== 'ACTIVE' && state !== 'DISPATCHED' && state !== 'ARRIVED') {

@@ -283,7 +283,13 @@ function validateTrigger(input: TriggerInput): void {
   }
   if (input.pins !== undefined) {
     const pinShape = /^\d{4,6}$/;
-    if (!pinShape.test(input.pins.safe) || !pinShape.test(input.pins.duress)) {
+    if (
+      input.pins === null ||
+      typeof input.pins.safe !== 'string' ||
+      typeof input.pins.duress !== 'string' ||
+      !pinShape.test(input.pins.safe) ||
+      !pinShape.test(input.pins.duress)
+    ) {
       throw new InvalidInputError('pins must be 4-6 digits');
     }
     if (input.pins.safe === input.pins.duress) {
@@ -292,7 +298,13 @@ function validateTrigger(input: TriggerInput): void {
   }
   if (input.pinHashes !== undefined) {
     const hashShape = /^[0-9a-f]{64}$/;
-    if (!hashShape.test(input.pinHashes.safe) || !hashShape.test(input.pinHashes.duress)) {
+    if (
+      input.pinHashes === null ||
+      typeof input.pinHashes.safe !== 'string' ||
+      typeof input.pinHashes.duress !== 'string' ||
+      !hashShape.test(input.pinHashes.safe) ||
+      !hashShape.test(input.pinHashes.duress)
+    ) {
       throw new InvalidInputError('pin hashes must be sha256 hex');
     }
     if (input.pinHashes.safe === input.pinHashes.duress) {

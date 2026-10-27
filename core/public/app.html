@@ -193,6 +193,7 @@ function friendlyError(e) {
   if (/invalid pin|wrong pin/i.test(m)) return t('err_pin');
   if (/already live/i.test(m)) return t('err_live');
   if (/failed to fetch|networkerror|load failed/i.test(m)) return t('err_network');
+  if (/too many requests/i.test(m)) return t('err_busy');
   if (/^invalid input: /i.test(m)) return m.replace(/^invalid input: /i, '');
   return t('err_generic');
 }
@@ -313,6 +314,7 @@ const STR = {
     err_location: 'We do not know where you are, so no helper can come. Call 112 if you can.',
     err_pin: 'Wrong PIN. Try again.', err_live: 'You already have an emergency running.',
     err_network: 'No internet. Call 112, or text SOS.', err_generic: 'Something went wrong. Please try again.',
+    err_busy: 'Too many tries from this network. Wait a minute. In danger? Call 112.',
     state_WATCHING: 'Timer on', state_PENDING: 'Starting', state_ACTIVE: 'People told',
     state_DISPATCHED: 'Helper coming', state_ARRIVED: 'Helper here', state_RESOLVED: 'Safe',
     state_CANCELLED: 'Cancelled', state_CLOSED: 'Ended', state_PURGED: 'Deleted',
@@ -418,6 +420,7 @@ const STR = {
     err_location: 'हमें नहीं पता आप कहाँ हैं, इसलिए सहायक नहीं आ सकता। हो सके तो 112 पर कॉल करें।',
     err_pin: 'ग़लत PIN। फिर से डालें।', err_live: 'आपका एक आपातकाल पहले से चल रहा है।',
     err_network: 'इंटरनेट नहीं है। 112 पर कॉल करें, या SOS का SMS भेजें।', err_generic: 'कुछ गड़बड़ हुई। फिर से कोशिश करें।',
+    err_busy: 'इस नेटवर्क से बहुत ज़्यादा कोशिशें हुईं। एक मिनट रुकें। खतरे में हों तो 112 पर कॉल करें।',
     state_WATCHING: 'टाइमर चालू', state_PENDING: 'शुरू हो रहा है', state_ACTIVE: 'अपनों को बताया',
     state_DISPATCHED: 'सहायक आ रहा है', state_ARRIVED: 'सहायक पहुँचा', state_RESOLVED: 'सुरक्षित',
     state_CANCELLED: 'रद्द', state_CLOSED: 'ख़त्म', state_PURGED: 'मिटाया गया',

@@ -82,7 +82,12 @@ enforced by the test suite in CI.
   send real SMS.
 - **Resilient notifications.** A failed SMS channel is counted, never allowed
   to stop the emergency or the other channels.
-- **369 tests**, typecheck and build in GitHub Actions on every push.
+- **393 tests**, typecheck and build in GitHub Actions on every push.
+- **Attack and chaos tests:** 300 random runs of every action in any order
+  (rules re-checked after every step), and the real server attacked over
+  HTTP: 1,000+ malformed inputs, stolen tokens, floods of simultaneous
+  requests, code guessing and script injection. See `core/test/chaos.test.ts`
+  and `core/test/http-attack.test.ts`.
 
 **Stack:** TypeScript (strict), NestJS, Node 22 built-in SQLite, Vitest,
 vanilla JS PWA, Twilio adapter, Docker, Render / Fly.io.
@@ -96,7 +101,7 @@ core/src/services/     orchestration, deterministic matching, notifications, SMS
 core/src/persistence/  repository port + SQLite adapter (Postgres-shaped)
 core/src/api/          thin NestJS controllers, runtime config
 core/public/           landing, PWA, feature-phone simulator, ops console, founder dashboard
-core/test/             Vitest: state machine, privacy-negative, hygiene, clock-driven timers
+core/test/             Vitest: state machine, privacy-negative, hygiene, clock-driven timers, chaos, HTTP attacks
 ```
 
 ## Run it locally
@@ -104,7 +109,7 @@ core/test/             Vitest: state machine, privacy-negative, hygiene, clock-d
 ```bash
 cd core
 npm install
-npm test                      # 369 tests
+npm test                      # 393 tests
 npm run build && npm start    # http://localhost:3000
 ```
 
@@ -149,4 +154,5 @@ In demo mode, real SMS alerts only reach numbers that texted `JOIN`, at most
 
 ## License
 
-All rights reserved. The code is public for review; please ask before reuse.
+All rights reserved. The code is public so it can be reviewed; please ask
+before reusing it. See [LICENSE](LICENSE).
