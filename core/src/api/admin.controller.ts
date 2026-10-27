@@ -1,22 +1,15 @@
 import { Controller, Get, Headers, Inject, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import { timingSafeEqual } from 'node:crypto';
 import { join } from 'node:path';
 import { InMemoryMetrics } from '../services/metrics';
 import { WaitlistService } from '../services/waitlist.service';
 import { METRICS, WAITLIST } from './public.controller';
+import { tokenMatches } from './runtime-config';
 import { NotAuthenticatedError } from '../domain/errors';
 
 export const ADMIN_TOKEN = 'ADMIN_TOKEN';
 
 const PUBLIC_DIR = join(__dirname, '..', '..', 'public');
-
-function tokenMatches(presented: string | undefined, expected: string): boolean {
-  if (typeof presented !== 'string' || presented.length !== expected.length) {
-    return false;
-  }
-  return timingSafeEqual(Buffer.from(presented), Buffer.from(expected));
-}
 
 /**
  * Founder ops dashboard. The HTML page is public (it's just a shell); the
@@ -30,7 +23,7 @@ export class AdminController {
   constructor(
     @Inject(WAITLIST) private readonly waitlist: WaitlistService,
     @Inject(METRICS) private readonly metrics: InMemoryMetrics,
-    @Inject(ADMIN_TOKEN) private readonly adminToken: string,
+    @Inject(ADMIN_TOKEN) private readonly adminToken: string | null,
   ) {}
 
   @Get()

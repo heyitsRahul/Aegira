@@ -17,6 +17,12 @@ export class PublicController {
     @Inject(METRICS) private readonly metrics: InMemoryMetrics,
   ) {}
 
+  /** Liveness probe for the hosting platform. */
+  @Get('healthz')
+  health() {
+    return { ok: true };
+  }
+
   @Post('waitlist')
   join(@Body() body: { email: string; country?: string }) {
     return this.waitlist.join(body.email, body.country);

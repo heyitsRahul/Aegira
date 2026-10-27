@@ -40,12 +40,12 @@ async function registered(rig = buildSmsRig()) {
   return rig;
 }
 
-describe('SMS registration (consent v2)', () => {
+describe('SMS registration (consent v4)', () => {
   it('registers with underscored names and confirms the consent version', async () => {
     const { gateway } = buildSmsRig();
     const reply = await gateway.handle(SEEKER, `REG Meera_Krishnan ${CONTACT} 1234 9999`);
     expect(reply).toContain('Meera Krishnan');
-    expect(reply).toContain('v2');
+    expect(reply).toContain('v4');
   });
 
   it('rejects malformed registrations with usable guidance', async () => {
@@ -55,7 +55,7 @@ describe('SMS registration (consent v2)', () => {
     expect(await gateway.handle(SEEKER, `REG Meera ${CONTACT} 1234 1234`)).toContain('differ');
   });
 
-  it('STOP deletes the registration, as consent v2 promises', async () => {
+  it('STOP deletes the registration, as consent v4 promises', async () => {
     const rig = await registered();
     expect(await rig.gateway.handle(SEEKER, 'STOP')).toContain('deleted');
     expect(await rig.gateway.handle(SEEKER, 'SOS', TOWER)).toContain('not registered');
@@ -152,12 +152,12 @@ describe('the full feature-phone rescue', () => {
     // The contact's basic phone received a plain-text alert with a link.
     const alert = rig.sms.messages.find((m) => m.to === CONTACT_E164);
     expect(alert).toBeDefined();
-    expect(alert!.text).toContain('SAHAY ALERT');
+    expect(alert!.text).toContain('AEGIRA ALERT');
     expect(alert!.text).toContain('Reply SEND');
 
     // The contact replies SEND; responders get identity-free offers.
     expect(await rig.gateway.handle(CONTACT, 'SEND')).toContain('responders');
-    const offers = rig.sms.messages.filter((m) => m.text.startsWith('SAHAY DISPATCH'));
+    const offers = rig.sms.messages.filter((m) => m.text.startsWith('AEGIRA DISPATCH'));
     expect(offers.length).toBeGreaterThan(0);
 
     // The seeker resolves by text.
@@ -174,7 +174,7 @@ describe('the full feature-phone rescue', () => {
 
   it('unknown commands get the help text', async () => {
     const { gateway } = buildSmsRig();
-    expect(await gateway.handle(SEEKER, 'hello?')).toContain('Sahay commands');
+    expect(await gateway.handle(SEEKER, 'hello?')).toContain('Aegira commands');
   });
 });
 
@@ -186,7 +186,7 @@ describe('SMS wire privacy (negative assertions)', () => {
     await rig.service.evaluateTimers(rig.clock.now());
     await rig.gateway.handle(CONTACT, 'SEND');
 
-    const offers = rig.sms.messages.filter((m) => m.text.startsWith('SAHAY DISPATCH'));
+    const offers = rig.sms.messages.filter((m) => m.text.startsWith('AEGIRA DISPATCH'));
     expect(offers.length).toBeGreaterThan(0);
     for (const offer of offers) {
       expect(offer.text).toMatch(/helpseeker-[0-9a-f]{8}/);

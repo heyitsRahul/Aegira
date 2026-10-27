@@ -1,4 +1,4 @@
-# Sahay — Civic Safety Architecture Blueprint
+# Aegira — Civic Safety Architecture Blueprint
 
 Design rationale for the privacy-first emergency coordination platform. CLAUDE.md
 holds the condensed invariants; this document explains why they exist and how the

@@ -49,13 +49,14 @@ export function page(title: string, body: string, refreshSeconds?: number): stri
     '<!DOCTYPE html><html><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     refresh +
-    `<title>${esc(title)} - Sahay</title>` +
+    `<title>${esc(title)} - Aegira</title>` +
     '<style>body{font-family:sans-serif;max-width:30em;margin:0 auto;padding:12px;background:#fff;color:#111}' +
     'input,select,button{font-size:1em;padding:6px;margin:4px 0;width:95%}' +
     'button{background:#c4302b;color:#fff;border:0;padding:10px}' +
     '.box{border:1px solid #999;padding:8px;margin:10px 0}' +
     'small{color:#555}</style></head><body>' +
-    `<p><b>SAHAY</b> | <a href="/lite">home</a></p><h3>${esc(title)}</h3>` +
+    '<p style="background:#f5a623;padding:6px"><b>DEMO ONLY</b> - not a real emergency service. In danger? Call <a href="tel:112">112</a>.</p>' +
+    `<p><b>AEGIRA</b> | <a href="/lite">home</a></p><h3>${esc(title)}</h3>` +
     body +
     '</body></html>'
   );
@@ -108,7 +109,7 @@ export function homePage(): string {
       '<input name="pinDuress" placeholder="duress PIN" inputmode="numeric">' +
       '<button type="submit">REGISTER</button>' +
       '<small>Works anywhere: pick your country, or type a full +country number. ' +
-      'Over SMS too: text REG to the Sahay number.</small>' +
+      'Over SMS too: text REG to the Aegira number.</small>' +
       '</form></div>' +
       helplineBlock(),
   );

@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
-<title>Sahay</title>
+<title>Aegira</title>
 <script>
 // Older browsers (Opera Mini, KaiOS, old stock Android) lack what this
 // app needs; hand them the zero-JS version instead of a blank screen.
@@ -150,12 +150,14 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
     body { background:#e9ecf1; }
     .help { background:#fff5f5; } .code, .count { color:#11151c; }
   }
+.demo-banner{display:block;width:100%;flex:none;background:#f5a623;color:#111;text-align:center;font:600 13px/1.4 -apple-system,"Segoe UI",sans-serif;padding:8px 12px;text-decoration:none}
 </style>
 </head>
 <body>
 <div id="frame">
+<a class="demo-banner" href="tel:112">Demo only &mdash; not a real emergency service. In danger? Call 112. <span lang="hi">डेमो &mdash; असली आपातकालीन सेवा नहीं। खतरे में हों तो 112 पर कॉल करें।</span></a>
   <header>
-    <div class="logo">sah<span>ay</span></div>
+    <div class="logo">aeg<span>ira</span></div>
     <div class="role-tag" id="role-tag"></div>
     <div class="topctl" id="topctl"></div>
   </header>
@@ -166,10 +168,12 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
 <script>
 /* ----------------------------- utilities ----------------------------- */
 const $m = document.getElementById('main');
+// Carry saved settings over from the pre-rename key prefix (one time).
+try { Object.keys(localStorage).forEach((k) => { if (k.indexOf('sahay.') !== 0) return; const n = 'aegira.' + k.slice(6); if (localStorage.getItem(n) === null) localStorage.setItem(n, localStorage.getItem(k)); localStorage.removeItem(k); }); } catch (e) {}
 const store = {
-  get: (k, d) => { try { const v = localStorage.getItem('sahay.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set: (k, v) => localStorage.setItem('sahay.' + k, JSON.stringify(v)),
-  del: (k) => localStorage.removeItem('sahay.' + k),
+  get: (k, d) => { try { const v = localStorage.getItem('aegira.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set: (k, v) => localStorage.setItem('aegira.' + k, JSON.stringify(v)),
+  del: (k) => localStorage.removeItem('aegira.' + k),
 };
 function toast(msg) {
   const t = document.getElementById('toast');
@@ -419,7 +423,7 @@ function render() {
 function renderLanguagePicker() {
   document.getElementById('role-tag').textContent = '';
   $m.innerHTML = `
-    <h1 style="text-align:center;margin-top:20px">सहाय · Sahay</h1>
+    <h1 style="text-align:center;margin-top:20px">Aegira</h1>
     <p class="lead center">${esc(STR.hi.pick_language)} · ${esc(STR.en.pick_language)}</p>
     <div class="lang-pick">${LANGS.map((l) =>
       `<button onclick="setLang('${l.code}')">${esc(l.name)}</button>`).join('')}</div>

@@ -54,7 +54,7 @@ echo
 open "$URL/admin" >/dev/null 2>&1 &      # opens your dashboard automatically
 
 NODE_ENV=production PORT=3000 \
-  Aegira_DB="$PWD/var/Aegira.db" \
-  Aegira_BASE_URL="$URL" \
-  Aegira_ADMIN_TOKEN="$ADMIN" \
+  AEGIRA_DB="$PWD/var/aegira.db" \
+  AEGIRA_BASE_URL="$URL" \
+  AEGIRA_ADMIN_TOKEN="$ADMIN" \
   node dist/api/main.js

@@ -1,105 +1,131 @@
-# Sahay — privacy-first emergency coordination
+# Aegira — privacy-first emergency coordination
 
-**Help, on any phone, without becoming a surveillance system.** Sahay turns a
-trigger into a consented, time-boxed, cryptographically mortal *session*: the
-power to see someone's location or summon a stranger exists only inside that
-session, and is destroyed when it ends.
+[![ci](https://github.com/heyitsRahul/Aegira/actions/workflows/ci.yml/badge.svg)](https://github.com/heyitsRahul/Aegira/actions/workflows/ci.yml)
 
-> Status: working prototype. The domain, lifecycle, crypto-shredding, auth, and
-> three access channels are real and tested (282 tests). The SMS provider, KMS,
-> and responder network are pluggable stubs — see [What's real vs. stub](#whats-real-vs-stub).
+**Help on any phone, without becoming a surveillance system.**
 
-## Why it's different
+Aegira turns an SOS into a consented, time-boxed, *cryptographically mortal*
+session. The power to see someone's location or summon a stranger exists only
+inside that session, and is destroyed when it ends. It works as a smartphone
+app, as a no-JavaScript web page for old browsers, and over plain SMS for
+phones with no internet at all.
 
-- **Session-shaped capability.** No location ever exists outside a session — not
-  in a table, cache, log, or analytics event. ([invariants](CLAUDE.md))
-- **Crypto-mortal data.** Deletion = destroying the per-session key
-  (crypto-shredding). What the platform can't decrypt, it can't leak or be
-  subpoenaed for.
-- **Duress by design.** A duress PIN returns a response *indistinguishable* from
-  success while silently escalating — for cancel and for journey check-in.
-- **Works on every phone.** Smartphone app (PWA), a zero-JavaScript web version
-  for old browsers, and a full **SMS gateway** for phones with no browser at all.
-- **No vigilante feed, no trust scores, deterministic dispatch.** Coordination,
-  not surveillance.
+**Live demo:** _coming soon_ · **Design doc:** [civic-safety-architecture.md](docs/civic-safety-architecture.md) · **Pitch:** [pitch.md](docs/pitch.md)
 
-## Three ways to use it
+> ⚠️ **This is a working prototype, not an emergency service.** No real
+> responders are connected and no real SMS is sent. In danger, call your local
+> emergency number (112 in India and the EU).
 
-| Channel | For | Route |
-|---|---|---|
-| App (PWA) | smartphones | `/app` |
-| Lite web (no JS) | old/low-end browsers | `/lite` |
-| SMS | any phone, no internet | `POST /gateway/sms` (sim at `/phone`) |
+<p>
+  <img src="docs/screenshots/app-home.jpg" width="200" alt="Role picker: I need help, I watch over someone, I'm a verified helper">
+  <img src="docs/screenshots/app-sos.jpg" width="200" alt="SOS screen with category chips and local helplines">
+  <img src="docs/screenshots/app-countdown.jpg" width="200" alt="30-second countdown with PIN cancel">
+  <img src="docs/screenshots/phone-sms.jpg" width="200" alt="Basic-phone SMS simulator">
+</p>
 
-Plus a marketing landing at `/` with a waitlist, an ops console at `/console`
-(server-truth view: duress mask vs. reality), and a founder dashboard at `/admin`
-(waitlist + aggregate metrics, token-gated).
+---
 
-## Quickstart
+## Try it in two minutes
 
-```bash
-cd core
-npm install
-npm test            # 282 tests
-npm run build && npm start    # http://localhost:3000
-```
+Open the live demo (or run it locally, below), then:
 
-Node 22+ required (uses the built-in `node:sqlite`). Dev PINs: safe `1234`,
-duress `9999`.
+1. **Call for help** — open `/app`, pick a language (English or हिंदी), choose
+   *I need help*, and press **SOS**. A 30-second countdown starts; enter PIN
+   `1234` to cancel it, or let it run.
+2. **See the duress PIN lie** — trigger SOS again and "cancel" with PIN `9999`.
+   The screen says *cancelled*. Now open `/console`: the server truth shows the
+   session is still live and your contacts were told it's a duress alert.
+3. **Use it with no smartphone** — open `/phone`, a basic-phone simulator.
+   Text `REG Asha 9876543210 1234 9999`, then `SOS`. Switch the number to
+   `9876543210` to see the alert your trusted contact receives.
+4. **Try the journey watch** — in the app, choose *Watch my journey*. If you
+   don't check in before the timer ends, your contacts are alerted.
+5. **Old browser?** `/lite` is the same flow with zero JavaScript.
 
-## Deploy a live instance
+## What makes it different
 
-```bash
-# Docker (build context = repo root)
-docker build -t sahay . && docker run -p 3000:3000 sahay
-
-# Fly.io
-fly launch --copy-config --now    # uses fly.toml
-```
-
-Set these to go from demo to real:
-
-| Env var | Effect |
+| Principle | How it's enforced |
 |---|---|
-| `SAHAY_DB` | SQLite path (default `core/var/sahay.db`; `:memory:` for ephemeral) |
-| `SAHAY_BASE_URL` | base for contact live-links in alerts |
-| `SAHAY_GATEWAY_SECRET` | shared secret for the JSON SMS webhook |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | real outbound SMS; Twilio inbound webhook at `/gateway/twilio` |
-| `SAHAY_ADMIN_TOKEN` | unlocks the `/admin` founder dashboard |
+| **No location outside a session** | No table, cache, log or analytics event holds a location without a session id. Tests scan for it. |
+| **Deletion you can trust** | Each session has its own AES-256-GCM key. Purging destroys the key (crypto-shredding), so the data is unreadable even in backups. |
+| **Duress by design** | A duress PIN returns a response byte-for-byte identical to a real cancel or check-in, while silently escalating. |
+| **No cancel after activation** | Once help is in motion there is no "cancel" button an attacker can force you to press. |
+| **Responders never see identity** | Before accepting, responders see an alias and a ~1 km area only. Privacy-negative tests assert names, numbers and exact coordinates never appear. |
+| **No vigilante feed, no trust scores** | No API lists nearby incidents. Misbehaviour creates reviewable strikes, never a hidden score. Matching is deterministic, no ML. |
+| **Works for everyone** | PWA, zero-JS web, SMS gateway; E.164 phone handling and helplines for every country; Hindi + English UI with icon-first screens and spoken prompts. |
 
-With no Twilio env set, SMS falls back to the in-memory stub (the `/phone`
-simulator) so the demo still works.
+These are written down as [11 non-negotiable invariants](CLAUDE.md) and
+enforced by the test suite in CI.
 
-Full step-by-step: [docs/deploy.md](docs/deploy.md). Video scripts for the YC
-application: [docs/demo-script.md](docs/demo-script.md).
+## Engineering highlights
+
+- **Exhaustive state machine.** 9 session states, 14 event types. Every legal
+  transition is asserted and every illegal pair is proven to throw.
+- **Hash-chained event log.** Sessions are rebuilt from an append-only,
+  hash-chained log; tampering fails verification on reload.
+- **Deterministic time.** Countdowns, escalation, auto-close and purge all run
+  off an injected clock, so every timer is tested without sleeping.
+- **Capability tokens, not accounts.** Help-seeker, contact and responder each
+  get a scoped token, stored hashed and compared in constant time.
+- **Production lock-down.** In production, secrets have no dev fallbacks, the
+  ops console and simulators can be switched off, and a public demo can never
+  send real SMS.
+- **310 tests**, typecheck and build in GitHub Actions on every push.
+
+**Stack:** TypeScript (strict), NestJS, Node 22 built-in SQLite, Vitest,
+vanilla JS PWA, Twilio adapter, Docker, Render / Fly.io.
 
 ## Architecture
 
 ```
-core/src/domain/      pure TS: state machine, hash-chained session log, phone/geo/reference
-core/src/crypto/      per-session AES-256-GCM envelope encryption + crypto-shred
-core/src/services/    orchestration, deterministic matching, notification, SMS, registration, metrics
-core/src/persistence/ SessionRepository port + SQLite adapter (Postgres-shaped)
-core/src/api/         thin NestJS controllers (app, lite, gateway, reference, waitlist, metrics)
-core/public/          landing, app, lite assets, feature-phone simulator, ops console
-core/test/            vitest — exhaustive state machine + privacy-negative + hygiene tests
+core/src/domain/       pure TS, zero framework imports: state machine, session aggregate, phone/geo
+core/src/crypto/       per-session envelope encryption + crypto-shred (KMS-shaped interface)
+core/src/services/     orchestration, deterministic matching, notifications, SMS gateway, metrics
+core/src/persistence/  repository port + SQLite adapter (Postgres-shaped)
+core/src/api/          thin NestJS controllers, runtime config
+core/public/           landing, PWA, feature-phone simulator, ops console, founder dashboard
+core/test/             Vitest: state machine, privacy-negative, hygiene, clock-driven timers
 ```
 
-Full design rationale and threat model: [docs/civic-safety-architecture.md](docs/civic-safety-architecture.md).
-The pitch: [docs/pitch.md](docs/pitch.md).
+## Run it locally
 
-## What's real vs. stub
+```bash
+cd core
+npm install
+npm test                      # 310 tests
+npm run build && npm start    # http://localhost:3000
+```
 
-| Real & tested | Stubbed (pluggable interface ready) |
+Requires Node 22+. Demo PINs: safe `1234`, duress `9999`.
+
+## Deploy
+
+- **Free public demo:** [render.yaml](render.yaml) — on render.com choose
+  *New → Blueprint* and pick this repo. See [docs/publish.md](docs/publish.md).
+- **Durable deployment:** [fly.toml](fly.toml) with a persistent volume. See
+  [docs/deploy.md](docs/deploy.md).
+
+| Env var | Effect |
 |---|---|
-| Session lifecycle + exhaustive state machine | SMS delivery (`StubSmsTransport` / Twilio adapter ready) |
-| Per-session crypto-shredding | KMS (`InMemoryKeyVault`; same `KeyVault` interface) |
-| Capability-token auth (3 roles) | Responder network (seeded roster) |
-| Duress (cancel + journey check-in) | Push notifications |
-| Journey watch / timed check-in | Production Postgres (SQLite adapter today) |
-| E.164 phone, country/helpline data | Official-services (112) integration |
-| Restart-safe persistence, chain-verified | — |
+| `AEGIRA_DEMO` | `off` hides the ops console, simulators and dev endpoints (default on) |
+| `AEGIRA_ADMIN_TOKEN` | password for `/admin`; in production, unset = dashboard locked |
+| `AEGIRA_GATEWAY_SECRET` | secret for the JSON SMS webhook; in production, unset = closed |
+| `AEGIRA_BASE_URL` | base URL for contact links (auto-detected on Render) |
+| `AEGIRA_DB` | SQLite path (`:memory:` for throwaway) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | real SMS (ignored in demo mode) |
+
+## What's real and what's a stand-in
+
+| Real and tested | Stand-in (interface ready to swap) |
+|---|---|
+| Session lifecycle and state machine | Responder network (two seeded demo responders) |
+| Per-session crypto-shredding | KMS (`KeyVault` backed by SQLite) |
+| Capability-token auth for 3 roles | SMS delivery (stub; Twilio adapter built) |
+| Duress for cancel and journey check-in | Push notifications |
+| Journey watch with timed check-in | Postgres (SQLite adapter today) |
+| Phone numbers and helplines for every country | Official 112 integration |
+| Restart-safe, chain-verified persistence | — |
 
 ## License
 
-Not yet licensed — all rights reserved pending a decision. (See [docs/yc-application.md](docs/yc-application.md).)
+All rights reserved. The code is public for review; please ask before reuse.

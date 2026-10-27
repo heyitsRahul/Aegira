@@ -44,23 +44,23 @@ const CATEGORY_BY_LETTER: Readonly<Record<string, SessionCategory>> = {
 };
 
 const HELP_TEXT =
-  'Sahay commands: REG name contact-phone safe-pin duress-pin | SOS | ' +
+  'Aegira commands: REG name contact-phone safe-pin duress-pin | SOS | ' +
   'WATCH minutes | EXTEND minutes | CANCEL pin | STATUS | SAFE pin | ' +
   'SEND (contacts) | STOP';
 
-const CANCELLED_REPLY = 'Sahay: session cancelled. Nobody was notified.';
-const CHECKED_IN_REPLY = 'Sahay: checked in safe. Take care.';
-const RESOLVED_REPLY = 'Sahay: marked safe. Session resolved. Take care.';
-const WRONG_PIN_REPLY = 'Sahay: wrong PIN.';
-const NO_SESSION_REPLY = 'Sahay: no active session.';
+const CANCELLED_REPLY = 'Aegira: session cancelled. Nobody was notified.';
+const CHECKED_IN_REPLY = 'Aegira: checked in safe. Take care.';
+const RESOLVED_REPLY = 'Aegira: marked safe. Session resolved. Take care.';
+const WRONG_PIN_REPLY = 'Aegira: wrong PIN.';
+const NO_SESSION_REPLY = 'Aegira: no active session.';
 
 const STATUS_TEXT: Readonly<Record<SessionState, string>> = {
-  WATCHING: 'Sahay: journey watch active. Text SAFE <pin> when you arrive, or EXTEND <min>.',
-  PENDING: 'Sahay: SOS received, activating shortly. Text CANCEL <pin> to stop it.',
-  ACTIVE: 'Sahay: your circle is alerted. Help is in motion.',
-  DISPATCHED: 'Sahay: a verified responder is on the way.',
-  ARRIVED: 'Sahay: your responder is with you.',
-  RESOLVED: 'Sahay: session resolved. Stay safe.',
+  WATCHING: 'Aegira: journey watch active. Text SAFE <pin> when you arrive, or EXTEND <min>.',
+  PENDING: 'Aegira: SOS received, activating shortly. Text CANCEL <pin> to stop it.',
+  ACTIVE: 'Aegira: your circle is alerted. Help is in motion.',
+  DISPATCHED: 'Aegira: a verified responder is on the way.',
+  ARRIVED: 'Aegira: your responder is with you.',
+  RESOLVED: 'Aegira: session resolved. Stay safe.',
   CANCELLED: NO_SESSION_REPLY,
   CLOSED: NO_SESSION_REPLY,
   PURGED: NO_SESSION_REPLY,
@@ -105,14 +105,14 @@ export class SmsGatewayService {
           return await this.handleSend(from);
         case 'STOP':
           return this.registrations.unregister(from)
-            ? 'Sahay: registration deleted. Text REG to start again.'
+            ? 'Aegira: registration deleted. Text REG to start again.'
             : HELP_TEXT;
         default:
           return HELP_TEXT;
       }
     } catch (error) {
       if (error instanceof InvalidInputError) {
-        return `Sahay: ${error.message}.`;
+        return `Aegira: ${error.message}.`;
       }
       throw error;
     }
@@ -120,7 +120,7 @@ export class SmsGatewayService {
 
   private handleRegister(from: string, args: string[]): string {
     if (args.length < 4) {
-      return 'Sahay: text REG <name> <contact-phone> <safe-pin> <duress-pin>. Use _ for spaces in the name.';
+      return 'Aegira: text REG <name> <contact-phone> <safe-pin> <duress-pin>. Use _ for spaces in the name.';
     }
     const [name, contactPhone, pinSafe, pinDuress] = args;
     const record = this.registrations.register(
@@ -131,7 +131,7 @@ export class SmsGatewayService {
       pinDuress,
     );
     return (
-      `Sahay: registered as ${record.displayName} (consent ${record.consentVersion}). ` +
+      `Aegira: registered as ${record.displayName} (consent ${record.consentVersion}). ` +
       'Text SOS to trigger help. Text STOP to delete this registration.'
     );
   }
@@ -143,10 +143,10 @@ export class SmsGatewayService {
   ): string {
     const registration = this.registrations.find(from);
     if (registration === undefined) {
-      return 'Sahay: not registered. Text REG <name> <contact-phone> <safe-pin> <duress-pin> first.';
+      return 'Aegira: not registered. Text REG <name> <contact-phone> <safe-pin> <duress-pin> first.';
     }
     if (approxLocation === undefined) {
-      return 'Sahay: your network position is unavailable. Try again, or call your trusted contact.';
+      return 'Aegira: your network position is unavailable. Try again, or call your trusted contact.';
     }
     try {
       const receipt = this.sessions.trigger({
@@ -159,12 +159,12 @@ export class SmsGatewayService {
       });
       const seconds = Math.round(receipt.activationCountdownMs / 1000);
       return (
-        `Sahay: SOS received. Your circle will be alerted in ${seconds}s. ` +
+        `Aegira: SOS received. Your circle will be alerted in ${seconds}s. ` +
         'Text CANCEL <pin> to stop it.'
       );
     } catch (error) {
       if (error instanceof ActiveSessionExistsError) {
-        return 'Sahay: you already have a session running. Text STATUS.';
+        return 'Aegira: you already have a session running. Text STATUS.';
       }
       throw error;
     }
@@ -177,14 +177,14 @@ export class SmsGatewayService {
   ): string {
     const registration = this.registrations.find(from);
     if (registration === undefined) {
-      return 'Sahay: not registered. Text REG <name> <contact-phone> <safe-pin> <duress-pin> first.';
+      return 'Aegira: not registered. Text REG <name> <contact-phone> <safe-pin> <duress-pin> first.';
     }
     if (approxLocation === undefined) {
-      return 'Sahay: your network position is unavailable. Try again when you have signal.';
+      return 'Aegira: your network position is unavailable. Try again when you have signal.';
     }
     const minutes = Number(minutesStr);
     if (!Number.isFinite(minutes) || minutes <= 0) {
-      return 'Sahay: text WATCH <minutes>, e.g. WATCH 20 to be watched for 20 minutes.';
+      return 'Aegira: text WATCH <minutes>, e.g. WATCH 20 to be watched for 20 minutes.';
     }
     try {
       this.sessions.startWatch(
@@ -199,12 +199,12 @@ export class SmsGatewayService {
         Math.round(minutes * 60 * 1000),
       );
       return (
-        `Sahay: watching your journey for ${minutes} min. Text SAFE <pin> when you arrive, ` +
+        `Aegira: watching your journey for ${minutes} min. Text SAFE <pin> when you arrive, ` +
         `or EXTEND <min>. If you don't check in, your circle is alerted.`
       );
     } catch (error) {
       if (error instanceof ActiveSessionExistsError) {
-        return 'Sahay: you already have a session running. Text STATUS.';
+        return 'Aegira: you already have a session running. Text STATUS.';
       }
       throw error;
     }
@@ -221,14 +221,14 @@ export class SmsGatewayService {
     }
     const minutes = Number(minutesStr);
     if (!Number.isFinite(minutes) || minutes <= 0) {
-      return 'Sahay: text EXTEND <minutes>, e.g. EXTEND 10.';
+      return 'Aegira: text EXTEND <minutes>, e.g. EXTEND 10.';
     }
     try {
       this.sessions.extendWatch(sessionId, Math.round(minutes * 60 * 1000));
-      return `Sahay: journey watch extended by ${minutes} min.`;
+      return `Aegira: journey watch extended by ${minutes} min.`;
     } catch (error) {
       if (error instanceof WatchActionNotAllowedError) {
-        return 'Sahay: no journey watch to extend.';
+        return 'Aegira: no journey watch to extend.';
       }
       throw error;
     }
@@ -252,7 +252,7 @@ export class SmsGatewayService {
         return WRONG_PIN_REPLY;
       }
       if (error instanceof CancelNotAllowedError) {
-        return 'Sahay: this session is live and can no longer be cancelled.';
+        return 'Aegira: this session is live and can no longer be cancelled.';
       }
       throw error;
     }
@@ -313,11 +313,11 @@ export class SmsGatewayService {
     const address = normalizePhone(from);
     const sessionIds = this.sessions.dispatchableSessionIdsForContact(address);
     if (sessionIds.length === 0) {
-      return 'Sahay: nothing to dispatch right now.';
+      return 'Aegira: nothing to dispatch right now.';
     }
     for (const sessionId of sessionIds) {
       await this.sessions.dispatch(sessionId, this.roster());
     }
-    return 'Sahay: verified responders have been asked to help.';
+    return 'Aegira: verified responders have been asked to help.';
   }
 }

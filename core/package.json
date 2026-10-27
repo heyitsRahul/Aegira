@@ -1,8 +1,8 @@
 {
-  "name": "sahay-core",
+  "name": "aegira-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Sahay — privacy-first emergency coordination core. All capability is session-shaped.",
+  "description": "Aegira — privacy-first emergency coordination core. All capability is session-shaped.",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

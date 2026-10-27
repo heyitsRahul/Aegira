@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Share Sahay with friends / PMs via a temporary public URL (no account, no card).
+# Share Aegira with friends / PMs via a temporary public URL (no account, no card).
 # Requires: node@22, cloudflared (brew install cloudflared).
 # Usage:  ./scripts/share.sh        (Ctrl-C stops the server and the tunnel)
 set -euo pipefail
@@ -15,7 +15,7 @@ CF_PID=$!
 trap 'kill $CF_PID 2>/dev/null || true' EXIT
 sleep 8
 URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/cf-tunnel.log | head -1)
-ADMIN="${SAHAY_ADMIN_TOKEN:-$(openssl rand -hex 8)}"
+ADMIN="${AEGIRA_ADMIN_TOKEN:-$(openssl rand -hex 8)}"
 
 echo
 echo "================ SHARE THESE ================"
@@ -28,7 +28,7 @@ echo "Keep this terminal open. Ctrl-C ends sharing."
 echo
 
 NODE_ENV=production PORT=3000 \
-  SAHAY_DB="$PWD/var/sahay.db" \
-  SAHAY_BASE_URL="$URL" \
-  SAHAY_ADMIN_TOKEN="$ADMIN" \
+  AEGIRA_DB="$PWD/var/aegira.db" \
+  AEGIRA_BASE_URL="$URL" \
+  AEGIRA_ADMIN_TOKEN="$ADMIN" \
   node dist/api/main.js

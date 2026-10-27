@@ -18,8 +18,9 @@ import { CompositeNotifier, SmsNotifier, StubSmsTransport } from '../services/sm
 import { SmsGatewayService } from '../services/sms-gateway.service';
 import { twilioConfigFromEnv, TwilioSmsTransport } from '../services/twilio';
 import { WaitlistService } from '../services/waitlist.service';
-import { DevController, OUTBOX, SMS_TRANSPORT } from './dev.controller';
+import { DEMO_MODE, DevController, OUTBOX, SMS_TRANSPORT } from './dev.controller';
 import {
+  ALLOW_UNSIGNED_TWILIO,
   GATEWAY_SECRET,
   GatewayController,
   PUBLIC_BASE_URL,
@@ -37,6 +38,7 @@ import {
   SESSION_SERVICE,
   SessionController,
 } from './session.controller';
+import { resolveRuntimeConfig } from './runtime-config';
 import { SystemClock } from './system-clock';
 
 /**
@@ -45,10 +47,12 @@ import { SystemClock } from './system-clock';
  * env vars are set, real outbound SMS is added on top of the stub (which the
  * /phone simulator reads). Fallback PINs: safe=1234, duress=9999.
  *
- * Env: SAHAY_DB, SAHAY_BASE_URL, SAHAY_GATEWAY_SECRET, TWILIO_ACCOUNT_SID,
+ * Env (see runtime-config.ts): AEGIRA_DB, AEGIRA_BASE_URL, AEGIRA_DEMO,
+ * AEGIRA_GATEWAY_SECRET, AEGIRA_ADMIN_TOKEN, TWILIO_ACCOUNT_SID,
  * TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER.
  */
-const PUBLIC_URL = process.env.SAHAY_BASE_URL ?? 'http://localhost:3000';
+const RUNTIME = resolveRuntimeConfig(process.env);
+const PUBLIC_URL = RUNTIME.baseUrl;
 
 const DEV_CONFIG: SessionServiceConfig = {
   activationCountdownMs: 30_000,
@@ -65,9 +69,6 @@ const DEV_CONFIG: SessionServiceConfig = {
   publicBaseUrl: PUBLIC_URL,
 };
 
-const GATEWAY_SECRET_VALUE = process.env.SAHAY_GATEWAY_SECRET ?? 'dev-gateway-secret';
-const ADMIN_TOKEN_VALUE = process.env.SAHAY_ADMIN_TOKEN ?? 'dev-admin-token';
-
 function buildResponderRegistry(): ResponderRegistry {
   const registry = new ResponderRegistry();
   registry.enroll(
@@ -82,7 +83,7 @@ function buildResponderRegistry(): ResponderRegistry {
 }
 
 function buildWiring() {
-  const dbPath = process.env.SAHAY_DB ?? join(__dirname, '..', '..', 'var', 'sahay.db');
+  const dbPath = RUNTIME.dbPath ?? join(__dirname, '..', '..', 'var', 'aegira.db');
   if (dbPath !== ':memory:') {
     mkdirSync(dirname(dbPath), { recursive: true });
   }
@@ -93,10 +94,11 @@ function buildWiring() {
   const smsStub = new StubSmsTransport();
 
   // The stub SMS always runs (so the /phone simulator works). Real Twilio
-  // delivery is added on top when configured.
+  // delivery is added on top when configured — never in demo mode, where
+  // anyone can type any contact number into the public app.
   const channels: Notifier[] = [appOutbox, new SmsNotifier(smsStub)];
   const twilioConfig = twilioConfigFromEnv(process.env);
-  if (twilioConfig !== null) {
+  if (twilioConfig !== null && !RUNTIME.demoMode) {
     channels.push(new SmsNotifier(new TwilioSmsTransport(twilioConfig)));
   }
   const notifier = new CompositeNotifier(...channels);
@@ -147,12 +149,14 @@ const wiring = buildWiring();
     { provide: SESSION_SERVICE, useValue: wiring.sessions },
     { provide: REGISTRATIONS, useValue: wiring.registrations },
     { provide: SMS_GATEWAY, useValue: wiring.gateway },
-    { provide: GATEWAY_SECRET, useValue: GATEWAY_SECRET_VALUE },
+    { provide: GATEWAY_SECRET, useValue: RUNTIME.gatewaySecret },
+    { provide: ALLOW_UNSIGNED_TWILIO, useValue: !RUNTIME.production },
+    { provide: DEMO_MODE, useValue: RUNTIME.demoMode },
     { provide: TWILIO_AUTH_TOKEN, useValue: wiring.twilioAuthToken },
     { provide: PUBLIC_BASE_URL, useValue: PUBLIC_URL },
     { provide: WAITLIST, useValue: wiring.waitlist },
     { provide: METRICS, useValue: wiring.metrics },
-    { provide: ADMIN_TOKEN, useValue: ADMIN_TOKEN_VALUE },
+    { provide: ADMIN_TOKEN, useValue: RUNTIME.adminToken },
   ],
 })
 export class AppModule {}

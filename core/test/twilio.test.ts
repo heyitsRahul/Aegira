@@ -22,7 +22,7 @@ describe('twilio config from env', () => {
 
 describe('twilio inbound signature verification', () => {
   const token = 'test-auth-token';
-  const url = 'https://sahay.example/gateway/twilio';
+  const url = 'https://aegira.example/gateway/twilio';
   const params = { From: '+919876543210', Body: 'SOS', MessageSid: 'SM123' };
 
   it('accepts a correctly signed request', () => {

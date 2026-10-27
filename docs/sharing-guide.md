@@ -1,6 +1,6 @@
-# Sharing Sahay for feedback — a practical guide
+# Sharing Aegira for feedback — a practical guide
 
-How to put Sahay in front of friends and product managers, what *you* (the
+How to put Aegira in front of friends and product managers, what *you* (the
 founder) have to do, and what *they* do once they have the link.
 
 ---
@@ -12,7 +12,7 @@ founder) have to do, and what *they* do once they have the link.
 Open **Terminal**, then:
 
 ```bash
-cd ~/Desktop/Sahey
+cd ~/Desktop/Aegira
 ./scripts/share.sh
 ```
 

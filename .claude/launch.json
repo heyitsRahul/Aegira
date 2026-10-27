@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "sahay-core",
+      "name": "aegira-core",
       "runtimeExecutable": "node",
       "runtimeArgs": ["core/dist/api/main.js"],
       "port": 3000

@@ -10,7 +10,7 @@ them.** Be terse and concrete; YC rewards plain, specific answers.
 ---
 
 ### Company name
-Sahay
+Aegira
 
 ### What is your company going to make? (≤50 chars in the form; longer below)
 Privacy-first emergency help that works on any phone — even over SMS — without

@@ -33,8 +33,8 @@ function bootService(dbPath: string, clock: ManualClock) {
 
 describe('sessions survive a process restart', () => {
   it('rehydrates state, ciphertext, and tokens from disk', async () => {
-    tmp = mkdtempSync(join(tmpdir(), 'sahay-'));
-    const dbPath = join(tmp, 'sahay.db');
+    tmp = mkdtempSync(join(tmpdir(), 'aegira-'));
+    const dbPath = join(tmp, 'aegira.db');
     const clock = new ManualClock(new Date('2026-06-12T10:00:00.000Z'));
 
     const a = bootService(dbPath, clock);
@@ -58,8 +58,8 @@ describe('sessions survive a process restart', () => {
   });
 
   it('timers pick up where they left off after a restart', async () => {
-    tmp = mkdtempSync(join(tmpdir(), 'sahay-'));
-    const dbPath = join(tmp, 'sahay.db');
+    tmp = mkdtempSync(join(tmpdir(), 'aegira-'));
+    const dbPath = join(tmp, 'aegira.db');
     const clock = new ManualClock(new Date('2026-06-12T10:00:00.000Z'));
 
     const a = bootService(dbPath, clock);
@@ -75,8 +75,8 @@ describe('sessions survive a process restart', () => {
   });
 
   it('crypto-shredding survives restarts: purged stays purged', async () => {
-    tmp = mkdtempSync(join(tmpdir(), 'sahay-'));
-    const dbPath = join(tmp, 'sahay.db');
+    tmp = mkdtempSync(join(tmpdir(), 'aegira-'));
+    const dbPath = join(tmp, 'aegira.db');
     const clock = new ManualClock(new Date('2026-06-12T10:00:00.000Z'));
 
     const a = bootService(dbPath, clock);
@@ -98,8 +98,8 @@ describe('sessions survive a process restart', () => {
   });
 
   it('a tampered store refuses to load (hash chain verification)', async () => {
-    tmp = mkdtempSync(join(tmpdir(), 'sahay-'));
-    const dbPath = join(tmp, 'sahay.db');
+    tmp = mkdtempSync(join(tmpdir(), 'aegira-'));
+    const dbPath = join(tmp, 'aegira.db');
     const clock = new ManualClock(new Date('2026-06-12T10:00:00.000Z'));
 
     const a = bootService(dbPath, clock);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sahay — founder dashboard</title>
+<title>Aegira — founder dashboard</title>
 <style>
   :root{--bg:#0b0e14;--panel:#141926;--panel2:#1b2233;--line:#283042;--ink:#eef1f6;--dim:#8b93a3;--red:#e5484d;--green:#46a758;--blue:#4f8ef7;--amber:#f5a623}
   *{box-sizing:border-box;margin:0}
@@ -40,11 +40,11 @@
 </head>
 <body>
 <div class="wrap">
-  <header><div class="logo">sah<span>ay</span></div><div class="tag">· founder dashboard</div></header>
+  <header><div class="logo">aeg<span>ira</span></div><div class="tag">· founder dashboard</div></header>
 
   <div id="gate" class="gate">
     <b>Admin access</b>
-    <p class="muted">Enter the admin token (env <code>SAHAY_ADMIN_TOKEN</code>; dev default <code>dev-admin-token</code>).</p>
+    <p class="muted">Enter the admin token (env <code>AEGIRA_ADMIN_TOKEN</code>; on your own laptop the default is <code>dev-admin-token</code>).</p>
     <input id="token" type="password" placeholder="admin token" onkeydown="if(event.key==='Enter')unlock()">
     <button onclick="unlock()">Unlock</button>
     <div class="err" id="err"></div>
@@ -73,7 +73,7 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-let token = localStorage.getItem('sahay.admin') || '';
+let token = localStorage.getItem('aegira.admin') || '';
 
 const FUNNEL = [
   ['session.triggered', 'Triggered (SOS)'],
@@ -100,7 +100,7 @@ async function unlock() {
   token = $('token').value.trim() || token;
   try {
     const d = await load();
-    localStorage.setItem('sahay.admin', token);
+    localStorage.setItem('aegira.admin', token);
     $('gate').classList.add('hidden');
     $('dash').classList.remove('hidden');
     render(d);

@@ -1,0 +1,24 @@
+# Render Blueprint — a free, always-reachable public demo of Aegira.
+# On render.com: New → Blueprint → pick this GitHub repo → Apply.
+#
+# Free instances sleep after ~15 min idle (first visit then takes ~30-60 s)
+# and have no persistent disk, so demo data resets on each restart. That is
+# fine for a portfolio demo; a real deployment uses fly.toml (durable volume).
+services:
+  - type: web
+    name: aegira
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Public demo: simulators + ops console on, real SMS never sent.
+      - key: AEGIRA_DEMO
+        value: "on"
+      # Founder dashboard password. Render generates it; read it under
+      # Dashboard → aegira → Environment.
+      - key: AEGIRA_ADMIN_TOKEN
+        generateValue: true

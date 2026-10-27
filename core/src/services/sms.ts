@@ -34,7 +34,7 @@ export function renderContactAlertSms(payload: ContactAlertPayload): string {
   const category = payload.category.replace(/_/g, ' ');
   if (payload.duress) {
     return (
-      `SAHAY DURESS ALERT: ${payload.helpseekerDisplayName} needs help (${category}). ` +
+      `AEGIRA DURESS ALERT: ${payload.helpseekerDisplayName} needs help (${category}). ` +
       `Their phone shows "cancelled" - the cancel was coerced. DO NOT call them. ` +
       `Live view: ${payload.liveSessionLink} ` +
       `Reply SEND to dispatch a verified responder.`
@@ -42,20 +42,20 @@ export function renderContactAlertSms(payload: ContactAlertPayload): string {
   }
   if (payload.watchExpired) {
     return (
-      `SAHAY: ${payload.helpseekerDisplayName} did not check in from their journey (${category}) ` +
+      `AEGIRA: ${payload.helpseekerDisplayName} did not check in from their journey (${category}) ` +
       `and may need help. Live view: ${payload.liveSessionLink} ` +
       `Reply SEND to dispatch a verified responder.`
     );
   }
   if (payload.escalation) {
     return (
-      `SAHAY ESCALATION: ${payload.helpseekerDisplayName} still has no responder (${category}). ` +
+      `AEGIRA ESCALATION: ${payload.helpseekerDisplayName} still has no responder (${category}). ` +
       `Live view: ${payload.liveSessionLink} ` +
       `Reply SEND to dispatch a verified responder.`
     );
   }
   return (
-    `SAHAY ALERT: ${payload.helpseekerDisplayName} needs help (${category}). ` +
+    `AEGIRA ALERT: ${payload.helpseekerDisplayName} needs help (${category}). ` +
     `Live view: ${payload.liveSessionLink} ` +
     `Reply SEND to dispatch a verified responder.`
   );
@@ -64,7 +64,7 @@ export function renderContactAlertSms(payload: ContactAlertPayload): string {
 export function renderResponderOfferSms(payload: ResponderOfferPayload): string {
   const category = payload.category.replace(/_/g, ' ');
   return (
-    `SAHAY DISPATCH: ${payload.alias} needs help (${category}) in area ` +
+    `AEGIRA DISPATCH: ${payload.alias} needs help (${category}) in area ` +
     `${payload.coarseCell} (~1 km). Open the responder app to accept.`
   );
 }

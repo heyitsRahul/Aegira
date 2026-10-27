@@ -1,4 +1,4 @@
-# Sahay — one-page pitch
+# Aegira — one-page pitch
 
 ## Problem
 
@@ -12,7 +12,7 @@ carry.
 
 ## Solution
 
-Sahay makes every dangerous capability **session-shaped**: the power to see a
+Aegira makes every dangerous capability **session-shaped**: the power to see a
 location or summon a responder exists only inside a consented, time-boxed
 session, and is cryptographically destroyed when the session ends. No location
 exists outside a session — anywhere. A duress PIN lies convincingly under
@@ -59,7 +59,7 @@ revenue.)
 
 A working, security-credible product across three channels, with an exhaustively
 tested lifecycle, per-session crypto-shredding, duress handling, and a journey
-watch — 282 tests, deployable today. Most safety startups spend a year getting
+watch — 310 tests, deployable today. Most safety startups spend a year getting
 here.
 
 ## Competition

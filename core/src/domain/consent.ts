@@ -24,11 +24,25 @@ export const CONSENT_RECORD: Readonly<Record<string, string>> = Object.freeze({
     'address (and optional country) to contact you about early access. No ' +
     'location and no emergency-session data are involved. You can ask us to ' +
     'delete it at any time.',
+  // v4/v5: same scope as v2/v3, re-issued under the product's new name
+  // (Sahay → Aegira). Wording otherwise unchanged; no scope expansion.
+  v4:
+    'By registering for Aegira over SMS you consent to: (1) Aegira storing ' +
+    'your name, your trusted contact numbers, and hashed PINs until you ' +
+    'text STOP; (2) emergency sessions being triggered by texting SOS, ' +
+    'using your approximate network location at that moment only; (3) the ' +
+    'session terms of consent v1 applying to every session you trigger. ' +
+    'No location is stored with your registration.',
+  v5:
+    'By joining the Aegira waitlist you consent to Aegira storing your email ' +
+    'address (and optional country) to contact you about early access. No ' +
+    'location and no emergency-session data are involved. You can ask us to ' +
+    'delete it at any time.',
 });
 
 export const CURRENT_CONSENT_VERSION = 'v1';
-export const SMS_REGISTRATION_CONSENT_VERSION = 'v2';
-export const WAITLIST_CONSENT_VERSION = 'v3';
+export const SMS_REGISTRATION_CONSENT_VERSION = 'v4';
+export const WAITLIST_CONSENT_VERSION = 'v5';
 
 export function consentText(version: string): string {
   const text = CONSENT_RECORD[version];

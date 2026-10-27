@@ -1,5 +1,5 @@
 # Fly.io deploy config. `fly launch --copy-config --now` to ship.
-app = "sahay"
+app = "aegira"
 primary_region = "bom"  # Mumbai — close to the first users
 
 [build]
@@ -7,11 +7,11 @@ primary_region = "bom"  # Mumbai — close to the first users
 
 [env]
   PORT = "3000"
-  SAHAY_DB = "/data/sahay.db"
-  SAHAY_BASE_URL = "https://sahay.fly.dev"
+  AEGIRA_DB = "/data/aegira.db"
+  AEGIRA_BASE_URL = "https://aegira.fly.dev"
 
 # Set secrets out of band (never commit them):
-#   fly secrets set SAHAY_GATEWAY_SECRET=... \
+#   fly secrets set AEGIRA_GATEWAY_SECRET=... \
 #     TWILIO_ACCOUNT_SID=... TWILIO_AUTH_TOKEN=... TWILIO_FROM_NUMBER=...
 
 [http_service]
@@ -23,7 +23,7 @@ primary_region = "bom"  # Mumbai — close to the first users
 
 # Durable volume so sessions + the key vault survive restarts.
 [[mounts]]
-  source = "sahay_data"
+  source = "aegira_data"
   destination = "/data"
 
 [[vm]]

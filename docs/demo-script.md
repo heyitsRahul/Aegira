@@ -14,7 +14,7 @@ reveal.
 
 | Time | Screen | Say |
 |---|---|---|
-| 0:00–0:10 | Landing `/` | "Sahay is emergency help that works on any phone without surveillance. Your location never exists outside a live session." |
+| 0:00–0:10 | Landing `/` | "Aegira is emergency help that works on any phone without surveillance. Your location never exists outside a live session." |
 | 0:10–0:25 | L: app home → tap **SOS** → countdown | "I trigger an SOS. There's a 30-second cancel window for accidents." |
 | 0:25–0:40 | R: contact gets the alert + live map | "My trusted contact is alerted with a live link — but notice the responder side never sees my name or exact spot, just an alias and a ~1 km area." |
 | 0:40–0:55 | R: **Dispatch** → responder accepts → L: arrival code | "A nearby verified responder accepts. Arrival is confirmed by a code I show them in person — so no stranger can fake reaching me." |
@@ -39,7 +39,7 @@ YC's own guidance: just answer, plainly. Hit these beats:
 2. **The problem, from the user** (15s) — the specific person (a woman commuting
    late, a gig worker, a student) and why existing apps fail them: they trade
    safety for surveillance and don't work on basic phones.
-3. **What Sahay does** (15s) — one sentence + the one insight: *for the people
+3. **What Aegira does** (15s) — one sentence + the one insight: *for the people
    who need safety tools most, the surveillance is itself the threat,* so we made
    privacy architectural and reach every phone.
 4. **Traction / what's next** (15s) — what's built, and your beachhead: "we're

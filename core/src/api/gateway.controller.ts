@@ -3,11 +3,13 @@ import type { Request } from 'express';
 import { NotAuthenticatedError } from '../domain/errors';
 import { SmsGatewayService } from '../services/sms-gateway.service';
 import { twimlMessage, verifyTwilioSignature } from '../services/twilio';
+import { tokenMatches } from './runtime-config';
 
 export const SMS_GATEWAY = 'SMS_GATEWAY';
 export const GATEWAY_SECRET = 'GATEWAY_SECRET';
 export const TWILIO_AUTH_TOKEN = 'TWILIO_AUTH_TOKEN';
 export const PUBLIC_BASE_URL = 'PUBLIC_BASE_URL';
+export const ALLOW_UNSIGNED_TWILIO = 'ALLOW_UNSIGNED_TWILIO';
 
 /**
  * Inbound webhooks for the SMS provider. Two shapes:
@@ -26,9 +28,10 @@ export const PUBLIC_BASE_URL = 'PUBLIC_BASE_URL';
 export class GatewayController {
   constructor(
     @Inject(SMS_GATEWAY) private readonly gateway: SmsGatewayService,
-    @Inject(GATEWAY_SECRET) private readonly secret: string,
+    @Inject(GATEWAY_SECRET) private readonly secret: string | null,
     @Inject(TWILIO_AUTH_TOKEN) private readonly twilioAuthToken: string | null,
     @Inject(PUBLIC_BASE_URL) private readonly baseUrl: string,
+    @Inject(ALLOW_UNSIGNED_TWILIO) private readonly allowUnsignedTwilio: boolean,
   ) {}
 
   @Post('sms')
@@ -36,7 +39,8 @@ export class GatewayController {
     @Body() body: { from: string; text: string; approxLat?: number; approxLng?: number },
     @Headers('x-gateway-secret') secret?: string,
   ) {
-    if (secret !== this.secret) {
+    // No secret configured (the production default) = webhook closed.
+    if (!tokenMatches(secret, this.secret)) {
       throw new NotAuthenticatedError();
     }
     const approxLocation =
@@ -53,9 +57,13 @@ export class GatewayController {
     @Req() req: Request,
     @Headers('x-twilio-signature') signature?: string,
   ): Promise<string> {
-    // Verify the request really came from Twilio. If no auth token is
-    // configured (local dev), accept — production must set TWILIO_AUTH_TOKEN.
-    if (this.twilioAuthToken !== null) {
+    // Verify the request really came from Twilio. With no auth token
+    // configured, unsigned requests are accepted in local dev only.
+    if (this.twilioAuthToken === null) {
+      if (!this.allowUnsignedTwilio) {
+        throw new NotAuthenticatedError();
+      }
+    } else {
       const url = `${this.baseUrl}${req.originalUrl}`;
       if (!verifyTwilioSignature(this.twilioAuthToken, url, body, signature)) {
         throw new NotAuthenticatedError();

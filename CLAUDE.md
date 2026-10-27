@@ -1,4 +1,4 @@
-# CLAUDE.md — Sahay (Privacy-First Emergency Coordination)
+# CLAUDE.md — Aegira (Privacy-First Emergency Coordination)
 
 This file is read by Claude Code at the start of every session. It encodes the project's non-negotiable invariants, conventions, and commands. The full design rationale lives in `docs/civic-safety-architecture.md` — read the relevant section before implementing anything in that area.
 

@@ -17,7 +17,7 @@ From the repo root:
 
 ```bash
 fly launch --copy-config --now
-# - app name: sahay (or pick your own; update fly.toml's `app` and SAHAY_BASE_URL)
+# - app name: aegira (or pick your own; update fly.toml's `app` and AEGIRA_BASE_URL)
 # - region: bom (Mumbai) is preset
 # - it will detect the Dockerfile, create the volume, build, and deploy
 ```
@@ -25,36 +25,41 @@ fly launch --copy-config --now
 If `fly launch` asks to create the volume manually:
 
 ```bash
-fly volumes create sahay_data --region bom --size 1
+fly volumes create aegira_data --region bom --size 1
 ```
 
-When it finishes you get `https://sahay.fly.dev` (or your app name). That's the
+When it finishes you get `https://aegira.fly.dev` (or your app name). That's the
 URL for the YC form. Visit it — you should see the landing page.
 
 ## 3. Secrets (never commit these)
 
 ```bash
 fly secrets set \
-  SAHAY_ADMIN_TOKEN="$(openssl rand -hex 16)" \
-  SAHAY_GATEWAY_SECRET="$(openssl rand -hex 16)"
+  AEGIRA_ADMIN_TOKEN="$(openssl rand -hex 16)" \
+  AEGIRA_GATEWAY_SECRET="$(openssl rand -hex 16)"
 ```
 
-Save the admin token — it's how you open `/admin`.
+Save the admin token — it's how you open `/admin`. In production there are
+no dev fallbacks: without these secrets the dashboard is locked and the JSON
+SMS webhook is closed.
 
 ## 4. Real SMS (optional but makes the demo work on a real phone)
 
 1. Buy a number in the Twilio console (a trial number works for demos).
-2. Set the credentials:
+2. Set the credentials, and switch demo mode off. In demo mode real SMS is
+   never sent (anyone could type any number into a public demo), and the ops
+   console that reveals duress is public:
 
 ```bash
 fly secrets set \
+  AEGIRA_DEMO=off \
   TWILIO_ACCOUNT_SID=ACxxxx…  \
   TWILIO_AUTH_TOKEN=xxxxx      \
   TWILIO_FROM_NUMBER=+1xxxxxxxxxx
 ```
 
 3. In Twilio: Phone Numbers → your number → **Messaging → "A message comes in"**
-   → Webhook → `https://sahay.fly.dev/gateway/twilio` (HTTP POST).
+   → Webhook → `https://aegira.fly.dev/gateway/twilio` (HTTP POST).
 
 Now texting `REG …` / `SOS` / `WATCH 20` / `SAFE 1234` to that number works on
 any phone. (Signature verification is automatic once `TWILIO_AUTH_TOKEN` is set.)
@@ -67,22 +72,22 @@ any phone. (Signature verification is automatic once `TWILIO_AUTH_TOKEN` is set.
 ## 5. Custom domain (optional)
 
 ```bash
-fly certs add app.sahay.org      # then add the DNS records Fly prints
-# update SAHAY_BASE_URL to https://app.sahay.org and redeploy:
+fly certs add app.aegira.org      # then add the DNS records Fly prints
+# update AEGIRA_BASE_URL to https://app.aegira.org and redeploy:
 fly deploy
 ```
 
 ## 6. Smoke test (copy-paste)
 
 ```bash
-BASE=https://sahay.fly.dev
+BASE=https://aegira.fly.dev
 curl -s -o /dev/null -w "landing %{http_code}\n" $BASE/
 curl -s -o /dev/null -w "app %{http_code}\n" $BASE/app
 curl -s -X POST $BASE/waitlist -H 'content-type: application/json' \
   -d '{"email":"you@example.com","country":"IN"}'
 curl -s $BASE/metrics
 # admin data (use your real token):
-curl -s $BASE/admin/data -H "x-admin-token: <your SAHAY_ADMIN_TOKEN>"
+curl -s $BASE/admin/data -H "x-admin-token: <your AEGIRA_ADMIN_TOKEN>"
 ```
 
 Then open:

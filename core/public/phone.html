@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sahay — Feature Phone Simulator</title>
+<title>Aegira — Feature Phone Simulator</title>
 <style>
   body { background:#0e1117; color:#e8ebf0; font:14px/1.5 -apple-system, "Segoe UI", sans-serif;
          display:flex; justify-content:center; gap:24px; padding:24px; flex-wrap:wrap; }
@@ -26,12 +26,14 @@
   .panel h1 { color:#e8ebf0; font-size:17px; }
   .panel code { background:#1d2433; padding:1px 5px; border-radius:4px; }
   a { color:#4f8ef7; }
+.demo-banner{display:block;width:100%;flex:none;background:#f5a623;color:#111;text-align:center;font:600 13px/1.4 -apple-system,"Segoe UI",sans-serif;padding:8px 12px;text-decoration:none}
 </style>
 </head>
 <body>
+<a class="demo-banner" href="tel:112">Demo only &mdash; not a real emergency service. In danger? Call 112.</a>
   <div class="nokia">
-    <div class="brand">SAHAY · SMS · NO SMARTPHONE NEEDED</div>
-    <div class="screen" id="screen"><div class="in"><b>SAHAY</b>Welcome. Text REG to register, SOS for help.</div></div>
+    <div class="brand">AEGIRA · SMS · NO SMARTPHONE NEEDED</div>
+    <div class="screen" id="screen"><div class="in"><b>AEGIRA</b>Welcome. Text REG to register, SOS for help.</div></div>
     <input id="from" value="+91 90000 12345" title="this phone's number">
     <select id="tower">
       <option value="12.9716,77.5946">Tower: MG Road area</option>
@@ -51,7 +53,7 @@
   </div>
   <div class="panel">
     <h1>Any phone is enough</h1>
-    <p>This simulates a basic phone talking to Sahay's SMS gateway — the channel for the
+    <p>This simulates a basic phone talking to Aegira's SMS gateway — the channel for the
        hundreds of millions of phones that have no apps and no browser.</p>
     <p>Commands: <code>REG name contact pin pin</code>, <code>SOS</code>, <code>CANCEL pin</code>,
        <code>STATUS</code>, <code>SAFE pin</code>, <code>SEND</code> (as a contact), <code>STOP</code>.</p>
@@ -63,7 +65,6 @@
   </div>
 
 <script>
-const SECRET = 'dev-gateway-secret';
 const screen = document.getElementById('screen');
 // Compare by the last 10 digits so +91 / national / spaced formats all match.
 const norm = (v) => v.replace(/[^\d]/g, '').slice(-10);
@@ -74,7 +75,7 @@ function add(kind, text, label) {
   const div = document.createElement('div');
   div.className = kind;
   div.innerHTML = kind === 'in'
-    ? '<b>' + esc(label || 'SAHAY') + '</b>' + esc(text)
+    ? '<b>' + esc(label || 'AEGIRA') + '</b>' + esc(text)
     : '<span>' + esc(text) + '</span>';
   screen.appendChild(div);
   screen.scrollTop = screen.scrollHeight;
@@ -89,9 +90,9 @@ async function sendSms() {
   add('out', text);
   msg.value = '';
   const tower = document.getElementById('tower').value.split(',');
-  const r = await fetch('/gateway/sms', {
+  const r = await fetch('/dev/phone/sms', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-gateway-secret': SECRET },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       from: document.getElementById('from').value,
       text,
