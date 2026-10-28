@@ -1,0 +1,20 @@
+𝗪𝗵𝗮𝘁 𝗶𝗳 𝘀𝗼𝗺𝗲𝗼𝗻𝗲 𝗳𝗼𝗿𝗰𝗲𝘀 𝘆𝗼𝘂 𝘁𝗼 𝗰𝗮𝗻𝗰𝗲𝗹 𝘆𝗼𝘂𝗿 𝗦𝗢𝗦?
+
+That question kept bugging me while building Aegira.
+
+Most safety apps have a cancel button. Great for false alarms. Not great if someone is standing right next to you.
+
+So Aegira has two PINs.
+
+Your normal PIN cancels.
+Your secret PIN 𝘢𝘭𝘴𝘰 shows "cancelled".
+
+But help keeps coming. Your family gets a secret alarm telling them not to call you.
+
+The person next to you sees nothing different.
+
+𝗧𝗵𝗲 𝗽𝗵𝗼𝗻𝗲 𝗹𝗶𝗲𝘀. 𝗢𝗻 𝗽𝘂𝗿𝗽𝗼𝘀𝗲.
+
+Built with Claude Code. Try it with PIN 9999:
+https://aegira.onrender.com/app
+(Demo only, not a real emergency service.)
