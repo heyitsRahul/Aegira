@@ -54,41 +54,21 @@ It's a working demo, not a real emergency service. In danger, call 112.
 >
 > #India #Safety #Privacy #BuildInPublic
 
-**Follow-up post: "I attacked my own app"**
+**Follow-up post, in my own voice**
 
-> I tried to break my own safety app. And I found a hole. 😳
+> So I was testing my own app, Aegira, trying to break it on purpose. And I actually found a problem.
 >
-> In Aegira, if someone forces you to cancel an SOS, you type a secret PIN.
-> Your phone says "cancelled", but your family is told it's real. 🔒
+> Quick background: in Aegira you have a secret PIN. If someone forces you to cancel your SOS, you type that PIN instead. Your phone shows "cancelled", but your family still gets the alert.
 >
-> But while testing, I found two problems:
-> ❌ "I'm safe" needed no PIN at all. Anyone holding your phone could stop
-> the help with one tap.
-> ❌ On SMS, the secret PIN replied "Wrong PIN", a clear sign to an attacker
-> that something was up.
+> What I found was that the "I'm safe" button had no PIN at all. So if someone had your phone, they could just tap it and stop the help. And on SMS, typing the secret PIN said "wrong PIN", which kind of gives it away.
 >
-> So I fixed it. 💪
-> ✅ "I'm safe" now always needs your PIN.
-> ✅ The secret PIN shows "You are safe", exactly like the real one.
-> ✅ Behind the scenes, help keeps coming and your family gets a secret alarm.
+> Fixed both. Now "I'm safe" asks for your PIN every time, and if you type the secret one, it says "you are safe" like normal, but help keeps coming and your family gets a secret alarm.
 >
-> Now the secret PIN works at every moment someone could force you to say
-> "all clear".
+> Honestly this is the part I enjoy most, thinking about how someone could misuse it and closing that gap.
 >
-> How I test it:
-> 🤖 Thousands of random actions, with the safety rules checked after every
-> single step
-> 🧨 1,000+ broken and attack requests against the live server
-> 🧪 414 automated tests
+> Built it with Claude Code. I worked on the idea, the rules and the testing.
 >
-> Building safety tech means trying to break it before someone else does.
->
-> Built with AI (Claude Code). I designed it and set the rules.
->
-> Try it (a demo, not a real emergency service):
-> https://aegira.onrender.com
->
-> #BuildInPublic #Safety #Privacy #India #ProductManagement
+> Demo here (just a demo, not a real emergency service): https://aegira.onrender.com
 
 ---
 
