@@ -54,6 +54,42 @@ It's a working demo, not a real emergency service. In danger, call 112.
 >
 > #India #Safety #Privacy #BuildInPublic
 
+**Follow-up post: "I attacked my own app"**
+
+> I tried to break my own safety app. And I found a hole. 😳
+>
+> In Aegira, if someone forces you to cancel an SOS, you type a secret PIN.
+> Your phone says "cancelled", but your family is told it's real. 🔒
+>
+> But while testing, I found two problems:
+> ❌ "I'm safe" needed no PIN at all. Anyone holding your phone could stop
+> the help with one tap.
+> ❌ On SMS, the secret PIN replied "Wrong PIN", a clear sign to an attacker
+> that something was up.
+>
+> So I fixed it. 💪
+> ✅ "I'm safe" now always needs your PIN.
+> ✅ The secret PIN shows "You are safe", exactly like the real one.
+> ✅ Behind the scenes, help keeps coming and your family gets a secret alarm.
+>
+> Now the secret PIN works at every moment someone could force you to say
+> "all clear".
+>
+> How I test it:
+> 🤖 Thousands of random actions, with the safety rules checked after every
+> single step
+> 🧨 1,000+ broken and attack requests against the live server
+> 🧪 414 automated tests
+>
+> Building safety tech means trying to break it before someone else does.
+>
+> Built with AI (Claude Code). I designed it and set the rules.
+>
+> Try it (a demo, not a real emergency service):
+> https://aegira.onrender.com
+>
+> #BuildInPublic #Safety #Privacy #India #ProductManagement
+
 ---
 
 The sections below go into more detail, for interviews.
