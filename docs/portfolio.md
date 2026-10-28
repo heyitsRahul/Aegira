@@ -70,6 +70,25 @@ It's a working demo, not a real emergency service. In danger, call 112.
 >
 > Demo here (just a demo, not a real emergency service): https://aegira.onrender.com
 
+**Short journey post**
+
+> I built a safety app. Then I tried to break it.
+>
+> I made a lot of mistakes.
+>
+> Built it only for smartphones. Most people who need help don't have one. Added SMS.
+>
+> Used words like "Duress PIN". Nobody talks like that when they're scared. Rewrote everything.
+>
+> Forgot a PIN on "I'm safe". Anyone with your phone could stop the help. Fixed.
+>
+> Biggest lesson: think like the bad guy. Every button.
+>
+> Built with Claude Code. The mistakes were mine. So were the fixes.
+>
+> Aegira. Demo, not a real emergency service:
+> https://aegira.onrender.com
+
 **Journey post: the mistakes and what I learned**
 
 > A few weeks ago I started building a safety app for India. I thought it would be simple. Press SOS, tell your family, done. It wasn't.
