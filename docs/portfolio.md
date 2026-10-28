@@ -70,6 +70,38 @@ It's a working demo, not a real emergency service. In danger, call 112.
 >
 > Demo here (just a demo, not a real emergency service): https://aegira.onrender.com
 
+**Journey post: the mistakes and what I learned**
+
+> A few weeks ago I started building a safety app for India. I thought it would be simple. Press SOS, tell your family, done. It wasn't.
+>
+> It started as "Sahay". Now it's called Aegira. Here's what went wrong along the way, and what each mistake taught me.
+>
+> Mistake 1: I built it only for smartphones.
+> Then it hit me that a lot of people in India don't have a smartphone or don't have data when they need it most. So I added a simple web page that works on old phones, and SMS for phones with no internet at all. Lesson: the person who needs help most is usually not the person with the best phone.
+>
+> Mistake 2: my words were too technical.
+> My buttons said things like "Duress PIN" and "Dispatch offers". Nobody talks like that, especially someone who is scared. I rewrote everything in plain words and added Hindi. Lesson: if my mom can't understand a screen, it's not done.
+>
+> Mistake 3: the demo broke when two people used it.
+> Everyone who opened the demo became the same user, so the second person got "help is already running". Embarrassing. Lesson: test it the way real people will use it, not the way I use it.
+>
+> Mistake 4: a fake number that could have reached a real person.
+> To make the demo quick, the setup form was pre-filled with an example phone number. Then I realised someone could actually keep it, and their SOS would go to a stranger. Removed it. Lesson: in safety apps, small shortcuts can hurt someone.
+>
+> Mistake 5: the app wasn't honest.
+> If no helper was nearby, it just said "please wait" forever. That's the worst thing to show someone in danger. Now it says clearly that no helper is close and to call 112. Lesson: honest is better than comforting.
+>
+> Mistake 6: "I'm safe" had no PIN.
+> The app has a secret PIN for when someone forces you to cancel. But I forgot the "I'm safe" button. Anyone holding your phone could tap it and stop the help. I only found this when I started attacking my own app on purpose. Lesson: think like the bad guy, every single button.
+>
+> That last one changed how I test. Now I throw thousands of random and broken actions at the app and check the safety rules after every step. It found around 170 kinds of input that crashed it. All fixed.
+>
+> I built it with Claude Code. The AI wrote most of the code, but deciding what the app must never do, and catching what was wrong, was on me. That's honestly where I learned the most.
+>
+> It's still a demo, not a real emergency service. But I'm proud of it, mistakes and all.
+>
+> Try it here: https://aegira.onrender.com
+
 ---
 
 The sections below go into more detail, for interviews.
