@@ -1,0 +1,16 @@
+𝗜 𝗯𝘂𝗶𝗹𝘁 𝗮 𝘀𝗮𝗳𝗲𝘁𝘆 𝗮𝗽𝗽. 𝗧𝗵𝗲𝗻 𝗜 𝘁𝗿𝗶𝗲𝗱 𝘁𝗼 𝗯𝗿𝗲𝗮𝗸 𝗶𝘁.
+
+I made a lot of mistakes.
+
+Built it only for smartphones. Most people who need help don't have one. Added SMS.
+
+Used words like "𝘋𝘶𝘳𝘦𝘴𝘴 𝘗𝘐𝘕". Nobody talks like that when they're scared. Rewrote everything.
+
+Forgot a PIN on "𝘐'𝘮 𝘴𝘢𝘧𝘦". Anyone with your phone could stop the help. Fixed.
+
+𝗕𝗶𝗴𝗴𝗲𝘀𝘁 𝗹𝗲𝘀𝘀𝗼𝗻: 𝘁𝗵𝗶𝗻𝗸 𝗹𝗶𝗸𝗲 𝘁𝗵𝗲 𝗯𝗮𝗱 𝗴𝘂𝘆. 𝗘𝘃𝗲𝗿𝘆 𝗯𝘂𝘁𝘁𝗼𝗻.
+
+Built with Claude Code. The mistakes were mine. So were the fixes.
+
+Aegira. Demo, not a real emergency service:
+https://aegira.onrender.com
