@@ -5,6 +5,7 @@ import { SessionCrypto } from '../crypto/shredder';
 import {
   openDatabase,
   SqliteKeyVault,
+  SqliteAudioStore,
   SqliteRegistrationStore,
   SqliteSessionRepository,
   SqliteSmsOptInStore,
@@ -14,6 +15,7 @@ import {
   AndroidGatewaySmsTransport,
   androidGatewayConfigFromEnv,
 } from '../services/android-gateway';
+import { EvidenceService } from '../services/evidence.service';
 import { MatchingService } from '../services/matching.service';
 import { InMemoryMetrics } from '../services/metrics';
 import { Notifier, StubNotifier } from '../services/notification.service';
@@ -37,6 +39,7 @@ import {
   TWILIO_AUTH_TOKEN,
 } from './gateway.controller';
 import { AdminController, ADMIN_TOKEN } from './admin.controller';
+import { EvidenceController, EVIDENCE_SERVICE } from './evidence.controller';
 import { GuideController, PUBLIC_CONFIG } from './guide.controller';
 import { LiteController, REGISTRATIONS } from './lite.controller';
 import { METRICS, PublicController, WAITLIST } from './public.controller';
@@ -142,9 +145,10 @@ function buildWiring() {
   );
 
   const registry = buildResponderRegistry();
+  const crypto = new SessionCrypto(new SqliteKeyVault(db));
   const sessions = new SessionService(
     clock,
-    new SessionCrypto(new SqliteKeyVault(db)),
+    crypto,
     notifier,
     new MatchingService(5),
     DEV_CONFIG,
@@ -160,7 +164,9 @@ function buildWiring() {
     RUNTIME.demoMode && (twilioConfig !== null || androidConfig !== null),
   );
   const waitlist = new WaitlistService(new SqliteWaitlistStore(db), clock);
+  const evidence = new EvidenceService(clock, crypto, sessions, new SqliteAudioStore(db));
   return {
+    evidence,
     appOutbox,
     smsStub,
     metrics,
@@ -183,6 +189,7 @@ const wiring = buildWiring();
 @Module({
   controllers: [
     SessionController,
+    EvidenceController,
     DevController,
     GatewayController,
     LiteController,
@@ -197,6 +204,7 @@ const wiring = buildWiring();
     { provide: SMS_TRANSPORT, useValue: wiring.smsStub },
     { provide: RESPONDER_REGISTRY, useValue: wiring.registry },
     { provide: SESSION_SERVICE, useValue: wiring.sessions },
+    { provide: EVIDENCE_SERVICE, useValue: wiring.evidence },
     { provide: REGISTRATIONS, useValue: wiring.registrations },
     { provide: SMS_GATEWAY, useValue: wiring.gateway },
     { provide: GATEWAY_SECRET, useValue: RUNTIME.gatewaySecret },

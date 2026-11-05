@@ -57,6 +57,8 @@ locally, below) and try this:
 | **No location outside a session** | No table, cache, log or analytics event holds a location without a session id. Tests scan for it. |
 | **Deletion you can trust** | Each session has its own AES-256-GCM key. Purging destroys the key (crypto-shredding), so the data is unreadable even in backups. |
 | **Duress by design** | A duress PIN returns a response byte-for-byte identical to a real cancel, journey check-in or "I'm safe", while silently escalating. "I'm safe" always needs a PIN. |
+| **Evidence that dies with the session** | Opt-in sound recording from the moment SOS is pressed, sent every 5 seconds and encrypted under the session key. Trusted contacts can listen while it is live; responders never can. The helpseeker can save a copy; purge destroys the rest. |
+| **Help before it is an emergency** | A loud alarm and a realistic fake call, entirely on the phone: nothing sent, nothing stored. Contacts also see the phone's battery level, so a dot that stops moving can be read for what it is. |
 | **No cancel after activation** | Once help is in motion there is no "cancel" button an attacker can force you to press. |
 | **Responders never see identity** | Before accepting, responders see an alias and a ~1 km area only. Privacy-negative tests assert names, numbers and exact coordinates never appear. |
 | **No vigilante feed, no trust scores** | No API lists nearby incidents. Misbehaviour creates reviewable strikes, never a hidden score. Matching is deterministic, no ML. |
@@ -82,7 +84,7 @@ enforced by the test suite in CI.
   send real SMS.
 - **Resilient notifications.** A failed SMS channel is counted, never allowed
   to stop the emergency or the other channels.
-- **415 tests**, typecheck and build in GitHub Actions on every push.
+- **445 tests**, typecheck and build in GitHub Actions on every push.
 - **Attack and chaos tests:** 300 random runs of every action in any order
   (rules re-checked after every step), and the real server attacked over
   HTTP: 1,000+ malformed inputs, stolen tokens, floods of simultaneous
@@ -109,7 +111,7 @@ core/test/             Vitest: state machine, privacy-negative, hygiene, clock-d
 ```bash
 cd core
 npm install
-npm test                      # 415 tests
+npm test                      # 445 tests
 npm run build && npm start    # http://localhost:3000
 ```
 

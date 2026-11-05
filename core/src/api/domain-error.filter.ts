@@ -7,8 +7,10 @@ import {
   InvalidArrivalCodeError,
   InvalidInputError,
   InvalidPinError,
+  LocationRejectedError,
   LocationUnknownError,
   NotAuthenticatedError,
+  RecordingRejectedError,
   ResponderNotAuthorizedError,
   SessionNotFoundError,
   WatchActionNotAllowedError,
@@ -54,7 +56,9 @@ export class DomainErrorFilter implements ExceptionFilter {
       exception instanceof IllegalTransitionError ||
       exception instanceof ActiveSessionExistsError ||
       exception instanceof WatchActionNotAllowedError ||
-      exception instanceof LocationUnknownError
+      exception instanceof LocationUnknownError ||
+      exception instanceof LocationRejectedError ||
+      exception instanceof RecordingRejectedError
     ) {
       response.status(409).json({ error: exception.message });
       return;

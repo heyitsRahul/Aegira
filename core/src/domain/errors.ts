@@ -48,6 +48,17 @@ export class LocationRejectedError extends DomainError {
   }
 }
 
+/**
+ * Sound pieces are accepted only while the helpseeker's device shows a live
+ * emergency. The state named is the one that device sees, so a duress-masked
+ * session refuses exactly like the benign outcome it pretends to be.
+ */
+export class RecordingRejectedError extends DomainError {
+  constructor(state: string) {
+    super(`sound recording is not accepted in state ${state}`);
+  }
+}
+
 /** Missing or wrong capability token. Maps to 401. */
 export class NotAuthenticatedError extends DomainError {
   constructor() {

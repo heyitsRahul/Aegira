@@ -74,7 +74,11 @@ export const HELPLINES: Readonly<Record<string, readonly Helpline[]>> = {
     { label: 'Ambulance', number: '108' },
     { label: 'Fire', number: '101' },
     { label: 'Women helpline', number: '1091' },
+    // National 24x7 helpline for women facing violence (One Stop Centres).
+    { label: 'Women in distress', number: '181' },
     { label: 'Child helpline', number: '1098' },
+    // Online stalking, morphed photos, blackmail.
+    { label: 'Cyber crime', number: '1930' },
     { label: 'Disaster management', number: '1078' },
   ],
   US: [

@@ -22,6 +22,7 @@ import {
   NotAuthenticatedError,
   SessionNotFoundError,
 } from '../domain/errors';
+import { EvidenceService } from '../services/evidence.service';
 import { RegistrationService } from '../services/registration.service';
 import { SessionService } from '../services/session.service';
 import {
@@ -29,12 +30,14 @@ import {
   cancelledPage,
   contactViewPage,
   homePage,
+  listenPage,
   LITE_AREAS,
   messagePage,
   sosAcceptedPage,
   statusPage,
 } from './lite-views';
 import { ResponderRegistry } from './responder-registry';
+import { EVIDENCE_SERVICE } from './evidence.controller';
 import { RESPONDER_REGISTRY, SESSION_SERVICE } from './session.controller';
 
 export const REGISTRATIONS = 'REGISTRATIONS';
@@ -115,6 +118,7 @@ export class LiteController {
     @Inject(SESSION_SERVICE) private readonly sessions: SessionService,
     @Inject(REGISTRATIONS) private readonly registrations: RegistrationService,
     @Inject(RESPONDER_REGISTRY) private readonly responders: ResponderRegistry,
+    @Inject(EVIDENCE_SERVICE) private readonly evidence: EvidenceService,
   ) {}
 
   @Get()
@@ -347,9 +351,23 @@ export class LiteController {
       category: view.category,
       location: view.location,
       placeNote: view.placeNote,
+      batteryPercent: view.batteryPercent,
+      recordings: this.evidence.listForContact(id).length,
       canDispatch: view.state === 'ACTIVE' && view.location !== null,
       sessionId: id,
       token: token ?? '',
+    });
+  }
+
+  /** Sound from the helpseeker's phone, for a contact on any browser. */
+  @Get('c/:id/listen')
+  listen(@Param('id') id: string, @Query('t') token?: string): string {
+    this.sessions.authorizeContact(id, token ?? null);
+    return listenPage({
+      helpseekerDisplayName: this.sessions.contactView(id).helpseekerDisplayName || 'Session',
+      sessionId: id,
+      token: token ?? '',
+      clips: this.evidence.listForContact(id),
     });
   }
 

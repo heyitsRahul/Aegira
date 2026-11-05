@@ -6,6 +6,8 @@ import { configureHttp } from './http-setup';
 import { SESSION_SERVICE } from './session.controller';
 import { SystemClock } from './system-clock';
 import { SessionService } from '../services/session.service';
+import { EvidenceService } from '../services/evidence.service';
+import { EVIDENCE_SERVICE } from './evidence.controller';
 import { androidGatewayConfigFromEnv, ensureAndroidWebhook } from '../services/android-gateway';
 import { resolveRuntimeConfig } from './runtime-config';
 
@@ -19,7 +21,12 @@ async function bootstrap(): Promise<void> {
   // calls it every second with the real one.
   const sessions = app.get<SessionService>(SESSION_SERVICE);
   const clock = new SystemClock();
-  const sweep = setInterval(() => void sessions.evaluateTimers(clock.now()), 1000);
+  // Recordings of purged sessions are unreadable once the key is gone; the
+  // same tick clears that dead ciphertext.
+  const evidence = app.get<EvidenceService>(EVIDENCE_SERVICE);
+  const sweep = setInterval(() => {
+    void sessions.evaluateTimers(clock.now()).then(() => evidence.sweep());
+  }, 1000);
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {

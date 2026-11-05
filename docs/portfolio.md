@@ -24,10 +24,15 @@ helper close by can come too.
 - **No stop button once help is coming.** Nobody can force you to stop it.
 - **Your location is deleted.** When the emergency ends, your location is
   gone for good.
+- **Sound as evidence.** If you turn it on, your phone records sound from the
+  moment you press SOS. Your family can listen. Helpers never can. You can
+  keep a copy.
+- **Fake call and loud alarm.** Before anything happens: make your phone ring
+  so you can walk away, or start a loud alarm so everyone looks.
 
 **How do you know it works?**
 I tested it like an attacker would: thousands of random and broken actions.
-The tests found real problems, and I fixed them. It now has 414 automated
+The tests found real problems, and I fixed them. It now has 445 automated
 tests.
 
 **Who built it?**
@@ -164,6 +169,28 @@ safety apps have three gaps:
 - **Location only during an emergency.** The app can't see where you are
   except during a live emergency, and it forgets afterwards.
 
+## What I added after comparing global apps
+
+I looked at what the best safety apps do (bSafe, Noonlight, Apple Check In,
+Google Personal Safety, Himmat Plus, 112 India) and added what Aegira was
+missing, without breaking its privacy rules:
+
+- **Sound recording as evidence**, opt-in. Sent every 5 seconds, so a snatched
+  phone still leaves what was already sent. Locked with that emergency's own
+  key and destroyed with it. Family can listen, helpers never can, and you can
+  save a copy before it is deleted.
+- **Battery level** for family, with a warning at 15%, so a dot that stops
+  moving can be read for what it is.
+- **Fake call** and **loud alarm**, which happen only on the phone.
+- **More helplines:** 181 (women in distress, 24x7) and 1930 (cyber crime).
+
+While building it, the tests caught a real privacy bug: after the secret PIN,
+someone holding the phone could send a hand-made location update and get a
+different answer than after a real cancel. Now both answer the same.
+
+What I chose not to copy: always-on voice activation and public "unsafe area"
+maps. Both cost more privacy than they give back.
+
 ## Works for everyone
 
 - **Smartphone:** an app you can install from the browser, in English and
@@ -175,7 +202,7 @@ safety apps have three gaps:
 
 ## How I tested it
 
-The project has 414 automated tests that run every time the code changes.
+The project has 445 automated tests that run every time the code changes.
 Some of them are deliberately hard:
 
 - **Chaos testing.** A program does 300 runs of 60 random actions each (press

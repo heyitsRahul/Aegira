@@ -20,6 +20,8 @@ describe('reference data', () => {
     expect(numbers).toContain('100'); // police
     expect(numbers).toContain('108'); // ambulance
     expect(numbers).toContain('1091'); // women
+    expect(numbers).toContain('181'); // women in distress, 24x7
+    expect(numbers).toContain('1930'); // cyber crime
   });
 
   it('every country code is unique and every dial code is digits', () => {

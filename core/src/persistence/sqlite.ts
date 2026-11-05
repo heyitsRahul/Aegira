@@ -4,6 +4,7 @@ import { KeyDestroyedError, KeyNotFoundError, KeyVault } from '../crypto/shredde
 import { RegistrationRecord, RegistrationStore } from '../services/registration.service';
 import { SmsOptIn, SmsOptInStore } from '../services/sms-optin.service';
 import { WaitlistEntry, WaitlistStore } from '../services/waitlist.service';
+import { AudioPiece, AudioStore, orderPieces } from './audio-store';
 import { SessionRepository, SessionSnapshot } from './session-repository';
 
 /**
@@ -45,6 +46,16 @@ export function openDatabase(path: string): DatabaseSync {
     CREATE TABLE IF NOT EXISTS sms_optins (
       phone_ref TEXT PRIMARY KEY,
       entry     TEXT NOT NULL
+    );
+    -- retention_class: incident-scoped (opt-in session sound, consent v8;
+    -- ciphertext only, shredded with the session key — see migrations/0013)
+    CREATE TABLE IF NOT EXISTS session_audio (
+      session_id  TEXT NOT NULL,
+      segment     TEXT NOT NULL,
+      seq         INTEGER NOT NULL,
+      recorded_at TEXT NOT NULL,
+      blob        TEXT NOT NULL,
+      PRIMARY KEY (session_id, segment, seq)
     );
   `);
   return db;
@@ -146,6 +157,50 @@ export class SqliteSmsOptInStore implements SmsOptInStore {
 
   delete(phoneRef: string): boolean {
     return this.db.prepare('DELETE FROM sms_optins WHERE phone_ref = ?').run(phoneRef).changes > 0;
+  }
+}
+
+export class SqliteAudioStore implements AudioStore {
+  constructor(private readonly db: DatabaseSync) {}
+
+  save(piece: AudioPiece): boolean {
+    return (
+      this.db
+        .prepare(
+          `INSERT INTO session_audio (session_id, segment, seq, recorded_at, blob)
+           VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+        )
+        .run(piece.sessionId, piece.segment, piece.seq, piece.recordedAt, JSON.stringify(piece.blob))
+        .changes > 0
+    );
+  }
+
+  list(sessionId: string): AudioPiece[] {
+    const rows = this.db
+      .prepare('SELECT segment, seq, recorded_at, blob FROM session_audio WHERE session_id = ?')
+      .all(sessionId) as Array<{ segment: string; seq: number; recorded_at: string; blob: string }>;
+    return orderPieces(
+      rows.map((r) => ({
+        sessionId,
+        segment: r.segment,
+        seq: r.seq,
+        recordedAt: r.recorded_at,
+        blob: JSON.parse(r.blob) as AudioPiece['blob'],
+      })),
+    );
+  }
+
+  deleteSession(sessionId: string): number {
+    return Number(
+      this.db.prepare('DELETE FROM session_audio WHERE session_id = ?').run(sessionId).changes,
+    );
+  }
+
+  sessionIds(): string[] {
+    const rows = this.db.prepare('SELECT DISTINCT session_id FROM session_audio').all() as Array<{
+      session_id: string;
+    }>;
+    return rows.map((r) => r.session_id);
   }
 }
 

@@ -133,6 +133,11 @@ export interface ContactView {
   locationAgeMs: number | null;
   /** The helpseeker's own description of where they are, if given. */
   placeNote: string | null;
+  /**
+   * Phone battery (0-100) with the latest fix, if the browser reports it.
+   * Contacts only: never shown to responders (consent v7).
+   */
+  batteryPercent: number | null;
 }
 
 /** What an offered/accepted responder's app sees. Identity-free. */
@@ -144,6 +149,16 @@ export interface ResponderView {
   coarseCell: string;
   /** Precise location only for the accepted responder while DISPATCHED. */
   location: PreciseLocation | null;
+}
+
+/** A stored location fix. Battery rides along for contacts only. */
+interface StoredPing extends PreciseLocation {
+  battery?: number;
+}
+
+/** The responder-safe part of a fix: never the battery. */
+function bareLocation(ping: StoredPing): PreciseLocation {
+  return { sessionId: ping.sessionId, lat: ping.lat, lng: ping.lng, capturedAt: ping.capturedAt };
 }
 
 interface SessionPii {
@@ -687,6 +702,7 @@ export class SessionService {
     let locationAgeMs: number | null = null;
     let displayName = '';
     let placeNote: string | null = null;
+    let batteryPercent: number | null = null;
     if (!this.crypto.isShredded(sessionId) && record.encryptedPii !== null) {
       const pii = JSON.parse(this.crypto.decrypt(record.encryptedPii)) as SessionPii;
       displayName = pii.displayName;
@@ -697,7 +713,9 @@ export class SessionService {
       // no location is exposed until it escalates to a real emergency.
       if (CONTACT_VISIBLE_STATES.includes(state) && record.encryptedLocations.length > 0) {
         const latest = record.encryptedLocations[record.encryptedLocations.length - 1];
-        location = JSON.parse(this.crypto.decrypt(latest)) as PreciseLocation;
+        const ping = JSON.parse(this.crypto.decrypt(latest)) as StoredPing;
+        location = bareLocation(ping);
+        batteryPercent = ping.battery ?? null;
         locationAgeMs = Math.max(0, this.clock.now().getTime() - Date.parse(location.capturedAt));
       }
     }
@@ -710,6 +728,7 @@ export class SessionService {
       location,
       locationAgeMs,
       placeNote,
+      batteryPercent,
     };
   }
 
@@ -733,7 +752,7 @@ export class SessionService {
       record.encryptedLocations.length > 0
     ) {
       const latest = record.encryptedLocations[record.encryptedLocations.length - 1];
-      location = JSON.parse(this.crypto.decrypt(latest)) as PreciseLocation;
+      location = bareLocation(JSON.parse(this.crypto.decrypt(latest)) as StoredPing);
     }
     return {
       sessionId,
@@ -745,18 +764,48 @@ export class SessionService {
     };
   }
 
-  recordLocation(sessionId: string, lat: number, lng: number): void {
+  /**
+   * A location fix from the helpseeker's device, with the battery level if
+   * the browser reports one. The answer follows the state that device is
+   * shown: under a duress mask it is refused exactly like the benign outcome
+   * it pretends to be (invariant 4), yet a fix that still reaches a live
+   * emergency is kept for the contacts.
+   */
+  recordLocation(sessionId: string, lat: unknown, lng: unknown, battery?: unknown): void {
     const record = this.mustGet(sessionId);
-    const state = record.aggregate.state;
-    if (!LOCATION_STATES.includes(state)) {
-      throw new LocationRejectedError(state);
+    if (
+      typeof lat !== 'number' ||
+      typeof lng !== 'number' ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      Math.abs(lat) > 90 ||
+      Math.abs(lng) > 180
+    ) {
+      throw new InvalidInputError('lat/lng must be valid coordinates');
     }
-    const ping: PreciseLocation = {
+    const visible = this.clientStatus(sessionId).state;
+    const live = LOCATION_STATES.includes(record.aggregate.state);
+    if (!LOCATION_STATES.includes(visible)) {
+      if (live) {
+        this.storePing(record, lat, lng, battery);
+      }
+      throw new LocationRejectedError(visible);
+    }
+    this.storePing(record, lat, lng, battery);
+  }
+
+  private storePing(record: StoredSession, lat: number, lng: number, battery: unknown): void {
+    const sessionId = record.aggregate.sessionId;
+    const ping: StoredPing = {
       sessionId,
       lat,
       lng,
       capturedAt: this.clock.now().toISOString(),
     };
+    // A bad battery reading never costs the location: it is simply left out.
+    if (typeof battery === 'number' && Number.isInteger(battery) && battery >= 0 && battery <= 100) {
+      ping.battery = battery;
+    }
     record.encryptedLocations.push(this.crypto.encrypt(sessionId, JSON.stringify(ping)));
     // A session started without a location becomes matchable on its first fix.
     if (record.coarseCell === null) {
@@ -858,7 +907,7 @@ export class SessionService {
       throw new ResponderNotAuthorizedError();
     }
     const latest = record.encryptedLocations[record.encryptedLocations.length - 1];
-    return JSON.parse(this.crypto.decrypt(latest)) as PreciseLocation;
+    return bareLocation(JSON.parse(this.crypto.decrypt(latest)) as StoredPing);
   }
 
   verifyArrival(sessionId: string, responderId: string, code: string): ClientStatus {

@@ -111,6 +111,63 @@ What this deliberately does **not** do is fall back to a stored location: there
 is still no home area, last-known position or registration address anywhere
 (invariant 1). Unknown means unknown.
 
+### §3.3 Sound recording as evidence (opt-in, consent v8)
+
+Comparable apps (bSafe, Himmat Plus, Google Personal Safety) capture audio or
+video during an SOS, because what was said is often the only evidence. Aegira
+records **sound only, only inside a session, only if the helpseeker turned it
+on** at setup, where the v8 text is shown (during an emergency, the same
+person can restart a stopped recording with one tap; nobody else is offered
+it). This is not the
+deferred "voice activation" of §2: nothing listens outside a session, and
+nothing is triggered by sound.
+
+* **When.** From the SOS press itself (browsers need that tap to open the
+  microphone; pieces wait on the phone until the session exists, and are
+  dropped if the SOS fails) through PENDING, ACTIVE, DISPATCHED and ARRIVED.
+  Never during a journey watch: nobody has been alerted yet.
+* **How it is stored.** The phone sends a piece every 5 seconds, so a snatched
+  or smashed phone still leaves what was already sent. Each piece is encrypted
+  under the session key (`session_audio`, incident-scoped, ciphertext only,
+  `session_id NOT NULL`). Purge (CLOSED → PURGED, key destruction) makes it
+  unreadable; the timer tick then sweeps the dead rows.
+* **Who can listen.** The helpseeker, and trusted contacts while the emergency
+  is live (they already see the precise location). Responders have no route at
+  all: a voice identifies a person (invariant 6). Tests assert the negative.
+* **Keeping it.** Evidence and crypto-mortality pull in opposite directions.
+  The resolution: the helpseeker can save a copy to their own phone from the
+  "You are safe" screen, at any time before purge. The platform keeps nothing
+  past purge. A longer "evidence hold" for a police complaint would need a
+  design pass (who may extend it, for how long, who can be compelled to hand
+  it over) and stays out of scope.
+* **Duress.** The phone stops recording (sending its last piece) before any
+  PIN is sent, for the real PIN and the secret one alike, so the two still look
+  identical. Uploads and listings are judged by the state the device is shown,
+  so a masked session refuses and lists exactly like the benign outcome it
+  pretends to be. The sound recorded up to a forced cancel is exactly what the
+  circle most needs, and they keep it.
+* **Limits.** 64 kB per piece, 1,440 pieces (about two hours) and 30
+  recordings per session; known audio formats only; duplicates are ignored so
+  retries are harmless.
+
+### §3.4 Device-only tools: loud alarm and fake call
+
+Two tools that never touch the server, so they collect nothing and need no
+consent: a **loud alarm** (wailing tone at full volume, flashing screen,
+vibration, screen kept awake) and a **fake call** (a realistic incoming call
+from a name the user picks, now or after 10/30 seconds; when answered, a
+synthetic voice talks with pauses). Both are on the home screen and on the
+live-emergency screen.
+
+### §3.5 Battery level for contacts (consent v7)
+
+The phone's battery level (where the browser reports it) rides along with each
+location fix, inside the same encrypted ping. Contacts see it with the
+location and are warned at 15% or less: a dot that stops moving means
+something different when the phone was at 4%. It is stripped from everything a
+responder can see. Consent v7 replaces v1 as the session terms; it differs only
+in naming the battery level.
+
 ## §4 Event log
 
 Append-only, hash-chained (SHA-256 over canonical JSON, each event carrying the
@@ -125,8 +182,9 @@ Every table declares one of three retention classes in its migration (CI-enforce
 
 * **durable** — lifecycle audit chain, responder directory, strikes, consent
   texts. Carries no identity-linked location, ever.
-* **incident-scoped** — session rows, encrypted PII, encrypted location pings.
-  Readable only while the session key lives; swept after PURGED.
+* **incident-scoped** — session rows, encrypted PII, encrypted location pings,
+  encrypted sound recordings. Readable only while the session key lives; swept
+  after PURGED.
 * **ephemeral** — caches and queues; never the system of record.
 
 Location rows have `session_id NOT NULL` and store only ciphertext. There are no
@@ -191,6 +249,17 @@ Two payload types, both closed shapes (no index signatures):
    clocks, and public counters move exactly as for a real resolve.
    (Earlier drafts answered a duress PIN here as a "wrong PIN"; that was
    distinguishable from success, so it failed invariant 4.)
+9. **Coercer probing the device after a duress PIN** — someone holding the
+   phone sends a location update or a sound piece by hand to see whether the
+   session is "really" over. Both routes answer by the state the device is
+   shown, so a masked session refuses exactly like a real cancel or resolve
+   (earlier, a location after a real cancel crashed with a 500 while a masked
+   one was accepted: distinguishable). A location that still reaches a live
+   emergency is kept for the contacts.
+10. **Recording turned against the helpseeker** — mitigated by: opt-in only,
+   never outside a session, contacts chosen by the helpseeker alone, no
+   responder access, destroyed at purge, and the "save a copy" button being the
+   only way it outlives the session.
 
 ## §9 Open questions (tracked, not yet designed)
 
@@ -200,9 +269,14 @@ with arrival-timeout sweep), capability-token auth for all three roles,
 per-session PIN enrollment, restart-safe persistence with chain-verified
 rehydration (SQLite standing in for Postgres+KMS), and journey watch / timed
 check-in (§3.1) with its own duress discipline (§8.7) across app, lite, and SMS,
-and duress on resolving an already-live emergency (§8.8).
+duress on resolving an already-live emergency (§8.8), opt-in sound recording
+(§3.3), device-only alarm and fake call (§3.4), battery level for contacts
+(§3.5), and duress-safe answers to hand-made device requests (§8.9).
 
 Still open:
+
+* Evidence hold: keeping a recording past purge for a police complaint
+  (§3.3). Needs a policy design before any code.
 
 * Production KMS adapter and key-destruction attestation; production Postgres
   adapter for the SessionRepository port.

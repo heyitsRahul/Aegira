@@ -43,9 +43,29 @@ export const CONSENT_RECORD: Readonly<Record<string, string>> = Object.freeze({
     'who lists you as a trusted contact needs help. Aegira stores only a ' +
     'one-way hash of this number and the time you joined: no name, no ' +
     'location. Text STOP at any time to opt out.',
+  // v7: session terms of v1 plus the phone's battery level, so contacts can
+  // tell a dying phone from a silent one.
+  v7:
+    'By triggering an emergency session you consent to: (1) your precise ' +
+    'location and your phone\'s battery level being shared with your chosen ' +
+    'trusted contacts for the duration of this session only; (2) your ' +
+    'approximate (~1 km) area and a session alias being shared with verified ' +
+    'responders; (3) your exact location (never your battery level) being ' +
+    'shared with the one responder you accept; (4) all of this data being ' +
+    'destroyed when the session is purged.',
+  // v8: opt-in sound recording during a session. Never on by default.
+  v8:
+    'If you turn on sound recording, Aegira records sound from your phone\'s ' +
+    'microphone during an emergency session, from the moment it starts until ' +
+    'it ends or you stop it. The recording is encrypted with that session\'s ' +
+    'key. Your trusted contacts can listen while the emergency is live; ' +
+    'verified responders never can. You can save a copy to your own phone. ' +
+    'The copy on our server is destroyed with the session\'s key when the ' +
+    'session is purged.',
 });
 
-export const CURRENT_CONSENT_VERSION = 'v1';
+export const CURRENT_CONSENT_VERSION = 'v7';
+export const AUDIO_CONSENT_VERSION = 'v8';
 export const SMS_OPT_IN_CONSENT_VERSION = 'v6';
 export const SMS_REGISTRATION_CONSENT_VERSION = 'v4';
 export const WAITLIST_CONSENT_VERSION = 'v5';

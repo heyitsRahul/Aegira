@@ -176,6 +176,9 @@ export function contactViewPage(view: {
   category: string;
   location: { lat: number; lng: number } | null;
   placeNote: string | null;
+  batteryPercent: number | null;
+  /** Recordings a contact can listen to right now (opt-in, consent v8). */
+  recordings: number;
   canDispatch: boolean;
   sessionId: string;
   token: string;
@@ -191,15 +194,53 @@ export function contactViewPage(view: {
     (view.location
       ? `<p>Last location: <b>${view.location.lat.toFixed(5)}, ${view.location.lng.toFixed(5)}</b> ` +
         `<a href="https://www.google.com/maps/search/?api=1&amp;query=${view.location.lat},${view.location.lng}">open map</a></p>`
-      : `<p>Location unknown.${view.duress ? '' : ' Call them.'}</p>`);
+      : `<p>Location unknown.${view.duress ? '' : ' Call them.'}</p>`) +
+    (view.batteryPercent === null
+      ? ''
+      : `<p>Phone battery: <b>${view.batteryPercent}%</b>${view.batteryPercent <= 15 ? ' (low: it may switch off soon)' : ''}</p>`);
+  const listen =
+    view.recordings === 0
+      ? ''
+      : `<p><a href="/lite/c/${esc(view.sessionId)}/listen?t=${esc(view.token)}">Listen to sound from their phone</a> ` +
+        `(${view.recordings} recording${view.recordings === 1 ? '' : 's'})</p>`;
   const dispatch = view.canDispatch
     ? `<form method="post" action="/lite/c/${esc(view.sessionId)}/dispatch?t=${esc(view.token)}">` +
       '<button type="submit">SEND VERIFIED RESPONDERS</button></form>'
     : '';
   return page(
     `${view.helpseekerDisplayName} - ${view.state}`,
-    `${duressBox}<p>Category: ${esc(view.category.replace(/_/g, ' '))}</p>${where}${dispatch}` +
+    `${duressBox}<p>Category: ${esc(view.category.replace(/_/g, ' '))}</p>${where}${listen}${dispatch}` +
       '<small>This page refreshes every 15 seconds.</small>',
     15,
+  );
+}
+
+/**
+ * Recordings for a contact, on a page that does NOT auto-refresh, so
+ * playback is never cut off. Segment ids are server-checked [a-z0-9].
+ */
+export function listenPage(view: {
+  helpseekerDisplayName: string;
+  sessionId: string;
+  token: string;
+  clips: ReadonlyArray<{ segment: string; pieces: number }>;
+}): string {
+  const back = `/lite/c/${esc(view.sessionId)}?t=${esc(view.token)}`;
+  const again = `/lite/c/${esc(view.sessionId)}/listen?t=${esc(view.token)}`;
+  const clips =
+    view.clips.length === 0
+      ? '<p>No sound to play. The emergency may be over.</p>'
+      : view.clips
+          .map(
+            (c, i) =>
+              `<div class="box"><b>Recording ${i + 1}</b> <small>(${c.pieces} pieces of about 5 seconds)</small><br>` +
+              `<audio controls preload="none" style="width:100%" ` +
+              `src="/sessions/${esc(view.sessionId)}/audio/${esc(c.segment)}?t=${esc(view.token)}&amp;v=${c.pieces}"></audio></div>`,
+          )
+          .join('');
+  return page(
+    `${view.helpseekerDisplayName} - sound`,
+    `<p>Sound recorded on their phone during this emergency. Helpers cannot hear it.</p>${clips}` +
+      `<p><a href="${again}">Reload for the latest sound</a> &middot; <a href="${back}">Back</a></p>`,
   );
 }

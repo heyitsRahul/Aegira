@@ -158,6 +158,119 @@ describe('garbage input never crashes the server', () => {
   });
 });
 
+describe('sound recording over HTTP', () => {
+  const piece = (seq: number, extra: Json = {}): Json => ({
+    segment: 'httprec01',
+    seq,
+    mime: 'audio/webm;codecs=opus',
+    data: Buffer.from(`piece ${seq};`).toString('base64'),
+    consent: 'v8',
+    ...extra,
+  });
+
+  async function liveSession() {
+    const s = await startSession();
+    await call('POST', `/sessions/${s.id}/confirm`, {}, seeker(s.token));
+    return { ...s, contact: await contactToken(s.id) };
+  }
+
+  it('the helpseeker uploads; a trusted contact can list and play the joined recording', async () => {
+    const s = await liveSession();
+    for (const seq of [0, 1, 2]) {
+      expect((await call('POST', `/sessions/${s.id}/audio`, piece(seq), seeker(s.token))).status).toBe(201);
+    }
+    const list = await call('GET', `/sessions/${s.id}/audio?t=${s.contact}`);
+    expect(list.json.clips).toEqual([expect.objectContaining({ segment: 'httprec01', pieces: 3 })]);
+    const clip = await fetch(`${base}/sessions/${s.id}/audio/httprec01?t=${s.contact}`);
+    expect(clip.status).toBe(200);
+    expect(clip.headers.get('content-type')).toContain('audio/webm');
+    expect(clip.headers.get('cache-control')).toBe('no-store');
+    expect(await clip.text()).toBe('piece 0;piece 1;piece 2;');
+  });
+
+  it('responders, strangers and stolen tokens hear nothing', async () => {
+    const s = await liveSession();
+    const other = await liveSession();
+    await call('POST', `/sessions/${s.id}/audio`, piece(0), seeker(s.token));
+    const attempts = [
+      call('GET', `/sessions/${s.id}/audio`),
+      call('GET', `/sessions/${s.id}/audio`, undefined, { 'x-responder-token': 'asha-dev-token' }),
+      call('GET', `/sessions/${s.id}/audio/httprec01`, undefined, { 'x-responder-token': 'asha-dev-token' }),
+      call('GET', `/sessions/${s.id}/audio?t=${other.contact}`),
+      call('GET', `/sessions/${s.id}/audio`, undefined, seeker(other.token)),
+      call('GET', `/sessions/${s.id}/audio/httprec01?t=${s.token}`),
+      call('POST', `/sessions/${s.id}/audio`, piece(1), seeker(other.token)),
+      call('POST', `/sessions/${s.id}/audio?t=${s.contact}`, piece(1)),
+    ];
+    for (const res of await Promise.all(attempts)) {
+      expect(res.status).toBe(401);
+      expect(res.text).not.toContain('piece 0');
+    }
+  });
+
+  it('wrong types, no consent and oversized pieces are refused politely', async () => {
+    const s = await liveSession();
+    const bad: Json[] = [
+      {},
+      piece(0, { consent: null }),
+      piece(0, { segment: ['a'] }),
+      piece(0, { seq: '0' }),
+      piece(0, { mime: { a: 1 } }),
+      piece(0, { data: 12 }),
+      piece(0, { data: 'not base64 !!' }),
+    ];
+    for (const body of bad) {
+      const res = await call('POST', `/sessions/${s.id}/audio`, body, seeker(s.token));
+      expect(res.status, JSON.stringify(body)).toBe(400);
+      expect(res.text).not.toMatch(LEAK);
+    }
+    const huge = await call('POST', `/sessions/${s.id}/audio`, piece(0, { data: 'A'.repeat(200_000) }), seeker(s.token));
+    expect([400, 413]).toContain(huge.status);
+    expect((await call('GET', `/sessions/${s.id}/audio/..%2F..%2Fetc?t=${s.contact}`)).status).toBe(404);
+  });
+
+  it('after a secret-PIN cancel the phone gets the same answers as after a real cancel', async () => {
+    const answers: string[] = [];
+    for (const pin of ['1234', '9999']) {
+      const s = await startSession();
+      await call('POST', `/sessions/${s.id}/audio`, piece(0), seeker(s.token));
+      await call('POST', `/sessions/${s.id}/cancel`, { pin }, seeker(s.token));
+      const upload = await call('POST', `/sessions/${s.id}/audio`, piece(1), seeker(s.token));
+      const list = await call('GET', `/sessions/${s.id}/audio`, undefined, seeker(s.token));
+      const place = await call('POST', `/sessions/${s.id}/location`, { lat: 12.98, lng: 77.6 }, seeker(s.token));
+      answers.push(JSON.stringify([upload.status, upload.text, list.status, list.json.clips, place.status, place.text]));
+    }
+    // Only the timestamps of the clip differ between the two runs.
+    const scrub = (a: string) => a.replace(/"20\d\d-[^"]+"/g, '"T"');
+    expect(scrub(answers[1])).toBe(scrub(answers[0]));
+    expect(answers[0]).toContain('409');
+  });
+});
+
+describe('location updates', () => {
+  it('after the emergency ends are refused with 409, not a server error', async () => {
+    const s = await startSession();
+    await call('POST', `/sessions/${s.id}/cancel`, { pin: '1234' }, seeker(s.token));
+    const res = await call('POST', `/sessions/${s.id}/location`, { lat: 12.98, lng: 77.6 }, seeker(s.token));
+    expect(res.status).toBe(409);
+  });
+
+  it('with junk coordinates are refused with 400', async () => {
+    const s = await startSession();
+    for (const body of [{}, { lat: '12', lng: 77 }, { lat: 200, lng: 77 }, { lat: null, lng: [] }]) {
+      expect((await call('POST', `/sessions/${s.id}/location`, body, seeker(s.token))).status).toBe(400);
+    }
+  });
+
+  it('carry the battery level to contacts only', async () => {
+    const s = await startSession();
+    await call('POST', `/sessions/${s.id}/confirm`, {}, seeker(s.token));
+    const contact = await contactToken(s.id);
+    await call('POST', `/sessions/${s.id}/location`, { lat: 12.9717, lng: 77.5947, battery: 9 }, seeker(s.token));
+    expect((await call('GET', `/sessions/${s.id}/contact-view?t=${contact}`)).json.batteryPercent).toBe(9);
+  });
+});
+
 describe('the narrated demo page', () => {
   it('is served to everyone, says it is simulated, and makes no network calls', async () => {
     const res = await call('GET', '/demo');

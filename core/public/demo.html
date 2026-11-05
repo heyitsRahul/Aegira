@@ -132,11 +132,33 @@
   @keyframes strike{to{transform:scaleX(1)}}
   @keyframes fade{to{opacity:.4}}
 
+  .recbar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--s-dim);border:1px solid var(--s-line);border-radius:10px;padding:6px 10px;flex:none}
+  .recbar b{color:var(--s-ink);font-weight:600}
+  .snd{display:flex;align-items:center;gap:10px;border:1px solid var(--s-line);border-radius:12px;padding:8px 10px;font-size:12.5px;flex:none}
+  .snd .pl{width:26px;height:26px;border-radius:50%;background:var(--s-ink);display:grid;place-items:center;flex:none}
+  .snd .pl::after{content:"";border-left:8px solid var(--s-bg);border-top:5px solid transparent;border-bottom:5px solid transparent;margin-left:2px}
+  .wave{display:flex;align-items:center;gap:2px;height:18px;margin-left:auto}
+  .wave i{width:2px;background:var(--s-dim);border-radius:1px;animation:wv 1s ease-in-out infinite}
+  .wave i:nth-child(2n){animation-delay:.2s}.wave i:nth-child(3n){animation-delay:.4s}
+  @keyframes wv{0%,100%{height:4px}50%{height:16px}}
+  .siren{flex:1;margin:-14px -16px -18px;display:grid;place-items:center;align-content:center;gap:10px;background:var(--s-red);color:#fff;animation:flash .5s steps(1) infinite}
+  .siren b{font:900 44px/1 var(--sans);letter-spacing:.06em}
+  .siren span{font-size:12px;font-weight:600}
+  @keyframes flash{50%{background:#fff;color:#c9381f}}
+  .call{flex:1;margin:-14px -16px -18px;padding:34px 16px 26px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;background:linear-gradient(#232c38,#0f0e0c 75%)}
+  .call .av{width:76px;height:76px;border-radius:50%;background:#3a4656;display:grid;place-items:center;font-size:32px;margin:0 auto 12px}
+  .call .nm{font-size:26px;font-weight:500;text-align:center}
+  .call .btns{display:flex;justify-content:space-around;width:100%}
+  .call .btns span{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--s-dim)}
+  .call .btns i{width:54px;height:54px;border-radius:50%;display:grid;place-items:center}
+  .call .btns i svg{width:24px;height:24px;fill:#fff}
+  .call .dec{background:#e5484d}.call .dec svg{transform:rotate(135deg)}.call .acc{background:#30b45a}
+
   /* subtitles and chapters */
   .caption{text-align:center;padding:4px 0 8px;min-height:124px}
   .chap{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--red);min-height:12px;margin-bottom:14px}
   #cap{font:400 clamp(20px,2.5vw,28px)/1.34 var(--serif);max-width:28em;margin:0 auto;text-wrap:balance}
-  .timeline{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-top:22px;padding-top:22px;border-top:1px solid var(--rule)}
+  .timeline{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-top:22px;padding-top:22px;border-top:1px solid var(--rule)}
   .seg{text-align:left;color:var(--ink2)}
   .seg .bar{display:block;height:3px;background:var(--rule);border-radius:2px;overflow:hidden;margin-bottom:11px}
   .seg .bar i{display:block;height:100%;width:0;background:var(--ink);transition:width .4s}
@@ -158,10 +180,11 @@
     /* One phone at a time on small screens: the one the story is on. */
     .slot.dim,.slot.sec{display:none}
     .phone{height:452px}
+    .map{height:128px}
     .caption{position:sticky;bottom:0;z-index:5;background:var(--paper);border-top:1px solid var(--rule);margin:0 -20px;padding:14px 20px 16px;min-height:0}
     .chap{margin-bottom:8px}
     #cap{font-size:19px}
-    .timeline{grid-template-columns:repeat(3,1fr);gap:16px 12px}
+    .timeline{grid-template-columns:repeat(4,1fr);gap:16px 12px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.check path{stroke-dashoffset:0}}
 </style>
@@ -209,7 +232,7 @@ const T = {
     hint: 'Press play, with your sound on.',
     play: 'Play the demo', stop: 'Stop', sndOn: 'Sound on', sndOff: 'Sound off', other: 'हिंदी में देखें',
     who: { meera: ['Meera', 'needs help'], arjun: ['Arjun', 'her brother, her trusted person'], asha: ['Asha', 'a trained helper nearby'] },
-    chapters: ['Ask for help', 'Family told', 'Helper comes', 'Safe, data deleted', 'Secret PIN', 'No internet'],
+    chapters: ['Ask for help', 'Family told', 'Helper comes', 'Safe, data deleted', 'Secret PIN', 'No internet', 'Fake call, alarm'],
     end: 'Try it yourself at <a href="/app">aegira.onrender.com/app</a> with PIN 1234, or the secret PIN 9999.',
     ui: {
       need: 'I need help', press: 'Press and help starts in 30 seconds', starts: 'Help starts in', cancelPin: 'PIN to cancel', cancel: 'Cancel',
@@ -228,14 +251,17 @@ const T = {
       basicSos: 'SOS near Andheri station gate 2',
       basicReply: 'Aegira: Help is starting. Cancel within 30 sec: CANCEL and your PIN.',
       basicAlert: 'AEGIRA ALERT: Meera needs help. They said: "near Andheri station gate 2". Location unknown - call them.',
+      rec: 'Recording sound', recSub: 'evidence', battery: 'battery 41%', sound: 'Sound from her phone',
+      siren: 'HELP', sirenSub: 'Loud alarm', caller: 'Maa', mobile: 'mobile', accept: 'Accept', decline: 'Decline',
     },
     lines: [
       ['Meet Meera. She is walking home late, and someone is following her.', 'She opens Aegira and presses SOS.'],
-      ['She gets thirty seconds to cancel with her PIN, in case it was a mistake.', 'Time is up. Her brother Arjun gets a message with a link to where she is.', 'He opens it and sees her on a map. He taps: send a trained helper.'],
+      ['She gets thirty seconds to cancel with her PIN, in case it was a mistake. Her phone is already recording sound, as evidence.', 'Time is up. Her brother Arjun gets a message with a link to where she is.', 'He sees her on a map, and her phone battery. He can listen to the sound from her phone. Helpers never can.', 'He taps: send a trained helper.'],
       ['Asha, a trained helper close by, gets the request. She sees no name and no phone number. Only a nickname, and an area of about one kilometre.', 'She accepts. Only now does she see the exact spot.', 'On Meera\'s phone, a code appears.', 'When Asha arrives, she asks for the code. Now Meera knows the right person came.'],
       ['Meera is safe. She enters her PIN and taps: I am safe.', 'And her location is deleted. The only key that could read it is destroyed.'],
-      ['Now the hard case. Someone grabs Meera\'s phone and forces her to cancel.', 'She types her secret PIN instead.', 'Her phone says cancelled. The person next to her sees nothing unusual.', 'But Arjun gets a secret alarm: do not call her, someone may be with her. And help keeps coming.', 'The phone lies. On purpose.'],
-      ['No smartphone, or no internet? Meera can text SOS from any basic phone.', 'Her people still get the alert, with the place in her own words.', 'That is Aegira. Try it yourself, with PIN 1 2 3 4, or the secret PIN 9 9 9 9.'],
+      ['Now the hard case. Someone grabs Meera\'s phone and forces her to cancel.', 'She types her secret PIN instead.', 'Her phone says cancelled. The person next to her sees nothing unusual.', 'But Arjun gets a secret alarm: do not call her, someone may be with her. He can hear what happened. And help keeps coming.', 'The phone lies. On purpose.'],
+      ['No smartphone, or no internet? Meera can text SOS from any basic phone.', 'Her people still get the alert, with the place in her own words.'],
+      ['Before anything happens, if a place feels wrong, a fake call gives her a reason to walk away.', 'Or one tap starts a loud alarm, so everyone around looks.', 'That is Aegira. Try it yourself, with PIN 1 2 3 4, or the secret PIN 9 9 9 9.'],
     ],
   },
   hi: {
@@ -245,7 +271,7 @@ const T = {
     hint: 'आवाज़ चालू रखकर प्ले दबाएँ।',
     play: 'डेमो चलाएँ', stop: 'रोकें', sndOn: 'आवाज़ चालू', sndOff: 'आवाज़ बंद', other: 'View in English',
     who: { meera: ['मीरा', 'जिसे मदद चाहिए'], arjun: ['अर्जुन', 'उसका भाई, भरोसेमंद व्यक्ति'], asha: ['आशा', 'पास की प्रशिक्षित सहायक'] },
-    chapters: ['मदद माँगना', 'परिवार को सूचना', 'सहायक आता है', 'सुरक्षित, डेटा मिटा', 'गुप्त PIN', 'बिना इंटरनेट'],
+    chapters: ['मदद माँगना', 'परिवार को सूचना', 'सहायक आता है', 'सुरक्षित, डेटा मिटा', 'गुप्त PIN', 'बिना इंटरनेट', 'नकली कॉल, अलार्म'],
     end: 'ख़ुद आज़माएँ: <a href="/app">aegira.onrender.com/app</a>, PIN 1234, या गुप्त PIN 9999.',
     ui: {
       need: 'मुझे मदद चाहिए', press: 'दबाएँ, 30 सेकंड में मदद शुरू', starts: 'मदद शुरू होगी', cancelPin: 'रद्द करने का PIN', cancel: 'रद्द करें',
@@ -264,14 +290,17 @@ const T = {
       basicSos: 'SOS near Andheri station gate 2',
       basicReply: 'Aegira: Help is starting. Cancel within 30 sec: CANCEL and your PIN.',
       basicAlert: 'AEGIRA ALERT: Meera needs help. They said: "near Andheri station gate 2". Location unknown - call them.',
+      rec: 'आवाज़ रिकॉर्ड हो रही है', recSub: 'सबूत', battery: 'बैटरी 41%', sound: 'उसके फ़ोन से आवाज़',
+      siren: 'बचाओ', sirenSub: 'तेज़ अलार्म', caller: 'माँ', mobile: 'मोबाइल', accept: 'उठाएँ', decline: 'काटें',
     },
     lines: [
       ['यह मीरा है। रात को घर लौट रही है, और कोई उसका पीछा कर रहा है।', 'वह Aegira खोलकर SOS दबाती है।'],
-      ['ग़लती से दबा हो, तो उसके पास PIN से रद्द करने के लिए तीस सेकंड हैं।', 'समय पूरा। उसके भाई अर्जुन को संदेश जाता है, साथ में उसकी जगह का लिंक।', 'वह लिंक खोलकर नक्शे पर उसे देखता है, और प्रशिक्षित सहायक भेजता है।'],
+      ['ग़लती से दबा हो, तो उसके पास PIN से रद्द करने के लिए तीस सेकंड हैं। उसका फ़ोन सबूत के लिए आवाज़ रिकॉर्ड करने लगा है।', 'समय पूरा। उसके भाई अर्जुन को संदेश जाता है, साथ में उसकी जगह का लिंक।', 'वह नक्शे पर उसे देखता है, और उसके फ़ोन की बैटरी भी। वह उसके फ़ोन की आवाज़ सुन सकता है। सहायक कभी नहीं।', 'वह प्रशिक्षित सहायक भेजता है।'],
       ['पास की प्रशिक्षित सहायक आशा को अनुरोध मिलता है। उसे न नाम दिखता है, न फ़ोन नंबर। सिर्फ़ एक उपनाम, और लगभग एक किलोमीटर का इलाका।', 'वह स्वीकार करती है। अब जाकर उसे सही जगह दिखती है।', 'मीरा के फ़ोन पर एक कोड आता है।', 'आशा पहुँचकर कोड पूछती है। अब मीरा जानती है कि सही व्यक्ति आया है।'],
       ['मीरा सुरक्षित है। वह PIN डालकर दबाती है: मैं सुरक्षित हूँ।', 'और उसकी जगह की जानकारी मिट जाती है। उसे पढ़ने वाली इकलौती चाबी नष्ट कर दी जाती है।'],
-      ['अब मुश्किल हालात। कोई मीरा का फ़ोन छीनकर उसे रद्द करने पर मजबूर करता है।', 'वह असली की जगह गुप्त PIN डालती है।', 'फ़ोन पर रद्द लिखा आता है। पास खड़े व्यक्ति को कुछ अलग नहीं दिखता।', 'पर अर्जुन को गुप्त अलार्म जाता है: उसे कॉल मत करो, कोई उसके साथ हो सकता है। और मदद आती रहती है।', 'फ़ोन झूठ बोलता है। जानबूझकर।'],
-      ['स्मार्टफ़ोन नहीं, या इंटरनेट नहीं? मीरा किसी भी सादे फ़ोन से SOS का SMS भेज सकती है।', 'उसके अपनों को फिर भी सूचना मिलती है, उसके अपने शब्दों में जगह के साथ।', 'यह है Aegira. ख़ुद आज़माएँ, PIN 1 2 3 4 से, या गुप्त PIN 9 9 9 9 से।'],
+      ['अब मुश्किल हालात। कोई मीरा का फ़ोन छीनकर उसे रद्द करने पर मजबूर करता है।', 'वह असली की जगह गुप्त PIN डालती है।', 'फ़ोन पर रद्द लिखा आता है। पास खड़े व्यक्ति को कुछ अलग नहीं दिखता।', 'पर अर्जुन को गुप्त अलार्म जाता है: उसे कॉल मत करो, कोई उसके साथ हो सकता है। वह सुन सकता है कि क्या हुआ। और मदद आती रहती है।', 'फ़ोन झूठ बोलता है। जानबूझकर।'],
+      ['स्मार्टफ़ोन नहीं, या इंटरनेट नहीं? मीरा किसी भी सादे फ़ोन से SOS का SMS भेज सकती है।', 'उसके अपनों को फिर भी सूचना मिलती है, उसके अपने शब्दों में जगह के साथ।'],
+      ['कुछ होने से पहले, अगर कोई जगह ठीक न लगे, तो नकली कॉल उसे वहाँ से निकलने का बहाना देती है।', 'या एक बार दबाने पर तेज़ अलार्म बजता है, ताकि आसपास सब देखें।', 'यह है Aegira. ख़ुद आज़माएँ, PIN 1 2 3 4 से, या गुप्त PIN 9 9 9 9 से।'],
     ],
   },
 };
@@ -298,6 +327,14 @@ const sfx = {
   sms: () => { tone(1318, 0, 0.12); tone(1760, 0.14, 0.18); },
   alarmSoft: () => { tone(520, 0, 0.25, 'triangle', 0.12); tone(520, 0.3, 0.25, 'triangle', 0.12); tone(520, 0.6, 0.25, 'triangle', 0.12); },
   chime: () => { tone(523, 0, 0.3); tone(659, 0.12, 0.3); tone(784, 0.24, 0.45); },
+  ring: () => { for (const at of [0, 0.5]) { tone(440, at, 0.4, 'sine', 0.12); tone(480, at, 0.4, 'sine', 0.12); } },
+  siren: () => {
+    if (!soundOn) return;
+    const a = ctx(), o = a.createOscillator(), g = a.createGain();
+    o.type = 'sawtooth'; g.gain.value = 0.07;
+    for (let i = 0; i < 4; i++) { o.frequency.setValueAtTime(800, a.currentTime + i * 0.6); o.frequency.linearRampToValueAtTime(1500, a.currentTime + i * 0.6 + 0.3); o.frequency.linearRampToValueAtTime(800, a.currentTime + i * 0.6 + 0.6); }
+    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + 2.4);
+  },
   shred: () => {
     if (!soundOn) return;
     const a = ctx(), len = a.sampleRate * 0.5, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
@@ -385,22 +422,29 @@ function cells(value, n, cls = '') {
 }
 const lockIcon = '<svg width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><rect x=".5" y="5" width="9" height="7" rx="1.5" fill="currentColor"/><path d="M2.5 5V3.6a2.5 2.5 0 015 0V5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
 const checkIcon = '<svg class="check" width="64" height="64" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24" fill="none" stroke="#4cb878" stroke-width="2"/><path d="M15 27l7 7 15-16" fill="none" stroke="#4cb878" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const PHONE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>';
+const recBar = () => `<div class="recbar"><i class="dot red pulse"></i><b>${U().rec}</b> · ${U().recSub}</div>`;
+const soundRow = () => `<div class="snd"><span class="pl"></span>${U().sound}<span class="wave">${'<i></i>'.repeat(9)}</span></div>`;
 const U = () => L().ui;
 const S = {
   meeraHome: () => `<div class="app">aegira</div><div class="h c" style="margin-top:10px">${U().need}</div><div class="sos" id="sosbtn">SOS</div><div class="d c">${U().press}</div>`,
-  meeraCount: (n, pin = '') => `<div class="app">aegira</div><div class="d c" style="margin-top:6px">${U().starts}</div><div class="count">${n}</div><div class="d">${U().cancelPin}</div>${cells(pin, 4)}<div class="btn ghost" id="m-cancel">${U().cancel}</div>`,
-  meeraLive: (step, extra = '') => `<div class="row"><span class="m">${U().coming}</span><span class="tag"><i class="dot red pulse"></i>${U().live}</span></div>
+  meeraCount: (n, pin = '', rec = false) => `<div class="app">aegira</div><div class="d c" style="margin-top:6px">${U().starts}</div><div class="count">${n}</div>${rec ? recBar() : ''}<div class="d">${U().cancelPin}</div>${cells(pin, 4)}<div class="btn ghost" id="m-cancel">${U().cancel}</div>`,
+  meeraLive: (step, extra = '', rec = false) => `<div class="row"><span class="m">${U().coming}</span><span class="tag"><i class="dot red pulse"></i>${U().live}</span></div>
     <div class="track"><span class="on">${U().s1}</span><span class="${step >= 2 ? 'on' : ''}">${U().s2}</span><span class="${step >= 3 ? 'on' : ''}">${U().s3}</span></div>
-    ${map('dot')}${extra}`,
+    ${map('dot')}${rec ? recBar() : ''}${extra}`,
   meeraSafeForm: (pin = '') => `<div class="d">${U().yourPin}</div>${cells(pin, 4)}<div class="btn green" id="m-safe">${U().safeBtn}</div>`,
   meeraSafe: () => `<div class="grow">${checkIcon}<div class="h">${U().safe}</div><div class="d">${U().safeSub}</div></div>`,
   meeraDeleted: () => `<div class="grow"><div class="vault">${U().vault.map(([k, v]) => `<div><span>${k}</span>${v}</div>`).join('')}</div><div class="m" style="margin-top:6px">${U().deleted}</div></div>`,
   meeraCancelled: () => `<div class="app">aegira</div><div class="grow"><div class="h">${U().cancelled}</div><div class="d">${U().nobody}</div></div>`,
   lock: (notif = '') => `<div class="clock">9:42</div><div class="d c">${U().lock}</div><div class="notes">${notif}</div>`,
   arjunNotif: (secret) => `<div class="note ${secret ? 'alarm' : ''}"><div class="top"><span>${U().sms}</span><span>${U().now}</span></div>${secret ? U().secret : U().alert}</div>`,
-  arjunView: (asked, secret) => `<div class="app">aegira</div><div class="row"><span class="m">${U().needsHelp}</span><span class="tag"><i class="dot red pulse"></i>${U().live}</span></div>
+  arjunView: (asked, secret, extras = false) => `<div class="app">aegira</div><div class="row"><span class="m">${U().needsHelp}</span><span class="tag"><i class="dot red pulse"></i>${U().live}</span></div>
     ${secret ? `<div class="note alarm flat">${U().secretBox}</div>` : ''}${map('dot')}
+    ${extras ? `<div class="row" style="justify-content:flex-start"><span class="tag">${U().battery}</span></div>${soundRow()}` : ''}
     <div class="btn ${asked ? '' : 'red'}" id="a-send">${asked ? U().asked : U().send}</div>`,
+  siren: () => `<div class="siren"><b>${U().siren}</b><span>${U().sirenSub}</span></div>`,
+  call: (answered = false) => `<div class="call"><div><div class="av">${U().caller[0]}</div><div class="nm">${U().caller}</div><div class="d c">${answered ? '0:04' : U().mobile}</div></div>
+    <div class="btns"><span><i class="dec">${PHONE}</i>${U().decline}</span>${answered ? '' : `<span><i class="acc">${PHONE}</i>${U().accept}</span>`}</div></div>`,
   ashaIdle: () => `<div class="app">aegira · helper</div><div class="grow"><div class="radar"><i class="dot pulse"></i></div><div class="m">${U().idle}</div><div class="d">${U().idleSub}</div></div>`,
   ashaOffer: () => `<div class="app">aegira · helper</div><div class="m">${U().offer}</div><div class="row" style="justify-content:flex-start"><span class="tag">${U().alias}</span><span class="tag">${U().area}</span></div>
     ${map('area')}<div class="d" style="display:flex;gap:6px;align-items:center">${lockIcon}${U().noName}</div><div class="btn red" id="h-accept">${U().accept}</div>`,
@@ -419,28 +463,30 @@ const CHAPTERS = [
     setBasic(false); show('meera', S.meeraHome()); show('arjun', S.lock()); show('asha', S.ashaIdle()); focus('meera');
     await say(my, 0, 0);
     $('sosbtn').classList.add('press'); sfx.alarm(); shake('meera'); await sleep(500, my);
-    show('meera', S.meeraCount(30));
+    show('meera', S.meeraCount(30, '', true));
     await say(my, 0, 1);
   },
   async (my) => {
-    focus('meera'); show('meera', S.meeraCount(30)); show('arjun', S.lock()); show('asha', S.ashaIdle());
+    focus('meera'); show('meera', S.meeraCount(30, '', true)); show('arjun', S.lock()); show('asha', S.ashaIdle());
     const speech = say(my, 1, 0);
-    for (let n = 30; n >= 0; n -= 3) { show('meera', S.meeraCount(n)); sfx.tick(); await sleep(230, my); }
+    for (let n = 30; n >= 0; n -= 3) { show('meera', S.meeraCount(n, '', true)); sfx.tick(); await sleep(230, my); }
     await speech;
-    show('meera', S.meeraLive(1)); focus('arjun', 'meera');
+    show('meera', S.meeraLive(1, '', true)); focus('arjun', 'meera');
     sfx.sms(); shake('arjun'); show('arjun', S.lock(S.arjunNotif(false)));
     await say(my, 1, 1);
-    show('arjun', S.arjunView(false, false)); await sleep(400, my); tapEl('#a-send'); await sleep(300, my);
-    show('arjun', S.arjunView(true, false));
+    show('arjun', S.arjunView(false, false, true));
     await say(my, 1, 2);
+    tapEl('#a-send'); await sleep(300, my);
+    show('arjun', S.arjunView(true, false, true));
+    await say(my, 1, 3);
   },
   async (my) => {
-    show('meera', S.meeraLive(1)); show('arjun', S.arjunView(true, false)); focus('asha');
+    show('meera', S.meeraLive(1, '', true)); show('arjun', S.arjunView(true, false)); focus('asha');
     sfx.sms(); shake('asha'); show('asha', S.ashaOffer());
     await say(my, 2, 0);
     tapEl('#h-accept'); await sleep(350, my); show('asha', S.ashaAccepted()); sfx.chime();
     await say(my, 2, 1);
-    focus('meera'); show('meera', S.meeraLive(2, `<div class="d c">${U().showCode}</div>${cells(CODE, 6, 'code')}`));
+    focus('meera'); show('meera', S.meeraLive(2, `<div class="d c">${U().showCode}</div>${cells(CODE, 6, 'code')}`, true));
     await say(my, 2, 2);
     focus('asha', 'meera');
     const speech = say(my, 2, 3);
@@ -463,17 +509,17 @@ const CHAPTERS = [
   },
   async (my) => {
     setBasic(false); focus('meera'); show('arjun', S.lock()); show('asha', S.ashaIdle());
-    show('meera', S.meeraCount(24));
+    show('meera', S.meeraCount(24, '', true));
     await say(my, 4, 0);
     shake('meera');
     const speech = say(my, 4, 1);
-    await typeInto('meera', (p) => S.meeraCount(24, p), '••••', my); tapEl('#m-cancel');
+    await typeInto('meera', (p) => S.meeraCount(24, p, true), '••••', my); tapEl('#m-cancel');
     await speech;
     show('meera', S.meeraCancelled());
     await say(my, 4, 2);
     focus('arjun', 'meera'); sfx.alarmSoft(); shake('arjun'); show('arjun', S.lock(S.arjunNotif(true)));
     await say(my, 4, 3);
-    show('arjun', S.arjunView(false, true));
+    show('arjun', S.arjunView(false, true, true));
     await say(my, 4, 4);
   },
   async (my) => {
@@ -485,7 +531,18 @@ const CHAPTERS = [
     sfx.sms(); show('meera', S.basic(['&gt; ' + U().basicSos, U().basicReply]));
     focus('arjun', 'meera'); shake('arjun'); show('arjun', S.lock(`<div class="note"><div class="top"><span>${U().sms}</span><span>${U().now}</span></div>${U().basicAlert}</div>`));
     await say(my, 5, 1);
-    await say(my, 5, 2);
+  },
+  async (my) => {
+    setBasic(false); focus('meera'); show('arjun', S.lock()); show('asha', S.ashaIdle());
+    show('meera', S.call()); sfx.ring(); shake('meera');
+    const speech = say(my, 6, 0);
+    await sleep(1800, my); sfx.ring(); await sleep(900, my);
+    show('meera', S.call(true));
+    await speech;
+    show('meera', S.siren()); sfx.siren();
+    await say(my, 6, 1);
+    show('meera', S.meeraHome()); focus('meera', 'arjun', 'asha');
+    await say(my, 6, 2);
   },
 ];
 

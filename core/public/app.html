@@ -161,6 +161,45 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
     body { background:#e9ecf1; }
     .help { background:#fff5f5; } .code, .count { color:#11151c; }
   }
+  /* safety tools: siren, fake call, recording */
+  .tools { display:flex; gap:10px; margin-top:12px; }
+  .tools button { margin:0; display:flex; flex-direction:column; align-items:flex-start; gap:3px; text-align:left;
+    background:var(--panel); border:1px solid var(--line); padding:12px 14px; }
+  .tools button small { color:var(--dim); font-weight:500; font-size:11.5px; line-height:1.3; }
+  .recbar { display:flex; align-items:center; gap:10px; margin-top:12px; padding:8px 8px 8px 12px; border:1px solid var(--line);
+    border-radius:12px; background:var(--panel); font-size:13px; }
+  .recbar .dot { width:9px; height:9px; border-radius:50%; background:var(--red); flex:none; animation:blink 1.2s infinite; }
+  .recbar button { width:auto; margin:0 0 0 auto; padding:6px 12px; min-height:36px; font-size:12px;
+    background:transparent; border:1px solid var(--line); color:var(--dim); }
+  .recbar.off { border-style:dashed; }
+  @keyframes blink { 50% { opacity:.25; } }
+  .optin { display:flex; gap:12px; align-items:flex-start; margin-top:14px; padding:12px; border:1px solid var(--line);
+    border-radius:12px; background:var(--panel); cursor:pointer; color:var(--ink); letter-spacing:0; }
+  .optin input { width:22px; height:22px; min-height:0; margin:2px 0 0; flex:none; accent-color:var(--red); }
+  .optin b { display:block; font-size:14px; } .optin span { font-size:12px; color:var(--dim); line-height:1.4; }
+  .clip { margin-top:10px; } .clip audio { width:100%; margin-top:6px; }
+  .clip-h { display:flex; justify-content:space-between; font-size:13px; } .clip-h span { color:var(--dim); }
+  .overlay { position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:24px; text-align:center; }
+  .overlay.siren { background:#ff2d2d; color:#fff; animation:flash .5s steps(1) infinite; }
+  @keyframes flash { 50% { background:#fff; color:#d0021b; } }
+  .overlay.siren b { font:900 60px/1 -apple-system,sans-serif; letter-spacing:4px; }
+  .overlay.siren p { font-size:16px; margin-top:12px; font-weight:600; }
+  .overlay.siren button { max-width:320px; background:#111; color:#fff; font-size:18px; padding:18px; margin-top:40px; }
+  .overlay.sheet { background:rgba(0,0,0,.6); justify-content:flex-end; padding:0; }
+  .overlay.sheet .panel { width:100%; max-width:412px; background:var(--bg); border-radius:20px 20px 0 0; padding:20px 18px 28px; text-align:left; }
+  .overlay.call { background:linear-gradient(#1d2733,#0b0e14 70%); color:#fff; justify-content:space-between; padding:80px 24px 64px; }
+  .call .who { font-size:34px; font-weight:500; margin-top:12px; } .call .sub { color:#a3acba; font-size:15px; }
+  .call .btns { display:flex; justify-content:space-around; width:100%; max-width:320px; }
+  .call .btns div { display:flex; flex-direction:column; align-items:center; font-size:13px; color:#cfd6e0; gap:8px; }
+  .call .btns button { width:74px; height:74px; border-radius:50%; padding:0; margin:0; font-size:15px; color:#fff; }
+  .call .acc { background:#30b45a; } .call .dec { background:#e5484d; }
+  .call .timer { font:400 18px ui-monospace,Menlo,monospace; color:#a3acba; margin-top:8px; min-height:22px; }
+  .call .avatar { width:96px; height:96px; border-radius:50%; background:#3a4656; display:grid; place-items:center;
+    font-size:40px; font-weight:500; margin:0 auto 18px; color:#e6ebf2; }
+  .call .btns svg { width:32px; height:32px; fill:#fff; }
+  .call .dec svg { transform:rotate(135deg); }
+  @media (prefers-reduced-motion: reduce) { .overlay.siren { animation:none; } .recbar .dot { animation:none; } }
 .demo-banner{display:block;width:100%;flex:none;background:#f5a623;color:#111;text-align:center;font:600 13px/1.4 -apple-system,"Segoe UI",sans-serif;padding:8px 12px;text-decoration:none}
 </style>
 </head>
@@ -218,7 +257,10 @@ const seekerAuth = () => ({ authorization: 'Bearer ' + (store.get('session', {})
 const responderAuth = () => ({ 'x-responder-token': store.get('responder.token', '') });
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const go = (h) => { location.hash = h; };
-const CONSENT_V1 = 'By triggering an emergency session you consent to: (1) your precise location being shared with your chosen trusted contacts for the duration of this session only; (2) your approximate (~1 km) area and a session alias being shared with verified responders; (3) your exact location being shared with the one responder you accept; (4) all of this data being destroyed when the session is purged.';
+// Published consent texts (core/src/domain/consent.ts): v7 for every
+// session, v8 only if sound recording is turned on.
+const CONSENT_SESSION = 'By triggering an emergency session you consent to: (1) your precise location and your phone\'s battery level being shared with your chosen trusted contacts for the duration of this session only; (2) your approximate (~1 km) area and a session alias being shared with verified responders; (3) your exact location (never your battery level) being shared with the one responder you accept; (4) all of this data being destroyed when the session is purged.';
+const CONSENT_AUDIO = 'If you turn on sound recording, Aegira records sound from your phone\'s microphone during an emergency session, from the moment it starts until it ends or you stop it. The recording is encrypted with that session\'s key. Your trusted contacts can listen while the emergency is live; verified responders never can. You can save a copy to your own phone. The copy on our server is destroyed with the session\'s key when the session is purged.';
 const CATS = {
   personal_safety: { label: 'Personal safety', ico: '🛡️' },
   medical:         { label: 'Medical',         ico: '➕' },
@@ -307,7 +349,7 @@ const STR = {
     contact_name: 'Name of a person you trust', contact_phone: 'Their phone number',
     safe_pin: 'Safe PIN (to cancel, or to say you are safe)', duress_pin: 'Danger PIN (secret alarm)',
     pin_hint: 'If someone forces you to cancel, type the danger PIN. It looks cancelled, but your person is told you are in danger.',
-    consent_short: 'Your location is shared only during an emergency: with your people, and with the one helper who comes. Then it is deleted.',
+    consent_short: 'Only during an emergency: your people see where you are and your phone battery, and the one helper who comes sees where you are. Then it is deleted.',
     consent_full: 'Read the full terms',
     i_consent: 'I agree — save',
     fill_demo: 'Fill example details (demo)',
@@ -375,6 +417,28 @@ const STR = {
     v_active: 'Your people have been told. Help is coming.',
     v_safe: 'You are safe.', v_checkin: 'You have reached safely.',
     v_cancelled: 'Cancelled.', v_watch: 'Timer started. Press I have reached when you get there.',
+    // safety tools
+    rec_opt: 'Record sound when I press SOS',
+    rec_opt_sub: 'Evidence, if something happens. Your people can listen while help is coming. Helpers never can. Deleted with everything else.',
+    rec_full: 'Full terms for sound recording',
+    rec_on: 'Recording sound', rec_start: 'Record sound (evidence)', rec_stop: 'Stop', rec_go: 'Start',
+    rec_denied: 'The microphone is blocked. Allow it in your browser settings to record.',
+    rec_unsupported: 'This browser cannot record sound.',
+    rec_save: 'Save the recording to this phone',
+    rec_saved_note: 'Saved only on your phone. Our copy is deleted with everything else.',
+    rec_none: 'There is no recording to save.',
+    tools_title: 'Quick help',
+    tool_fake: 'Fake call', tool_fake_sub: 'Your phone rings, so you can walk away.',
+    tool_siren: 'Loud alarm', tool_siren_sub: 'Make people look, right now.',
+    siren_big: 'HELP', siren_sub: 'Turn your volume up', siren_stop: 'Stop the alarm',
+    fake_who: 'Who is calling?', fake_default: 'Maa', fake_when: 'Ring', fake_now: 'Now', fake_10: 'In 10 seconds', fake_30: 'In 30 seconds',
+    fake_start: 'Start', fake_close: 'Close', fake_mobile: 'mobile', fake_accept: 'Accept', fake_decline: 'Decline', fake_end: 'End',
+    fake_note: 'Nothing is sent. The call happens only on this phone.',
+    fake_lines: ['Hello? Where are you right now?', 'Okay. I am coming to get you. I will be there in five minutes.', 'Stay where there are people. Stay on the phone with me.', 'I am on the way. Keep talking to me.'],
+    ct_battery: 'battery {p}%', ct_battery_low: 'Their phone battery is low ({p}%). It may switch off soon.',
+    ct_sound: 'SOUND FROM THEIR PHONE', ct_sound_sub: 'Recorded during this emergency. Helpers cannot hear it.',
+    ct_sound_clip: 'Recording {n}', ct_sound_len: 'about {s} so far', ct_sound_latest: 'New sound came in. Play the latest',
+    unit_s: '{n} sec', unit_min: '{n} min',
   },
   hi: {
     pick_language: 'अपनी भाषा चुनें', tap_to_continue: 'अपनी भाषा दबाएँ',
@@ -414,7 +478,7 @@ const STR = {
     contact_name: 'किसी भरोसेमंद व्यक्ति का नाम', contact_phone: 'उनका फ़ोन नंबर',
     safe_pin: 'सुरक्षित PIN (रद्द करने या “मैं सुरक्षित हूँ” कहने के लिए)', duress_pin: 'ख़तरे वाला PIN (गुप्त अलार्म)',
     pin_hint: 'अगर कोई ज़बरदस्ती रद्द करवाए, तो ख़तरे वाला PIN डालें। रद्द दिखेगा, पर आपके व्यक्ति को बताया जाएगा कि आप ख़तरे में हैं।',
-    consent_short: 'आपकी जगह सिर्फ़ आपातकाल में बताई जाती है: आपके अपनों को, और आने वाले एक सहायक को। फिर मिटा दी जाती है।',
+    consent_short: 'सिर्फ़ आपातकाल में: आपके अपने आपकी जगह और फ़ोन की बैटरी देखते हैं, और आने वाला सहायक सिर्फ़ आपकी जगह। फिर सब मिटा दिया जाता है।',
     consent_full: 'पूरी शर्तें पढ़ें',
     i_consent: 'मैं सहमत हूँ — सहेजें',
     fill_demo: 'उदाहरण भरें (डेमो)',
@@ -479,7 +543,30 @@ const STR = {
     v_safe: 'आप सुरक्षित हैं।', v_checkin: 'आप सुरक्षित पहुँच गए।',
     v_cancelled: 'रद्द कर दिया गया।', v_watch: 'टाइमर शुरू। पहुँचकर बताइए।',
     'hl_All emergencies': 'सभी आपात स्थितियाँ', hl_Police: 'पुलिस', hl_Ambulance: 'एम्बुलेंस', hl_Fire: 'आग',
-    'hl_Women helpline': 'महिला हेल्पलाइन', 'hl_Child helpline': 'बाल हेल्पलाइन', 'hl_Disaster management': 'आपदा सहायता',
+    'hl_Women helpline': 'महिला हेल्पलाइन', 'hl_Women in distress': 'महिला संकट सहायता', 'hl_Cyber crime': 'साइबर अपराध', 'hl_Child helpline': 'बाल हेल्पलाइन', 'hl_Disaster management': 'आपदा सहायता',
+
+    // safety tools
+    rec_opt: 'SOS दबाने पर आवाज़ रिकॉर्ड करें',
+    rec_opt_sub: 'कुछ हो जाए तो सबूत रहे। मदद आने तक आपके अपने इसे सुन सकते हैं। सहायक कभी नहीं। बाकी सब के साथ मिटा दी जाती है।',
+    rec_full: 'आवाज़ रिकॉर्डिंग की पूरी शर्तें',
+    rec_on: 'आवाज़ रिकॉर्ड हो रही है', rec_start: 'आवाज़ रिकॉर्ड करें (सबूत)', rec_stop: 'रोकें', rec_go: 'शुरू',
+    rec_denied: 'माइक्रोफ़ोन बंद है। रिकॉर्ड करने के लिए ब्राउज़र की सेटिंग में इसे चालू करें।',
+    rec_unsupported: 'यह ब्राउज़र आवाज़ रिकॉर्ड नहीं कर सकता।',
+    rec_save: 'रिकॉर्डिंग इस फ़ोन में सहेजें',
+    rec_saved_note: 'यह सिर्फ़ आपके फ़ोन में रहेगी। हमारी कॉपी बाकी सब के साथ मिटा दी जाती है।',
+    rec_none: 'सहेजने के लिए कोई रिकॉर्डिंग नहीं है।',
+    tools_title: 'तुरंत मदद',
+    tool_fake: 'नकली कॉल', tool_fake_sub: 'फ़ोन बजेगा, ताकि आप वहाँ से निकल सकें।',
+    tool_siren: 'तेज़ अलार्म', tool_siren_sub: 'अभी लोगों का ध्यान खींचें।',
+    siren_big: 'बचाओ', siren_sub: 'फ़ोन की आवाज़ पूरी करें', siren_stop: 'अलार्म बंद करें',
+    fake_who: 'कौन कॉल कर रहा है?', fake_default: 'माँ', fake_when: 'कब बजे', fake_now: 'अभी', fake_10: '10 सेकंड में', fake_30: '30 सेकंड में',
+    fake_start: 'शुरू करें', fake_close: 'बंद करें', fake_mobile: 'मोबाइल', fake_accept: 'उठाएँ', fake_decline: 'काटें', fake_end: 'काटें',
+    fake_note: 'कुछ नहीं भेजा जाता। कॉल सिर्फ़ इसी फ़ोन पर होती है।',
+    fake_lines: ['हैलो? तुम अभी कहाँ हो?', 'ठीक है। मैं तुम्हें लेने आ रही हूँ। पाँच मिनट में पहुँचूँगी।', 'जहाँ लोग हों, वहीं रहो। फ़ोन पर मुझसे बात करती रहो।', 'मैं रास्ते में हूँ। बात करती रहो।'],
+    ct_battery: 'बैटरी {p}%', ct_battery_low: 'उनके फ़ोन की बैटरी कम है ({p}%)। फ़ोन जल्द बंद हो सकता है।',
+    ct_sound: 'उनके फ़ोन से आवाज़', ct_sound_sub: 'इस आपातकाल के दौरान रिकॉर्ड की गई। सहायक इसे नहीं सुन सकते।',
+    ct_sound_clip: 'रिकॉर्डिंग {n}', ct_sound_len: 'अब तक लगभग {s}', ct_sound_latest: 'नई आवाज़ आई है। ताज़ा हिस्सा चलाएँ',
+    unit_s: '{n} सेकंड', unit_min: '{n} मिनट',
   },
 };
 const langCode = () => store.get('lang', null);
@@ -719,7 +806,10 @@ function renderOnboarding(existing) {
     <p class="lead" style="margin-top:8px">🤫 ${esc(t('pin_hint'))}</p>
     ${CFG.smsNumber ? `<div class="foot">📟 ${esc(t('sms_join', { name: t('your_person'), number: CFG.smsNumber }))}</div>` : ''}
     <div class="consent">🔒 ${esc(t('consent_short'))}
-      <details><summary>${esc(t('consent_full'))}</summary><p style="margin-top:6px">${esc(CONSENT_V1)}</p></details></div>
+      <details><summary>${esc(t('consent_full'))}</summary><p style="margin-top:6px">${esc(CONSENT_SESSION)}</p></details></div>
+    ${recSupported() ? `<label class="optin" for="ob-rec"><input type="checkbox" id="ob-rec" onchange="if(this.checked)askMic()"${p && p.recordSound ? ' checked' : ''}>
+      <div><b>🎙 ${esc(t('rec_opt'))}</b><span>${esc(t('rec_opt_sub'))}</span>
+      <details onclick="event.stopPropagation()"><summary style="font-size:12px">${esc(t('rec_full'))}</summary><p style="margin-top:6px;font-size:12px;color:var(--dim)">${esc(CONSENT_AUDIO)}</p></details></div></label>` : ''}
     <button class="primary" onclick="saveProfile()">${esc(t('i_consent'))}</button>
     ${helplineCard()}`;
 }
@@ -754,8 +844,10 @@ function saveProfile() {
     country,
     contacts: [{ id: 'c-' + cname.toLowerCase().replace(/\s+/g, '-'), name: cname, address: withDial(cphoneRaw, country) }],
     pins: { safe: pinSafe, duress: pinDuress },
+    recordSound: !!(document.getElementById('ob-rec') && document.getElementById('ob-rec').checked),
   });
-  store.set('consent', 'v1');
+  store.set('consent', 'v7');
+  if (store.get('profile').recordSound) store.set('consent.audio', 'v8'); else store.del('consent.audio');
   editingProfile = false;
   render();
 }
@@ -798,6 +890,7 @@ function renderSeekerHome(profile) {
     ${modeToggle}
     ${seekerMode === 'sos' ? sosBlock : watchBlock}
     ${citySelect}
+    ${toolsRow()}
     ${helplineCard(profile.country)}
     <div class="card"><div class="k">${esc(t('your_circle'))}</div>
       ${profile.contacts.map((c) => `<div>${esc(c.name)} · ${esc(c.address)}</div>`).join('')}
@@ -865,6 +958,9 @@ function deviceUserId() {
 
 async function trigger() {
   const profile = store.get('profile');
+  // Recording starts at the press itself (the browser needs that tap), and
+  // pieces wait on the phone until the session exists.
+  if (profile.recordSound && store.get('consent.audio', null) === 'v8') startRecording();
   const { loc, realLoc } = await sessionStartLocation();
   try {
     const r = await api('/sessions', {
@@ -876,9 +972,10 @@ async function trigger() {
       pins: profile.pins,
     });
     store.set('session', { id: r.sessionId, token: r.seekerToken, t0: Date.now(), countdownMs: r.activationCountdownMs, loc, realLoc, dispatched: false });
+    attachRecording(r.sessionId, r.seekerToken);
     speakKey('v_sos');
     render();
-  } catch (e) { toast(friendlyError(e)); }
+  } catch (e) { discardRecording(); toast(friendlyError(e)); }
 }
 
 async function startWatch() {
@@ -899,6 +996,7 @@ async function startWatch() {
 }
 async function checkInSafe() {
   const pin = document.getElementById('pin').value;
+  await stopRecording();
   try { await api(`/sessions/${store.get('session').id}/checkin`, { pin }, 'POST', seekerAuth()); routeTick(); }
   catch (e) { toast(friendlyError(e)); }
 }
@@ -940,6 +1038,7 @@ function renderSeekerSession() {
       spokenState = st.state;
     }
     sendPing(st.state);
+    if (rec && !['PENDING', 'ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(st.state)) stopRecording();
     const html = seekerScreen(st.state, sess, code);
     if (html !== last && !typing()) { document.getElementById('dyn').innerHTML = html; last = html; }
   };
@@ -968,8 +1067,10 @@ function seekerScreen(state, sess, code) {
       <div class="count">${left}</div>
       <p class="lead center">${esc(t('countdown_sub'))}</p>
       <button class="danger" onclick="confirmNow()">${esc(t('need_help_now'))}</button>
+      ${recBar()}
       <label>${esc(t('enter_pin_cancel'))}</label><input id="pin" inputmode="numeric" maxlength="6" placeholder="••••" aria-label="${esc(t('enter_pin_cancel'))}">
-      <button class="subtle" onclick="cancelSession()">${esc(t('cancel'))}</button>`;
+      <button class="subtle" onclick="cancelSession()">${esc(t('cancel'))}</button>
+      ${toolsRow(true)}`;
   }
   if (['ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(state)) {
     const steps = [t('step1'), t('step2'), t('step3')];
@@ -983,6 +1084,8 @@ function seekerScreen(state, sess, code) {
       ${state === 'ACTIVE' && sess.dispatched ? `<p class="lead center" style="margin-top:10px">${esc(t(sess.noHelpers ? 'no_helpers' : 'waiting_accept'))}</p>` : ''}
       ${state === 'DISPATCHED' && code ? `<p class="lead center" style="margin-top:12px">${esc(t('show_code'))}</p><div class="code">${code}</div>` : ''}
       ${state === 'ARRIVED' ? `<p class="lead center" style="margin-top:12px">🤝 ${esc(t('responder_here'))}</p>` : ''}
+      ${recBar()}
+      ${toolsRow(true)}
       <label for="safe-pin">${esc(t('enter_pin_safe'))}</label><input id="safe-pin" inputmode="numeric" maxlength="6" type="password" autocomplete="off" placeholder="••••">
       <button onclick="resolveSession()">✅ ${esc(t('i_am_safe'))}</button>
       ${help}`;
@@ -990,6 +1093,8 @@ function seekerScreen(state, sess, code) {
   if (state === 'RESOLVED') {
     return `<div class="big-ico">✅</div><h1 class="center">${esc(t('youre_safe'))}</h1>
       <p class="lead center">${esc(t('youre_safe_sub'))}</p>
+      ${sess.recorded ? `<button class="primary" onclick="saveRecording()">💾 ${esc(t('rec_save'))}</button>
+        <p class="lead center" style="margin-top:6px">${esc(t('rec_saved_note'))}</p>` : ''}
       <button onclick="clearSession()">${esc(t('done'))}</button>`;
   }
   return `<div class="big-ico">🌙</div><h1 class="center">${esc(t('cancelled'))}</h1>
@@ -997,8 +1102,11 @@ function seekerScreen(state, sess, code) {
     <button onclick="clearSession()">${esc(t('back'))}</button>`;
 }
 async function confirmNow() { try { await api(`/sessions/${store.get('session').id}/confirm`, {}, 'POST', seekerAuth()); } catch (e) { toast(friendlyError(e)); } routeTick(); }
+// The recorder stops (sending its last piece) before any PIN is sent, so
+// the secret PIN and the real one look exactly alike on this phone.
 async function cancelSession() {
   const pin = document.getElementById('pin').value;
+  await stopRecording();
   try { await api(`/sessions/${store.get('session').id}/cancel`, { pin }, 'POST', seekerAuth()); routeTick(); }
   catch (e) { toast(friendlyError(e)); }
 }
@@ -1016,10 +1124,11 @@ async function requestResponder() {
 // screen while help keeps coming and their people get a secret alarm.
 async function resolveSession() {
   const pin = document.getElementById('safe-pin').value;
+  await stopRecording();
   try { await api(`/sessions/${store.get('session').id}/resolve`, { pin }, 'POST', seekerAuth()); routeTick(); }
   catch (e) { toast(friendlyError(e)); }
 }
-function clearSession() { stopGps(); store.del('session'); render(); }
+function clearSession() { stopGps(); stopRecording(); store.del('session'); render(); }
 
 // Live location updates: real GPS fixes only, and only while the session
 // is live. A hand-picked area is sent once at the start and never "moves".
@@ -1033,7 +1142,264 @@ async function sendPing(state) {
   lastPing = Date.now();
   sess.loc = latestFix;
   store.set('session', sess);
-  api(`/sessions/${sess.id}/location`, sess.loc, 'POST', seekerAuth()).catch(() => {});
+  const battery = batteryMeter ? Math.round(batteryMeter.level * 100) : undefined;
+  api(`/sessions/${sess.id}/location`, { ...sess.loc, ...(battery !== undefined ? { battery } : {}) }, 'POST', seekerAuth()).catch(() => {});
+}
+// Battery level (Chrome/Android only) so contacts can tell a dying phone
+// from a silent one. Read with each ping, never on its own (consent v7).
+let batteryMeter = null;
+if (navigator.getBattery) navigator.getBattery().then((b) => { batteryMeter = b; }).catch(() => {});
+
+/* -------------------- sound recording (opt-in, consent v8) -------------------- */
+// Pieces go up every few seconds, so a snatched or smashed phone still
+// leaves what was already sent. Encrypted under the session key on the
+// server and destroyed with it; contacts may listen, helpers never can.
+const REC_SLICE_MS = 5000;
+let rec = null; // { mr, stream, segment, seq, sid, token, started, queue, uploads }
+const recSupported = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+function recMime() {
+  for (const m of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']) {
+    if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return '';
+}
+// Asks for the microphone ahead of an emergency; nothing is recorded.
+async function askMic() {
+  try { (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach((tr) => tr.stop()); }
+  catch { toast(t('rec_denied')); }
+}
+function randomSegment() {
+  const b = new Uint8Array(8); crypto.getRandomValues(b);
+  return 'r' + Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+}
+function startRecording() {
+  if (rec) return;
+  if (!recSupported()) { toast(t('rec_unsupported')); return; }
+  const sess = store.get('session', null);
+  const r = { mr: null, stream: null, segment: randomSegment(), seq: 0, sid: sess ? sess.id : null,
+    token: sess ? sess.token : null, started: Date.now(), queue: [], uploads: [], dead: false };
+  rec = r;
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true } })
+    .then((stream) => {
+      if (r.dead) { stream.getTracks().forEach((tr) => tr.stop()); return; }
+      const mime = recMime();
+      r.stream = stream;
+      r.mr = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: 32000 });
+      r.mr.ondataavailable = (ev) => {
+        if (!ev.data || !ev.data.size) return;
+        const item = { blob: ev.data, seq: r.seq++ };
+        if (r.sid) r.uploads.push(uploadPiece(r, item)); else r.queue.push(item);
+      };
+      r.mr.start(REC_SLICE_MS);
+      markRecorded();
+    })
+    .catch(() => { if (rec === r) rec = null; toast(t('rec_denied')); routeTick(); });
+  routeTick();
+}
+function markRecorded() {
+  const sess = store.get('session', null);
+  if (sess && !sess.recorded) { sess.recorded = true; store.set('session', sess); }
+}
+// The session now exists: send what was recorded while it was being made.
+function attachRecording(sid, token) {
+  if (!rec) return;
+  rec.sid = sid; rec.token = token;
+  for (const item of rec.queue.splice(0)) rec.uploads.push(uploadPiece(rec, item));
+  markRecorded();
+}
+// SOS failed to start: nothing recorded leaves the phone.
+function discardRecording() {
+  const r = rec; rec = null; if (!r) return;
+  r.dead = true; r.queue.length = 0;
+  try { if (r.mr && r.mr.state !== 'inactive') { r.mr.ondataavailable = null; r.mr.stop(); } } catch {}
+  if (r.stream) r.stream.getTracks().forEach((tr) => tr.stop());
+}
+const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+  const fr = new FileReader();
+  fr.onload = () => resolve(String(fr.result).split(',')[1] || '');
+  fr.onerror = reject; fr.readAsDataURL(blob);
+});
+const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+async function uploadPiece(r, item) {
+  const data = await blobToBase64(item.blob);
+  const body = { segment: r.segment, seq: item.seq, mime: item.blob.type || (r.mr && r.mr.mimeType) || '', data, consent: 'v8' };
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try { await api(`/sessions/${r.sid}/audio`, body, 'POST', { authorization: 'Bearer ' + r.token }); return; }
+    catch (e) {
+      // Only a network failure is worth retrying; a refusal is final.
+      if (!/fetch|network|load failed|http 5/i.test(e.message)) return;
+      await wait(1500 * (attempt + 1));
+    }
+  }
+}
+// Stops the microphone and waits (briefly) for the last piece to be sent.
+function stopRecording() {
+  const r = rec; rec = null;
+  if (!r) return Promise.resolve();
+  r.dead = true;
+  const stopped = new Promise((res) => {
+    if (!r.mr || r.mr.state === 'inactive') return res();
+    r.mr.onstop = () => res();
+    try { r.mr.stop(); } catch { res(); }
+  });
+  const done = stopped.then(() => {
+    if (r.stream) r.stream.getTracks().forEach((tr) => tr.stop());
+    return Promise.all(r.uploads);
+  });
+  return Promise.race([done, wait(3000)]);
+}
+function fmtDur(sec) {
+  return sec < 60 ? t('unit_s', { n: Math.max(1, Math.round(sec)) }) : t('unit_min', { n: Math.round(sec / 60) });
+}
+// Only someone who agreed to recording (consent v8, at setup) is offered it;
+// here it restarts a recording that was stopped or lost to a reload.
+function recBar() {
+  if (!recSupported() || store.get('consent.audio', null) !== 'v8') return '';
+  if (!rec) return `<div class="recbar off">🎙 <span>${esc(t('rec_start'))}</span><button onclick="startRecording()">● ${esc(t('rec_go'))}</button></div>`;
+  return `<div class="recbar"><span class="dot"></span><span>${esc(t('rec_on'))} · ${fmtDur((Date.now() - rec.started) / 1000)}</span>
+    <button onclick="stopRecording().then(routeTick)">${esc(t('rec_stop'))}</button></div>`;
+}
+// Saves each recording of this session as a file on this phone.
+async function saveRecording() {
+  const sess = store.get('session');
+  try {
+    const { clips } = await api(`/sessions/${sess.id}/audio`, undefined, 'GET', seekerAuth());
+    if (!clips.length) return toast(t('rec_none'));
+    for (const [i, c] of clips.entries()) {
+      const res = await fetch(`/sessions/${sess.id}/audio/${c.segment}`, { headers: seekerAuth() });
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      const ext = /mp4|aac/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : /mpeg/.test(blob.type) ? 'mp3' : 'webm';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `aegira-recording-${c.startedAt.slice(0, 16).replace(/[:T]/g, '-')}-${i + 1}.${ext}`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    }
+  } catch (e) { toast(friendlyError(e)); }
+}
+
+/* ---------------------- loud alarm and fake call ---------------------- */
+// Both happen only on this phone: nothing is sent and nothing is stored.
+function toolsRow(compact) {
+  return `${compact ? '' : `<label>${esc(t('tools_title'))}</label>`}<div class="tools">
+    <button onclick="startSiren()">🚨 ${esc(t('tool_siren'))}${compact ? '' : `<small>${esc(t('tool_siren_sub'))}</small>`}</button>
+    <button onclick="openFakeCall()">📞 ${esc(t('tool_fake'))}${compact ? '' : `<small>${esc(t('tool_fake_sub'))}</small>`}</button></div>`;
+}
+const buzz = (pattern) => {
+  if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(pattern);
+};
+let toolAudio = null;
+function toolCtx() {
+  if (!toolAudio) toolAudio = new (window.AudioContext || window.webkitAudioContext)();
+  if (toolAudio.state === 'suspended') toolAudio.resume();
+  return toolAudio;
+}
+let siren = null;
+async function startSiren() {
+  if (siren) return;
+  const a = toolCtx();
+  // A wailing tone: a sawtooth swept by a slow oscillator, as loud as the
+  // phone allows.
+  const osc = a.createOscillator(), lfo = a.createOscillator(), depth = a.createGain(), out = a.createGain();
+  osc.type = 'sawtooth'; osc.frequency.value = 1150;
+  lfo.type = 'sine'; lfo.frequency.value = 1.6; depth.gain.value = 450;
+  out.gain.value = 0.9;
+  lfo.connect(depth).connect(osc.frequency); osc.connect(out).connect(a.destination);
+  osc.start(); lfo.start();
+  const el = document.createElement('div');
+  el.className = 'overlay siren'; el.setAttribute('role', 'alertdialog');
+  el.innerHTML = `<b>${esc(t('siren_big'))}</b><p>${esc(t('siren_sub'))}</p><button onclick="stopSiren()">${esc(t('siren_stop'))}</button>`;
+  document.body.appendChild(el);
+  const pulse = () => buzz([600, 200, 600, 200]);
+  pulse();
+  let lock = null;
+  try { lock = navigator.wakeLock ? await navigator.wakeLock.request('screen') : null; } catch {}
+  siren = { osc, lfo, el, lock, buzzer: setInterval(pulse, 1600) };
+}
+function stopSiren() {
+  if (!siren) return;
+  try { siren.osc.stop(); siren.lfo.stop(); } catch {}
+  clearInterval(siren.buzzer); buzz(0);
+  if (siren.lock) siren.lock.release().catch(() => {});
+  siren.el.remove(); siren = null;
+}
+let fakeCall = null;
+function openFakeCall() {
+  toolCtx(); // unlock sound now, while there is a tap
+  const name = store.get('fakecall.name', '') || t('fake_default');
+  const el = document.createElement('div');
+  el.className = 'overlay sheet';
+  el.innerHTML = `<div class="panel" role="dialog" aria-label="${esc(t('tool_fake'))}">
+    <h1>📞 ${esc(t('tool_fake'))}</h1>
+    <label for="fc-name">${esc(t('fake_who'))}</label><input id="fc-name" value="${esc(name)}" maxlength="30">
+    <label for="fc-when">${esc(t('fake_when'))}</label>
+    <select id="fc-when"><option value="0">${esc(t('fake_now'))}</option><option value="10" selected>${esc(t('fake_10'))}</option><option value="30">${esc(t('fake_30'))}</option></select>
+    <button class="primary" onclick="scheduleFakeCall()">${esc(t('fake_start'))}</button>
+    <button class="subtle" onclick="this.closest('.overlay').remove()">${esc(t('fake_close'))}</button>
+    <p class="lead" style="margin-top:10px">${esc(t('fake_note'))}</p></div>`;
+  document.body.appendChild(el);
+}
+function scheduleFakeCall() {
+  const sheet = document.querySelector('.overlay.sheet');
+  const name = (document.getElementById('fc-name').value || '').trim() || t('fake_default');
+  const delay = Number(document.getElementById('fc-when').value) || 0;
+  store.set('fakecall.name', name);
+  sheet.remove();
+  if (delay) toast(t('fake_when') + ': ' + t(delay === 10 ? 'fake_10' : 'fake_30'));
+  setTimeout(() => ringFakeCall(name), delay * 1000);
+}
+const PHONE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>';
+function ringFakeCall(name) {
+  endFakeCall();
+  const a = toolCtx();
+  const el = document.createElement('div');
+  el.className = 'overlay call'; el.setAttribute('role', 'alertdialog');
+  el.innerHTML = `<div><div class="avatar">${esc(Array.from(name)[0].toUpperCase())}</div><div class="who">${esc(name)}</div>
+      <div class="sub">${esc(t('fake_mobile'))}</div><div class="timer" id="fc-timer"></div></div>
+    <div class="btns" id="fc-btns">
+      <div><button class="dec" onclick="endFakeCall()" aria-label="${esc(t('fake_decline'))}">${PHONE_ICON}</button>${esc(t('fake_decline'))}</div>
+      <div><button class="acc" onclick="answerFakeCall()" aria-label="${esc(t('fake_accept'))}">${PHONE_ICON}</button>${esc(t('fake_accept'))}</div></div>`;
+  document.body.appendChild(el);
+  // A familiar double ring every 3 seconds, with the phone buzzing along.
+  const ring = () => {
+    const t0 = a.currentTime;
+    for (const [at, f] of [[0, 440], [0, 480], [0.5, 440], [0.5, 480]]) {
+      const o = a.createOscillator(), g = a.createGain();
+      o.frequency.value = f; g.gain.setValueAtTime(0.25, t0 + at); g.gain.setValueAtTime(0, t0 + at + 0.4);
+      o.connect(g).connect(a.destination); o.start(t0 + at); o.stop(t0 + at + 0.42);
+    }
+    buzz([400, 100, 400]);
+  };
+  ring();
+  fakeCall = { el, ringer: setInterval(ring, 3000), timer: null, talk: null };
+}
+function answerFakeCall() {
+  if (!fakeCall) return;
+  clearInterval(fakeCall.ringer); buzz(0);
+  document.getElementById('fc-btns').innerHTML =
+    `<div><button class="dec" onclick="endFakeCall()" aria-label="${esc(t('fake_end'))}">${PHONE_ICON}</button>${esc(t('fake_end'))}</div>`;
+  const t0 = Date.now();
+  const tick = () => { const s = Math.floor((Date.now() - t0) / 1000); document.getElementById('fc-timer').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  tick(); fakeCall.timer = setInterval(tick, 1000);
+  // The caller "speaks", with pauses for your replies.
+  const lines = t('fake_lines'); let i = 0;
+  const say = () => {
+    if (!fakeCall || i >= lines.length || !window.speechSynthesis) return;
+    const u = new SpeechSynthesisUtterance(lines[i++]);
+    const l = langCode() || 'en';
+    u.lang = (LANGS.find((x) => x.code === l) || LANGS[0]).voice; u.rate = 0.95;
+    u.onend = () => { if (fakeCall) fakeCall.talk = setTimeout(say, 4500); };
+    speechSynthesis.speak(u);
+  };
+  fakeCall.talk = setTimeout(say, 900);
+}
+function endFakeCall() {
+  if (!fakeCall) return;
+  clearInterval(fakeCall.ringer); clearInterval(fakeCall.timer); clearTimeout(fakeCall.talk);
+  buzz(0);
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  fakeCall.el.remove(); fakeCall = null;
 }
 
 /* ------------------------------ contact ------------------------------- */
@@ -1088,7 +1454,8 @@ function freshness(ageMs) {
 }
 
 function renderContactSession(sid) {
-  $m.innerHTML = `<div id="dyn"><p class="lead">…</p></div>`;
+  $m.innerHTML = `<div id="dyn"><p class="lead">…</p></div><div id="sound"></div>
+    <button class="subtle" onclick="go('contact')">${esc(t('ct_all_alerts'))}</button>`;
   let last = '';
   routeTick = async () => {
     const v = await api(`/sessions/${sid}/contact-view?t=${contactToken(sid)}`, undefined, 'GET').catch(() => null);
@@ -1100,16 +1467,51 @@ function renderContactSession(sid) {
       <p class="lead">${esc(catLabel(v.category))}</p>
       ${v.placeNote ? `<div class="card"><div class="k">${esc(t('ct_said'))}</div>${esc(v.placeNote)}</div>` : ''}
       ${v.location ? mapSvg(null, v.location, { dot: true, hideCell: true }) +
-        `<p class="lead center">📍 ${esc(freshness(v.locationAgeMs))}</p>
+        `<p class="lead center">📍 ${esc(freshness(v.locationAgeMs))}${v.batteryPercent != null ? ` · 🔋 ${esc(t('ct_battery', { p: v.batteryPercent }))}` : ''}</p>
+         ${v.batteryPercent != null && v.batteryPercent <= 15 && live ? `<p class="lead center" style="color:var(--red);font-weight:600">🪫 ${esc(t('ct_battery_low', { p: v.batteryPercent }))}</p>` : ''}
          <a class="bigbtn" style="text-decoration:none;color:inherit" target="_blank" rel="noopener"
            href="https://www.google.com/maps/search/?api=1&query=${v.location.lat},${v.location.lng}"><span class="ic">🗺️</span><b>${esc(t('open_maps'))}</b></a>` :
         `<p class="lead" style="margin-top:20px">${live ? esc(t(v.duress ? 'ct_no_loc_duress' : 'ct_no_loc')) : esc(t('ct_ended'))}</p>`}
       ${v.state === 'ACTIVE' && v.location ? `<button class="primary" onclick="contactDispatch('${sid}')">${esc(t('ct_send_helper'))}</button>` : ''}
-      ${v.state === 'DISPATCHED' ? `<p class="lead center" style="margin-top:8px">${esc(t('ct_helper_coming'))}</p>` : ''}
-      <button class="subtle" onclick="go('contact')">${esc(t('ct_all_alerts'))}</button>`;
+      ${v.state === 'DISPATCHED' ? `<p class="lead center" style="margin-top:8px">${esc(t('ct_helper_coming'))}</p>` : ''}`;
     if (html !== last) { document.getElementById('dyn').innerHTML = html; last = html; }
+    syncContactSound(sid);
   };
   routeTick();
+}
+// Recordings live outside the re-drawn area, so playback is never cut off
+// when the page refreshes; new sound shows a "play the latest" button.
+async function syncContactSound(sid) {
+  const box = document.getElementById('sound'); if (!box) return;
+  const r = await api(`/sessions/${sid}/audio?t=${encodeURIComponent(contactToken(sid))}`, undefined, 'GET').catch(() => null);
+  const clips = (r && r.clips) || [];
+  if (!clips.length) { box.innerHTML = ''; return; }
+  if (!box.querySelector('.clips')) {
+    box.innerHTML = `<div class="card"><div class="k">🎙 ${esc(t('ct_sound'))}</div><p class="lead">${esc(t('ct_sound_sub'))}</p><div class="clips"></div></div>`;
+  }
+  const list = box.querySelector('.clips');
+  clips.forEach((c, i) => {
+    const src = () => `/sessions/${sid}/audio/${c.segment}?t=${encodeURIComponent(contactToken(sid))}&v=${c.pieces}`;
+    let row = list.querySelector(`[data-seg="${c.segment}"]`);
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'clip'; row.dataset.seg = c.segment; row.dataset.pieces = String(c.pieces);
+      row.innerHTML = '<div class="clip-h"><b></b><span></span></div><audio controls preload="none"></audio><button class="subtle" hidden></button>';
+      row.querySelector('audio').src = src();
+      list.appendChild(row);
+    }
+    row.querySelector('b').textContent = t('ct_sound_clip', { n: i + 1 });
+    row.querySelector('span').textContent = t('ct_sound_len', { s: fmtDur((c.pieces * REC_SLICE_MS) / 1000) });
+    const latest = row.querySelector('button');
+    latest.textContent = t('ct_sound_latest');
+    if (row.dataset.pieces !== String(c.pieces)) {
+      latest.hidden = false;
+      latest.onclick = () => {
+        const audio = row.querySelector('audio'); audio.src = src(); audio.play().catch(() => {});
+        row.dataset.pieces = String(c.pieces); latest.hidden = true;
+      };
+    }
+  });
 }
 async function contactDispatch(sid) {
   try {

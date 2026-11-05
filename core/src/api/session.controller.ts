@@ -81,11 +81,11 @@ export class SessionController {
   @Post(':id/location')
   location(
     @Param('id') id: string,
-    @Body() body: { lat: number; lng: number },
+    @Body() body: { lat: number; lng: number; battery?: number },
     @Headers('authorization') auth?: string,
   ) {
     this.sessions.authorizeSeeker(id, bearer(auth));
-    this.sessions.recordLocation(id, body.lat, body.lng);
+    this.sessions.recordLocation(id, body?.lat, body?.lng, body?.battery);
     return { recorded: true };
   }
 

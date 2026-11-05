@@ -67,6 +67,12 @@ for (const path of ['/', '/app', '/lite']) {
   });
 }
 
+await check('the new features are on the home page and in the demo', async () => {
+  assert((await call('GET', '/')).text.includes('Sound as evidence'), 'home page missing sound recording');
+  assert((await call('GET', '/demo')).text.includes('Fake call, alarm'), 'demo missing chapter 7');
+  assert((await call('GET', '/app')).text.includes('startSiren'), 'app missing the loud alarm');
+});
+
 console.log('\nProtection');
 await check('security headers on, server type hidden', async () => {
   const { headers } = await call('GET', '/');
@@ -136,6 +142,28 @@ await check('"I am safe" needs a PIN, and the secret PIN looks exactly like the 
   assert(a.text.replace(real.sessionId, 'ID') === b.text.replace(forced.sessionId, 'ID'), 'different body');
   const after = await call('GET', `/sessions/${forced.sessionId}`, undefined, auth(forced));
   assert(after.json.state === 'RESOLVED', `phone shows ${after.json.state}`);
+});
+await check('sound recording: contacts can listen, helpers and strangers cannot', async () => {
+  const s = (await call('POST', '/sessions', fakePerson())).json;
+  const auth = { authorization: `Bearer ${s.seekerToken}` };
+  await call('POST', `/sessions/${s.sessionId}/confirm`, {}, auth);
+  const piece = { segment: 'livecheck01', seq: 0, mime: 'audio/webm', data: Buffer.from('fake sound').toString('base64'), consent: 'v8' };
+  assert((await call('POST', `/sessions/${s.sessionId}/audio`, piece, auth)).status === 201, 'upload refused');
+  assert((await call('POST', `/sessions/${s.sessionId}/audio`, { ...piece, seq: 1, consent: 'v1' }, auth)).status === 400, 'no-consent upload allowed');
+  const mine = await call('GET', `/sessions/${s.sessionId}/audio`, undefined, auth);
+  assert(mine.json.clips?.[0]?.pieces === 1, 'helpseeker cannot see the recording');
+  for (const headers of [{}, { 'x-responder-token': 'asha-dev-token' }]) {
+    const res = await call('GET', `/sessions/${s.sessionId}/audio/livecheck01`, undefined, headers);
+    assert(res.status === 401 && !res.text.includes('fake sound'), `got ${res.status} without a token`);
+  }
+  await call('POST', `/sessions/${s.sessionId}/resolve`, { pin: '1234' }, auth);
+  assert((await call('POST', `/sessions/${s.sessionId}/audio`, { ...piece, seq: 2 }, auth)).status === 409, 'recording after "I am safe"');
+});
+await check('a location after the emergency ends is refused politely (409, not 500)', async () => {
+  const s = (await call('POST', '/sessions', fakePerson())).json;
+  const auth = { authorization: `Bearer ${s.seekerToken}` };
+  await call('POST', `/sessions/${s.sessionId}/cancel`, { pin: '1234' }, auth);
+  assert((await call('POST', `/sessions/${s.sessionId}/location`, { lat: 12.97, lng: 77.59 }, auth)).status === 409, 'not 409');
 });
 await check('5 SOS taps at once start only one emergency', async () => {
   const person = fakePerson();
