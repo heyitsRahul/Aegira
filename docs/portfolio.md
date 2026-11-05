@@ -32,7 +32,7 @@ helper close by can come too.
 
 **How do you know it works?**
 I tested it like an attacker would: thousands of random and broken actions.
-The tests found real problems, and I fixed them. It now has 445 automated
+The tests found real problems, and I fixed them. It now has 449 automated
 tests.
 
 **Who built it?**
@@ -183,13 +183,19 @@ missing, without breaking its privacy rules:
   moving can be read for what it is.
 - **Fake call** and **loud alarm**, which happen only on the phone.
 - **More helplines:** 181 (women in distress, 24x7) and 1930 (cyber crime).
+- **Check the way before you go:** type where you are going and open the
+  route, street photos and reviews, or the police station, hospital, metro and
+  late-open petrol pump near it, in Google Maps. Aegira never sees the
+  destination.
 
 While building it, the tests caught a real privacy bug: after the secret PIN,
 someone holding the phone could send a hand-made location update and get a
 different answer than after a real cancel. Now both answer the same.
 
-What I chose not to copy: always-on voice activation and public "unsafe area"
-maps. Both cost more privacy than they give back.
+What I chose not to copy: always-on voice activation, public "unsafe area"
+maps, our own place reviews, and links to "public" camera feeds (in India
+those are private cameras left on default passwords). All of them cost more
+privacy than they give back.
 
 ## Works for everyone
 
@@ -202,7 +208,7 @@ maps. Both cost more privacy than they give back.
 
 ## How I tested it
 
-The project has 445 automated tests that run every time the code changes.
+The project has 449 automated tests that run every time the code changes.
 Some of them are deliberately hard:
 
 - **Chaos testing.** A program does 300 runs of 60 random actions each (press

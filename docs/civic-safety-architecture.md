@@ -168,6 +168,37 @@ something different when the phone was at 4%. It is stripped from everything a
 responder can see. Consent v7 replaces v1 as the session terms; it differs only
 in naming the battery level.
 
+### §3.6 Check the way before you go (link-out, no data)
+
+Requested: public camera feeds along the route, and reviews of places, so a
+person knows a place before going. Design note, reviewed against §2 and §8:
+
+* **What ships.** On the "Going somewhere" screen, the person types where they
+  are going and taps: the route, photos and reviews of the place, or the
+  nearest police station, hospital, metro/bus stop or late-open petrol pump
+  near it. Each tap opens Google Maps in a new tab. The destination lives only
+  in a page variable: it is never sent to Aegira, never written to the phone's
+  storage, and never logged. There is no location outside a session
+  (invariant 1) because Aegira never receives one.
+* **Public camera links: refused.** Indian Safe City camera feeds go to police
+  control rooms, not the public. The "live public camera" sites that exist list
+  privately owned cameras left on default passwords (the Insecam pattern);
+  linking them would make Aegira a tool for watching people, women included,
+  without their knowledge. Showing where cameras are also tells an attacker
+  where they are not.
+* **Aegira-hosted place reviews: not built.** Safety ratings written by our
+  users are the community heatmap of §2 under another name: they stigmatise
+  neighbourhoods (often along caste, religion or class lines), invite fake
+  reviews and defamation, and map isolated spots for an attacker. They also
+  need accounts and moderation we do not have. Google's existing reviews cover
+  "what is this place like" without Aegira holding any of it.
+* **Not during an emergency.** The card is on the planning screen only. During
+  a live session, leaving the app can pause location updates and sound
+  recording on some phones, so the live screen keeps the helplines and the
+  device-only tools instead.
+* **Honest limits.** Reviews and Street View photos can be years old and are
+  not safety ratings. The card says so.
+
 ## §4 Event log
 
 Append-only, hash-chained (SHA-256 over canonical JSON, each event carrying the
@@ -271,7 +302,8 @@ rehydration (SQLite standing in for Postgres+KMS), and journey watch / timed
 check-in (§3.1) with its own duress discipline (§8.7) across app, lite, and SMS,
 duress on resolving an already-live emergency (§8.8), opt-in sound recording
 (§3.3), device-only alarm and fake call (§3.4), battery level for contacts
-(§3.5), and duress-safe answers to hand-made device requests (§8.9).
+(§3.5), duress-safe answers to hand-made device requests (§8.9), and a
+before-you-go route check that sends Aegira nothing (§3.6).
 
 Still open:
 

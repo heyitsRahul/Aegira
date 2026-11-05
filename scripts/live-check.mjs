@@ -71,6 +71,7 @@ await check('the new features are on the home page and in the demo', async () =>
   assert((await call('GET', '/')).text.includes('Sound as evidence'), 'home page missing sound recording');
   assert((await call('GET', '/demo')).text.includes('Fake call, alarm'), 'demo missing chapter 7');
   assert((await call('GET', '/app')).text.includes('startSiren'), 'app missing the loud alarm');
+  assert((await call('GET', '/app')).text.includes('maps/dir/?api=1'), 'app missing the before-you-go route check');
 });
 
 console.log('\nProtection');

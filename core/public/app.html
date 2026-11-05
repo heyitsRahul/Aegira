@@ -161,6 +161,15 @@ if (!window.fetch || !window.Promise || !window.URL || !window.localStorage) {
     body { background:#e9ecf1; }
     .help { background:#fff5f5; } .code, .count { color:#11151c; }
   }
+  /* check the way before you go: links out to Google Maps, nothing sent to us */
+  .plan { margin-top:14px; }
+  .plan .tools { flex-wrap:wrap; margin-top:10px; }
+  .plan .tools button { flex:1 1 140px; }
+  .plan .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .plan .chips button { width:auto; margin:0; padding:8px 12px; min-height:38px; font-size:13px; background:var(--panel);
+    border:1px solid var(--line); border-radius:999px; }
+  .plan .foot { margin-top:10px; }
+  .plan .warn { color:var(--red); font-size:13px; margin-top:8px; }
   /* safety tools: siren, fake call, recording */
   .tools { display:flex; gap:10px; margin-top:12px; }
   .tools button { margin:0; display:flex; flex-direction:column; align-items:flex-start; gap:3px; text-align:left;
@@ -428,6 +437,16 @@ const STR = {
     rec_saved_note: 'Saved only on your phone. Our copy is deleted with everything else.',
     rec_none: 'There is no recording to save.',
     tools_title: 'Quick help',
+    plan_title: 'Check the way before you go',
+    plan_sub: 'See the route, street photos and what people say about the place, before you leave.',
+    plan_ph: 'Where are you going? e.g. Saket Metro',
+    plan_route: 'Route', plan_route_sub: 'Directions from where you are',
+    plan_place: 'Photos and reviews', plan_place_sub: 'Street photos, opening hours, reviews',
+    plan_near: 'Safe places near it',
+    plan_police: 'Police station', plan_hospital: 'Hospital', plan_metro: 'Metro or bus stop', plan_fuel: 'Petrol pump (open late)',
+    plan_note: 'This opens Google Maps. Aegira never sees where you are going, and nothing is saved.',
+    plan_old: 'Photos and reviews come from Google and can be old. Trust your own sense of a place too.',
+    plan_empty: 'First type where you are going.',
     tool_fake: 'Fake call', tool_fake_sub: 'Your phone rings, so you can walk away.',
     tool_siren: 'Loud alarm', tool_siren_sub: 'Make people look, right now.',
     siren_big: 'HELP', siren_sub: 'Turn your volume up', siren_stop: 'Stop the alarm',
@@ -556,6 +575,16 @@ const STR = {
     rec_saved_note: 'यह सिर्फ़ आपके फ़ोन में रहेगी। हमारी कॉपी बाकी सब के साथ मिटा दी जाती है।',
     rec_none: 'सहेजने के लिए कोई रिकॉर्डिंग नहीं है।',
     tools_title: 'तुरंत मदद',
+    plan_title: 'जाने से पहले रास्ता देख लें',
+    plan_sub: 'निकलने से पहले रास्ता, सड़क की तस्वीरें और लोग उस जगह के बारे में क्या कहते हैं, देख लें।',
+    plan_ph: 'कहाँ जा रहे हैं? जैसे साकेत मेट्रो',
+    plan_route: 'रास्ता', plan_route_sub: 'आप जहाँ हैं, वहाँ से',
+    plan_place: 'तस्वीरें और रिव्यू', plan_place_sub: 'सड़क की तस्वीरें, खुलने का समय, रिव्यू',
+    plan_near: 'वहाँ पास की सुरक्षित जगहें',
+    plan_police: 'पुलिस थाना', plan_hospital: 'अस्पताल', plan_metro: 'मेट्रो या बस स्टॉप', plan_fuel: 'पेट्रोल पंप (देर तक खुला)',
+    plan_note: 'यह Google Maps खोलता है। Aegira को पता नहीं चलता कि आप कहाँ जा रहे हैं, और कुछ सहेजा नहीं जाता।',
+    plan_old: 'तस्वीरें और रिव्यू Google के हैं और पुराने हो सकते हैं। अपनी समझ पर भी भरोसा करें।',
+    plan_empty: 'पहले लिखें कि आप कहाँ जा रहे हैं।',
     tool_fake: 'नकली कॉल', tool_fake_sub: 'फ़ोन बजेगा, ताकि आप वहाँ से निकल सकें।',
     tool_siren: 'तेज़ अलार्म', tool_siren_sub: 'अभी लोगों का ध्यान खींचें।',
     siren_big: 'बचाओ', siren_sub: 'फ़ोन की आवाज़ पूरी करें', siren_stop: 'अलार्म बंद करें',
@@ -883,7 +912,8 @@ function renderSeekerHome(profile) {
     <label>${esc(t('watch_me_for'))}</label>
     <select id="eta" onchange="watchEta=Number(this.value)">${[10, 15, 20, 30, 45, 60].map((m) =>
       `<option value="${m}"${m === watchEta ? ' selected' : ''}>${m} ${esc(t('minutes'))}</option>`).join('')}</select>
-    <button class="primary" style="margin-top:14px" onclick="startWatch()">${esc(t('start_watch'))}</button>`;
+    <button class="primary" style="margin-top:14px" onclick="startWatch()">${esc(t('start_watch'))}</button>
+    ${planCard()}`;
 
   $m.innerHTML = `
     <h1>${esc(t('hi_name', { name: profile.name.split(' ')[0] }))}</h1>
@@ -1281,6 +1311,43 @@ async function saveRecording() {
 
 /* ---------------------- loud alarm and fake call ---------------------- */
 // Both happen only on this phone: nothing is sent and nothing is stored.
+/* ------------------------ check the way before you go ------------------------ */
+// The destination lives only in this variable: never sent to Aegira, never
+// stored on the phone. The links open Google Maps, which already has the
+// route, street photos and reviews (invariant 1: no location outside a
+// session ever reaches our server; invariant 5: we host no place ratings).
+let planDest = '';
+let planWarn = false;
+const PLAN_NEAR = { police: 'police station', hospital: 'hospital', metro: 'metro station', fuel: 'petrol pump' };
+function planCard() {
+  return `<div class="card plan"><div class="k">${esc(t('plan_title'))}</div>
+    <p class="lead" style="margin:4px 0 8px">${esc(t('plan_sub'))}</p>
+    <input id="plan-dest" maxlength="140" autocomplete="off" placeholder="${esc(t('plan_ph'))}" aria-label="${esc(t('plan_ph'))}"
+      value="${esc(planDest)}" oninput="planDest=this.value">
+    <div class="tools">
+      <button onclick="openPlan('route')">🧭 ${esc(t('plan_route'))}<small>${esc(t('plan_route_sub'))}</small></button>
+      <button onclick="openPlan('place')">📷 ${esc(t('plan_place'))}<small>${esc(t('plan_place_sub'))}</small></button>
+    </div>
+    <label style="margin-top:12px">${esc(t('plan_near'))}</label>
+    <div class="chips">${Object.keys(PLAN_NEAR).map((k) =>
+      `<button onclick="openPlan('${k}')">${esc(t('plan_' + k))}</button>`).join('')}</div>
+    ${planWarn ? `<p class="warn" role="alert">${esc(t('plan_empty'))}</p>` : ''}
+    <p class="foot">${esc(t('plan_note'))} ${esc(t('plan_old'))}</p>
+  </div>`;
+}
+function planUrl(kind, dest) {
+  const q = encodeURIComponent;
+  if (kind === 'route') return `https://www.google.com/maps/dir/?api=1&destination=${q(dest)}`;
+  if (kind === 'place') return `https://www.google.com/maps/search/?api=1&query=${q(dest)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${q(PLAN_NEAR[kind] + ' near ' + dest)}`;
+}
+function openPlan(kind) {
+  const dest = planDest.trim();
+  if (!dest) { planWarn = true; render(); const el = document.getElementById('plan-dest'); if (el) el.focus(); return; }
+  planWarn = false;
+  window.open(planUrl(kind, dest), '_blank', 'noopener,noreferrer');
+}
+
 function toolsRow(compact) {
   return `${compact ? '' : `<label>${esc(t('tools_title'))}</label>`}<div class="tools">
     <button onclick="startSiren()">🚨 ${esc(t('tool_siren'))}${compact ? '' : `<small>${esc(t('tool_siren_sub'))}</small>`}</button>
