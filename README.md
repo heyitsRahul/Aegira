@@ -10,7 +10,7 @@ inside that session, and is destroyed when it ends. It works as a smartphone
 app, as a no-JavaScript web page for old browsers, and over plain SMS for
 phones with no internet at all.
 
-**Live demo:** [aegira.onrender.com](https://aegira.onrender.com) · **How to use:** [/guide](https://aegira.onrender.com/guide) · **Design doc:** [civic-safety-architecture.md](docs/civic-safety-architecture.md) · **Pitch:** [pitch.md](docs/pitch.md)
+**Live demo:** [aegira.onrender.com](https://aegira.onrender.com) · **1-minute narrated walkthrough:** [/demo](https://aegira.onrender.com/demo) · **How to use:** [/guide](https://aegira.onrender.com/guide) · **Design doc:** [civic-safety-architecture.md](docs/civic-safety-architecture.md) · **Pitch:** [pitch.md](docs/pitch.md)
 
 > ⚠️ **This is a working prototype, not an emergency service.** No real
 > responders are connected yet. Real text messages work once a phone number
@@ -82,7 +82,7 @@ enforced by the test suite in CI.
   send real SMS.
 - **Resilient notifications.** A failed SMS channel is counted, never allowed
   to stop the emergency or the other channels.
-- **414 tests**, typecheck and build in GitHub Actions on every push.
+- **415 tests**, typecheck and build in GitHub Actions on every push.
 - **Attack and chaos tests:** 300 random runs of every action in any order
   (rules re-checked after every step), and the real server attacked over
   HTTP: 1,000+ malformed inputs, stolen tokens, floods of simultaneous
@@ -109,7 +109,7 @@ core/test/             Vitest: state machine, privacy-negative, hygiene, clock-d
 ```bash
 cd core
 npm install
-npm test                      # 414 tests
+npm test                      # 415 tests
 npm run build && npm start    # http://localhost:3000
 ```
 

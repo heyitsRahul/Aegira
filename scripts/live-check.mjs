@@ -52,7 +52,7 @@ for (let i = 0; i < 12; i++) {
 }
 
 console.log('Pages');
-for (const [path, type] of [['/', 'text/html'], ['/app', 'text/html'], ['/lite', 'text/html'], ['/guide', 'text/html'],
+for (const [path, type] of [['/', 'text/html'], ['/demo', 'text/html'], ['/app', 'text/html'], ['/lite', 'text/html'], ['/guide', 'text/html'],
   ['/healthz', 'application/json'], ['/manifest.webmanifest', ''], ['/sw.js', 'javascript'], ['/icon-192.png', 'image/png']]) {
   await check(`${path} loads`, async () => {
     const res = await call('GET', path);

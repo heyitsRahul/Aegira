@@ -4,4 +4,4 @@ var/
 *.log
 .DS_Store
 .claude/settings.local.json
-*.icloud-old/
+*.icloud-old*/

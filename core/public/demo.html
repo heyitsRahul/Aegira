@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>Aegira demo</title>
+<meta name="description" content="A one-minute, narrated walkthrough of Aegira: SOS, family alert, a trained helper, the secret PIN and SMS on a basic phone. Simulated: nothing is sent.">
+<style>
+  :root{--bg:#06080c;--panel:#141926;--panel2:#1b2233;--line:#283042;--ink:#eef1f6;--dim:#8b93a3;--red:#e5484d;--green:#46a758;--blue:#4f8ef7;--amber:#f5a623}
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding-bottom:40px}
+  .banner{display:block;background:var(--amber);color:#111;text-align:center;font:600 13px/1.4 -apple-system,"Segoe UI",sans-serif;padding:8px 12px;text-decoration:none}
+  .wrap{max-width:980px;margin:0 auto;padding:0 16px}
+  header{display:flex;align-items:center;gap:12px;padding:18px 0 8px}
+  .logo{font-weight:800;font-size:20px;color:var(--ink);text-decoration:none}.logo span{color:var(--red)}
+  header nav{margin-left:auto;display:flex;gap:16px;font-size:14px}
+  header nav a{color:var(--dim);text-decoration:none}
+  h1{font-size:28px;letter-spacing:-.3px;margin:10px 0 4px}
+  .sub{color:var(--dim);font-size:15px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0 12px}
+  button{font:inherit;cursor:pointer;touch-action:manipulation}
+  .play{background:var(--red);color:#fff;border:0;border-radius:12px;padding:12px 22px;font-weight:700;font-size:17px}
+  .tog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 13px;font-size:14px}
+  .tog[aria-pressed="true"]{border-color:var(--blue);color:#cfe0ff}
+  .chapters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .chapters button{background:var(--panel);border:1px solid var(--line);color:var(--dim);border-radius:99px;padding:6px 12px;font-size:13px}
+  .chapters button.on{background:var(--panel2);border-color:var(--red);color:var(--ink)}
+  .stage{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;justify-items:center;margin:8px 0 16px}
+  .who{text-align:center;margin-bottom:8px;font-size:14px;color:var(--dim)}
+  .who b{color:var(--ink);display:block;font-size:15px}
+  .slot{transition:opacity .3s,transform .3s}
+  .slot.dim{opacity:.45;transform:scale(.97)}
+  .phone{width:250px;height:500px;border-radius:34px;background:#000;border:2px solid #2b3245;padding:12px;position:relative;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .phone::before{content:"";position:absolute;top:10px;left:50%;width:70px;height:6px;margin-left:-35px;background:#1a1f2b;border-radius:6px}
+  .screen{height:100%;border-radius:24px;background:#0b0e14;overflow:hidden;position:relative;padding:26px 14px 14px;display:flex;flex-direction:column;gap:10px}
+  .phone.basic{width:210px;height:500px;border-radius:26px;background:#1d2230;padding:16px 16px 0}
+  .phone.basic::before{display:none}
+  .phone.basic .screen{height:250px;border-radius:6px;background:#b9c7a5;color:#1d2a10;font:13px/1.35 "Courier New",monospace;padding:10px;gap:6px}
+  .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:14px}
+  .keys span{background:#2b3245;border-radius:8px;height:30px;display:flex;align-items:center;justify-content:center;color:#9aa3b5;font-size:13px}
+  .shake{animation:shake .5s}
+  @keyframes shake{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+  .t{font-size:11px;color:var(--dim);text-align:center}
+  .big{font-size:22px;font-weight:800;text-align:center;line-height:1.2}
+  .mid{font-size:15px;font-weight:700}
+  .small{font-size:12px;color:var(--dim)}
+  .sos{margin:auto;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7b7f,var(--red) 60%,#a51d22);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#fff;box-shadow:0 0 0 10px rgba(229,72,77,.15)}
+  .sos.press{transform:scale(.92);box-shadow:0 0 0 22px rgba(229,72,77,.25)}
+  .count{font-size:72px;font-weight:900;text-align:center;color:var(--amber);line-height:1}
+  .btn{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;font-weight:700;font-size:14px}
+  .btn.red{background:var(--red);border-color:var(--red);color:#fff}
+  .btn.green{background:var(--green);border-color:var(--green);color:#fff}
+  .btn.tap{animation:tap .45s}
+  @keyframes tap{50%{transform:scale(.94);filter:brightness(1.3)}}
+  .pin{background:#0b0e14;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:18px;letter-spacing:6px;min-height:40px}
+  .steps{display:flex;justify-content:space-between;font-size:10px;color:var(--dim)}
+  .steps span.on{color:var(--green);font-weight:700}
+  .map{height:150px;border-radius:12px;overflow:hidden;background:#111827}
+  .notif{background:rgba(40,48,66,.95);border-radius:14px;padding:10px;font-size:12.5px;line-height:1.35;animation:drop .4s}
+  .notif b{display:block;font-size:11px;color:var(--dim);margin-bottom:3px}
+  .notif.alarm{background:#3a1114;border:1px solid var(--red)}
+  @keyframes drop{from{transform:translateY(-30px);opacity:0}}
+  .code{font-size:30px;font-weight:900;letter-spacing:5px;text-align:center;background:var(--panel2);border-radius:12px;padding:8px}
+  .chip{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:2px 8px;font-size:11px}
+  .chip.red{border-color:var(--red);color:#ff9a9d}
+  .chip.green{border-color:var(--green);color:#8fd19a}
+  .center{text-align:center}
+  .ico{font-size:52px;text-align:center}
+  .key{font-size:60px;text-align:center;animation:spin 1.2s}
+  @keyframes spin{60%{transform:rotate(-20deg) scale(1.1)}100%{transform:rotate(0) scale(0);opacity:0}}
+  .pulse{animation:pulse 1.4s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  .caption{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-height:76px;font-size:18px;line-height:1.45}
+  .caption small{display:block;color:var(--dim);font-size:13px;margin-bottom:2px}
+  .bar{height:4px;background:var(--panel2);border-radius:4px;margin-top:10px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--red);transition:width .4s}
+  .end{margin-top:16px;color:var(--dim);font-size:14px}
+  .end a{color:var(--blue)}
+  @media (max-width:820px){
+    .stage{grid-template-columns:1fr}
+    /* One phone at a time on small screens: the one the story is on. */
+    .slot.dim,.slot.sec{display:none}
+    .phone{height:430px}
+    h1{font-size:23px}
+    .caption{position:sticky;bottom:8px;font-size:16px;box-shadow:0 -8px 24px rgba(0,0,0,.6)}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<a class="banner" href="tel:112">Demo only, not a real emergency service. In danger? Call 112.</a>
+<div class="wrap">
+  <header>
+    <a class="logo" href="/">aeg<span>ira</span></a>
+    <nav><a href="/app">Try it yourself</a><a href="/guide">How to use</a></nav>
+  </header>
+
+  <h1 id="title">Watch Aegira in one minute</h1>
+  <p class="sub" id="subtitle">A narrated walkthrough with sound. Simulated: nothing is sent to anyone.</p>
+
+  <div class="controls">
+    <button class="play" id="play" onclick="togglePlay()">▶ Play demo</button>
+    <button class="tog" id="snd" aria-pressed="true" onclick="toggleSound()">🔊 Sound on</button>
+    <button class="tog" id="lang" onclick="toggleLang()">हिंदी</button>
+  </div>
+  <div class="chapters" id="chapters"></div>
+
+  <div class="stage" id="stage">
+    <div class="slot" id="slot-meera"><div class="who" id="who-meera"></div><div class="phone" id="ph-meera"><div class="screen" id="meera"></div></div></div>
+    <div class="slot" id="slot-arjun"><div class="who" id="who-arjun"></div><div class="phone" id="ph-arjun"><div class="screen" id="arjun"></div></div></div>
+    <div class="slot" id="slot-asha"><div class="who" id="who-asha"></div><div class="phone" id="ph-asha"><div class="screen" id="asha"></div></div></div>
+  </div>
+
+  <div class="caption" role="status" aria-live="polite"><small id="chap-name"></small><span id="cap"></span><div class="bar"><i id="bar"></i></div></div>
+  <p class="end" id="endnote"></p>
+</div>
+
+<script>
+// A scripted simulation: no network calls, no real data. Every screen below
+// mirrors the real app's wording and rules (helpers see no identity before
+// accepting, the secret PIN shows the same screen as the real one).
+
+const T = {
+  en: {
+    title: 'Watch Aegira in one minute',
+    subtitle: 'A narrated walkthrough with sound. Simulated: nothing is sent to anyone.',
+    play: '▶ Play demo', stop: '■ Stop', sndOn: '🔊 Sound on', sndOff: '🔇 Sound off', other: 'हिंदी',
+    who: { meera: ['Meera', 'needs help'], arjun: ['Arjun, her brother', 'her trusted person'], asha: ['Asha', 'trained helper'] },
+    chapters: ['Ask for help', 'Family told', 'Helper comes', 'Safe, data deleted', 'Secret PIN', 'No internet'],
+    end: 'Try it yourself at <a href="/app">aegira.onrender.com/app</a> with PIN 1234, or the secret PIN 9999.',
+    ui: {
+      need: 'I need help', press: 'Press for help', starts: 'Help starts in', cancelPin: 'PIN to cancel', cancel: 'Cancel',
+      coming: 'Help is coming', s1: 'Told', s2: 'On the way', s3: 'Here', yourPin: 'Your PIN, to say you are safe',
+      safeBtn: 'I am safe now', safe: 'You are safe.', safeSub: 'Everything about this will be deleted.',
+      deleted: 'Deleted. The key is destroyed.', showCode: 'Show this code to your helper',
+      helperHere: 'Your helper is with you', cancelled: 'Cancelled', nobody: 'Nobody was told.',
+      lock: 'Tuesday, 9:42 PM', sms: 'Messages', alert: 'AEGIRA ALERT: Meera needs help (danger). See where: aegira.onrender.com/c/…',
+      needsHelp: 'Meera needs help', live: 'live', send: 'Send a trained helper', asked: 'Helper asked ✓',
+      secret: 'AEGIRA SECRET ALARM: Meera needs help. She used her secret PIN: someone may be forcing her. DO NOT call her.',
+      secretBox: 'Secret alarm. Do not call her. Help is still coming.',
+      offer: 'Someone needs help', alias: 'helpseeker-3f9a', area: 'Area: about 1 km', noName: 'No name. No phone number.',
+      accept: 'Accept', exact: 'Exact spot (only after accepting)', askCode: 'Ask for their code', enterCode: 'Code',
+      withThem: 'You are with them ✓', idle: 'Ready to help', basicSos: 'SOS near Andheri station gate 2',
+      basicReply: 'Aegira: Help is starting. Cancel within 30 sec: CANCEL and your PIN.',
+      basicAlert: 'AEGIRA ALERT: Meera needs help. They said: "near Andheri station gate 2". Location unknown - call them.',
+    },
+    lines: [
+      ['Meet Meera. She is walking home late, and someone is following her.', 'She opens Aegira and presses SOS.'],
+      ['She gets thirty seconds to cancel with her PIN, in case it was a mistake.', 'Time is up. Her brother Arjun gets a message with a link to where she is.', 'He opens it and sees her on a map. He taps: send a trained helper.'],
+      ['Asha, a trained helper close by, gets the request. She sees no name and no phone number. Only a nickname, and an area of about one kilometre.', 'She accepts. Only now does she see the exact spot.', 'On Meera\'s phone, a code appears.', 'When Asha arrives, she asks for the code. Now Meera knows the right person came.'],
+      ['Meera is safe. She enters her PIN and taps: I am safe.', 'And her location is deleted. The only key that could read it is destroyed.'],
+      ['Now the hard case. Someone grabs Meera\'s phone and forces her to cancel.', 'She types her secret PIN instead.', 'Her phone says cancelled. The person next to her sees nothing unusual.', 'But Arjun gets a secret alarm: do not call her, someone may be with her. And help keeps coming.', 'The phone lies. On purpose.'],
+      ['No smartphone, or no internet? Meera can text SOS from any basic phone.', 'Her people still get the alert, with the place in her own words.', 'That is Aegira. Try it yourself, with PIN 1 2 3 4, or the secret PIN 9 9 9 9.'],
+    ],
+  },
+  hi: {
+    title: 'एक मिनट में Aegira देखें',
+    subtitle: 'आवाज़ के साथ पूरा तरीका। यह सिर्फ़ नमूना है: किसी को कुछ नहीं भेजा जाता।',
+    play: '▶ डेमो चलाएँ', stop: '■ रोकें', sndOn: '🔊 आवाज़ चालू', sndOff: '🔇 आवाज़ बंद', other: 'English',
+    who: { meera: ['मीरा', 'जिसे मदद चाहिए'], arjun: ['अर्जुन, उसका भाई', 'भरोसेमंद व्यक्ति'], asha: ['आशा', 'प्रशिक्षित सहायक'] },
+    chapters: ['मदद माँगना', 'परिवार को सूचना', 'सहायक आता है', 'सुरक्षित, डेटा मिटा', 'गुप्त PIN', 'बिना इंटरनेट'],
+    end: 'ख़ुद आज़माएँ: <a href="/app">aegira.onrender.com/app</a>, PIN 1234, या गुप्त PIN 9999.',
+    ui: {
+      need: 'मुझे मदद चाहिए', press: 'मदद के लिए दबाएँ', starts: 'मदद शुरू होगी', cancelPin: 'रद्द करने का PIN', cancel: 'रद्द करें',
+      coming: 'मदद आ रही है', s1: 'बताया', s2: 'रास्ते में', s3: 'पहुँचे', yourPin: 'सुरक्षित होने के लिए अपना PIN',
+      safeBtn: 'मैं अब सुरक्षित हूँ', safe: 'आप सुरक्षित हैं।', safeSub: 'इससे जुड़ी हर जानकारी मिटा दी जाएगी।',
+      deleted: 'मिटा दिया। चाबी नष्ट।', showCode: 'यह कोड अपने सहायक को दिखाएँ',
+      helperHere: 'आपका सहायक आपके साथ है', cancelled: 'रद्द', nobody: 'किसी को नहीं बताया गया।',
+      lock: 'मंगलवार, रात 9:42', sms: 'संदेश', alert: 'AEGIRA ALERT: Meera needs help (danger). See where: aegira.onrender.com/c/…',
+      needsHelp: 'मीरा को मदद चाहिए', live: 'लाइव', send: 'प्रशिक्षित सहायक भेजें', asked: 'सहायक को बुलाया ✓',
+      secret: 'AEGIRA SECRET ALARM: Meera needs help. She used her secret PIN: someone may be forcing her. DO NOT call her.',
+      secretBox: 'गुप्त अलार्म। उसे कॉल न करें। मदद आ रही है।',
+      offer: 'किसी को मदद चाहिए', alias: 'helpseeker-3f9a', area: 'इलाका: लगभग 1 km', noName: 'न नाम, न फ़ोन नंबर।',
+      accept: 'स्वीकार करें', exact: 'सही जगह (स्वीकार करने के बाद ही)', askCode: 'उनसे कोड पूछें', enterCode: 'कोड',
+      withThem: 'आप उनके साथ हैं ✓', idle: 'मदद के लिए तैयार', basicSos: 'SOS near Andheri station gate 2',
+      basicReply: 'Aegira: Help is starting. Cancel within 30 sec: CANCEL and your PIN.',
+      basicAlert: 'AEGIRA ALERT: Meera needs help. They said: "near Andheri station gate 2". Location unknown - call them.',
+    },
+    lines: [
+      ['यह मीरा है। रात को घर लौट रही है, और कोई उसका पीछा कर रहा है।', 'वह Aegira खोलकर SOS दबाती है।'],
+      ['ग़लती से दबा हो, तो उसके पास PIN से रद्द करने के लिए तीस सेकंड हैं।', 'समय पूरा। उसके भाई अर्जुन को संदेश जाता है, साथ में उसकी जगह का लिंक।', 'वह लिंक खोलकर नक्शे पर उसे देखता है, और प्रशिक्षित सहायक भेजता है।'],
+      ['पास की प्रशिक्षित सहायक आशा को अनुरोध मिलता है। उसे न नाम दिखता है, न फ़ोन नंबर। सिर्फ़ एक उपनाम, और लगभग एक किलोमीटर का इलाका।', 'वह स्वीकार करती है। अब जाकर उसे सही जगह दिखती है।', 'मीरा के फ़ोन पर एक कोड आता है।', 'आशा पहुँचकर कोड पूछती है। अब मीरा जानती है कि सही व्यक्ति आया है।'],
+      ['मीरा सुरक्षित है। वह PIN डालकर दबाती है: मैं सुरक्षित हूँ।', 'और उसकी जगह की जानकारी मिट जाती है। उसे पढ़ने वाली इकलौती चाबी नष्ट कर दी जाती है।'],
+      ['अब मुश्किल हालात। कोई मीरा का फ़ोन छीनकर उसे रद्द करने पर मजबूर करता है।', 'वह असली की जगह गुप्त PIN डालती है।', 'फ़ोन पर रद्द लिखा आता है। पास खड़े व्यक्ति को कुछ अलग नहीं दिखता।', 'पर अर्जुन को गुप्त अलार्म जाता है: उसे कॉल मत करो, कोई उसके साथ हो सकता है। और मदद आती रहती है।', 'फ़ोन झूठ बोलता है। जानबूझकर।'],
+      ['स्मार्टफ़ोन नहीं, या इंटरनेट नहीं? मीरा किसी भी सादे फ़ोन से SOS का SMS भेज सकती है।', 'उसके अपनों को फिर भी सूचना मिलती है, उसके अपने शब्दों में जगह के साथ।', 'यह है Aegira. ख़ुद आज़माएँ, PIN 1 2 3 4 से, या गुप्त PIN 9 9 9 9 से।'],
+    ],
+  },
+};
+let lang = 'en';
+const L = () => T[lang];
+const $ = (id) => document.getElementById(id);
+
+// ---------- sound (Web Audio; no files to load) ----------
+let soundOn = true, audio = null;
+function ctx() { if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)(); return audio; }
+function tone(freq, start, dur, type = 'sine', vol = 0.15) {
+  if (!soundOn) return;
+  const a = ctx(), o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, a.currentTime + start);
+  g.gain.linearRampToValueAtTime(vol, a.currentTime + start + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + start + dur);
+  o.connect(g).connect(a.destination); o.start(a.currentTime + start); o.stop(a.currentTime + start + dur + 0.05);
+}
+const sfx = {
+  tap: () => tone(600, 0, 0.06, 'square', 0.06),
+  alarm: () => { for (let i = 0; i < 3; i++) { tone(880, i * 0.32, 0.15, 'sawtooth', 0.08); tone(660, i * 0.32 + 0.16, 0.15, 'sawtooth', 0.08); } },
+  tick: () => tone(1000, 0, 0.04, 'square', 0.05),
+  sms: () => { tone(1318, 0, 0.12); tone(1760, 0.14, 0.18); },
+  alarmSoft: () => { tone(520, 0, 0.25, 'triangle', 0.12); tone(520, 0.3, 0.25, 'triangle', 0.12); tone(520, 0.6, 0.25, 'triangle', 0.12); },
+  chime: () => { tone(523, 0, 0.3); tone(659, 0.12, 0.3); tone(784, 0.24, 0.45); },
+  shred: () => {
+    if (!soundOn) return;
+    const a = ctx(), len = a.sampleRate * 0.5, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const s = a.createBufferSource(), g = a.createGain(); g.gain.value = 0.12;
+    s.buffer = buf; s.connect(g).connect(a.destination); s.start();
+    tone(400, 0.05, 0.4, 'sine', 0.1); tone(200, 0.25, 0.4, 'sine', 0.1);
+  },
+};
+
+// ---------- narration (speechSynthesis) ----------
+function pickVoice(code) {
+  const vs = speechSynthesis.getVoices();
+  return vs.find((v) => v.lang === code) || vs.find((v) => v.lang.startsWith(code.slice(0, 2))) || null;
+}
+function speak(text) {
+  return new Promise((resolve) => {
+    if (!soundOn || !('speechSynthesis' in window)) return resolve();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+    const v = pickVoice(u.lang); if (v) u.voice = v;
+    u.rate = 1.0;
+    let done = false; const fin = () => { if (!done) { done = true; resolve(); } };
+    u.onend = fin; u.onerror = fin;
+    setTimeout(fin, 3000 + text.length * 110); // some browsers never fire onend
+    speechSynthesis.speak(u);
+  });
+}
+
+// ---------- the player ----------
+let run = 0, playing = false, chapter = 0, lineNo = 0;
+const totalLines = () => L().lines.reduce((n, c) => n + c.length, 0);
+class Stop extends Error {}
+function alive(my) { if (my !== run) throw new Stop(); }
+function sleep(ms, my) { return new Promise((res, rej) => setTimeout(() => (my === run ? res() : rej(new Stop())), ms)); }
+async function say(my, c, i) {
+  alive(my);
+  const text = L().lines[c][i];
+  $('cap').textContent = text;
+  lineNo++; $('bar').style.width = Math.min(100, (lineNo / totalLines()) * 100) + '%';
+  const t0 = Date.now();
+  await speak(text);
+  alive(my);
+  const min = 1200 + text.split(/\s+/).length * 260; // reading time when muted
+  const left = (soundOn ? 500 : min) - (Date.now() - t0);
+  if (left > 0) await sleep(left, my);
+}
+// The first phone named is where the story is; on small screens it is the
+// only one shown.
+function focus(...who) {
+  for (const w of ['meera', 'arjun', 'asha']) {
+    $('slot-' + w).classList.toggle('dim', !who.includes(w));
+    $('slot-' + w).classList.toggle('sec', who.includes(w) && who[0] !== w);
+  }
+}
+function shake(w) { const p = $('ph-' + w); p.classList.remove('shake'); void p.offsetWidth; p.classList.add('shake'); }
+function tapEl(sel) { const e = document.querySelector(sel); if (e) { e.classList.remove('tap'); void e.offsetWidth; e.classList.add('tap'); sfx.tap(); } }
+
+// ---------- screens ----------
+function map(mode) {
+  // mode: 'dot' exact spot, 'area' ~1 km circle only, 'none'
+  const streets = '<path d="M0 40H250M0 95H250M0 140H250M60 0V160M140 0V160M205 0V160" stroke="#1f2a3d" stroke-width="7"/>' +
+    '<path d="M0 120L250 20" stroke="#26334a" stroke-width="9"/>';
+  const dot = '<circle cx="140" cy="88" r="16" fill="rgba(79,142,247,.25)" class="pulse"/><circle cx="140" cy="88" r="7" fill="#4f8ef7" stroke="#fff" stroke-width="2"/>';
+  const area = '<circle cx="128" cy="80" r="52" fill="rgba(245,166,35,.12)" stroke="#f5a623" stroke-dasharray="5 4"/>';
+  return `<div class="map"><svg viewBox="0 0 250 160" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">${streets}${mode === 'dot' ? dot : mode === 'area' ? area : ''}</svg></div>`;
+}
+const U = () => L().ui;
+const S = {
+  meeraHome: () => `<div class="t">aegira</div><div class="big">${U().need}</div><div class="sos" id="sosbtn">SOS</div><div class="small center">${U().press}</div>`,
+  meeraCount: (n, pin = '') => `<div class="mid center">${U().starts}</div><div class="count">${n}</div><div class="small">${U().cancelPin}</div><div class="pin">${pin}</div><div class="btn" id="m-cancel">${U().cancel}</div>`,
+  meeraLive: (step, extra = '') => `<div class="mid">${U().coming} <span class="chip red">${step === 1 ? U().s1 : step === 2 ? U().s2 : U().s3}</span></div>
+    <div class="steps"><span class="on">● ${U().s1}</span><span class="${step >= 2 ? 'on' : ''}">● ${U().s2}</span><span class="${step >= 3 ? 'on' : ''}">● ${U().s3}</span></div>
+    ${map('dot')}${extra}`,
+  meeraSafeForm: (pin = '') => `<div class="small">${U().yourPin}</div><div class="pin">${pin}</div><div class="btn green" id="m-safe">✅ ${U().safeBtn}</div>`,
+  meeraSafe: () => `<div style="margin:auto 0" class="center"><div class="ico">✅</div><div class="big">${U().safe}</div><div class="small">${U().safeSub}</div></div>`,
+  meeraDeleted: () => `<div style="margin:auto 0" class="center"><div class="key">🔑</div><div class="mid">${U().deleted}</div></div>`,
+  meeraCancelled: () => `<div style="margin:auto 0" class="center"><div class="ico">🌙</div><div class="big">${U().cancelled}</div><div class="small">${U().nobody}</div></div>`,
+  lock: (notif = '') => `<div class="center" style="margin-top:20px"><div style="font-size:44px;font-weight:300">9:42</div><div class="small">${U().lock}</div></div>${notif}`,
+  arjunNotif: (secret) => `<div class="notif ${secret ? 'alarm' : ''}"><b>${U().sms}</b>${secret ? U().secret : U().alert}</div>`,
+  arjunView: (asked, secret) => `<div class="mid">${U().needsHelp} <span class="chip red">${U().live}</span></div>
+    ${secret ? `<div class="notif alarm" style="animation:none">${U().secretBox}</div>` : ''}${map('dot')}
+    <div class="btn ${asked ? '' : 'red'}" id="a-send">${asked ? U().asked : U().send}</div>`,
+  ashaIdle: () => `<div class="t">aegira · helper</div><div style="margin:auto 0" class="center"><div class="ico">🏃‍♀️</div><div class="small">${U().idle}</div></div>`,
+  ashaOffer: () => `<div class="t">aegira · helper</div><div class="mid">${U().offer}</div><div><span class="chip">${U().alias}</span> <span class="chip">${U().area}</span></div>
+    ${map('area')}<div class="small">🔒 ${U().noName}</div><div class="btn red" id="h-accept">${U().accept}</div>`,
+  ashaAccepted: (code = '', ok = false) => `<div class="t">aegira · helper</div><div class="small">${U().exact}</div>${map('dot')}
+    <div class="small">${U().askCode}</div><div class="pin">${code}</div>${ok ? `<div class="btn green">${U().withThem}</div>` : ''}`,
+  basic: (msgs) => `<div><b>Messages</b></div>${msgs.map((m) => `<div>${m}</div>`).join('<hr style="border:0;border-top:1px dashed #6b7a55">')}`,
+};
+function show(w, html) { $(w).innerHTML = html; }
+function setBasic(on) { $('ph-meera').classList.toggle('basic', on); const k = $('ph-meera').querySelector('.keys'); if (on && !k) $('ph-meera').insertAdjacentHTML('beforeend', '<div class="keys">' + '123456789*0#'.split('').map((c) => `<span>${c}</span>`).join('') + '</div>'); if (!on && k) k.remove(); }
+async function typeInto(w, render, text, my) { let s = ''; for (const ch of text) { s += ch; show(w, render(s)); sfx.tap(); await sleep(170, my); } }
+
+// ---------- chapters ----------
+const CHAPTERS = [
+  async (my) => {
+    setBasic(false); show('meera', S.meeraHome()); show('arjun', S.lock()); show('asha', S.ashaIdle()); focus('meera');
+    await say(my, 0, 0);
+    $('sosbtn').classList.add('press'); sfx.alarm(); shake('meera'); await sleep(500, my);
+    show('meera', S.meeraCount(30));
+    await say(my, 0, 1);
+  },
+  async (my) => {
+    focus('meera'); show('meera', S.meeraCount(30)); show('arjun', S.lock()); show('asha', S.ashaIdle());
+    const speech = say(my, 1, 0);
+    for (let n = 30; n >= 0; n -= 3) { show('meera', S.meeraCount(n)); sfx.tick(); await sleep(230, my); }
+    await speech;
+    show('meera', S.meeraLive(1)); focus('arjun', 'meera');
+    sfx.sms(); shake('arjun'); show('arjun', S.lock(S.arjunNotif(false)));
+    await say(my, 1, 1);
+    show('arjun', S.arjunView(false, false)); await sleep(400, my); tapEl('#a-send'); await sleep(300, my);
+    show('arjun', S.arjunView(true, false));
+    await say(my, 1, 2);
+  },
+  async (my) => {
+    show('meera', S.meeraLive(1)); show('arjun', S.arjunView(true, false)); focus('asha');
+    sfx.sms(); shake('asha'); show('asha', S.ashaOffer());
+    await say(my, 2, 0);
+    tapEl('#h-accept'); await sleep(350, my); show('asha', S.ashaAccepted()); sfx.chime();
+    await say(my, 2, 1);
+    focus('meera'); show('meera', S.meeraLive(2, `<div class="small center">${U().showCode}</div><div class="code">482913</div>`));
+    await say(my, 2, 2);
+    focus('asha', 'meera');
+    const speech = say(my, 2, 3);
+    await typeInto('asha', (c) => S.ashaAccepted(c), '482913', my);
+    show('asha', S.ashaAccepted('482913', true)); sfx.chime();
+    show('meera', S.meeraLive(3, `<div class="notif" style="animation:none">🤝 ${U().helperHere}</div>`));
+    await speech;
+    focus('meera', 'asha');
+  },
+  async (my) => {
+    focus('meera'); show('asha', S.ashaAccepted('482913', true)); show('arjun', S.arjunView(true, false));
+    const live = (pin) => S.meeraLive(3, S.meeraSafeForm(pin));
+    show('meera', live(''));
+    const speech = say(my, 3, 0);
+    await typeInto('meera', live, '••••', my); tapEl('#m-safe'); await sleep(300, my);
+    show('meera', S.meeraSafe()); sfx.chime();
+    await speech;
+    show('meera', S.meeraDeleted()); sfx.shred(); show('arjun', S.lock()); show('asha', S.ashaIdle()); focus('meera', 'arjun', 'asha');
+    await say(my, 3, 1);
+  },
+  async (my) => {
+    setBasic(false); focus('meera'); show('arjun', S.lock()); show('asha', S.ashaIdle());
+    show('meera', S.meeraCount(24));
+    await say(my, 4, 0);
+    shake('meera');
+    const speech = say(my, 4, 1);
+    await typeInto('meera', (p) => S.meeraCount(24, p), '9999'.replace(/./g, '•'), my); tapEl('#m-cancel');
+    await speech;
+    show('meera', S.meeraCancelled());
+    await say(my, 4, 2);
+    focus('arjun', 'meera'); sfx.alarmSoft(); shake('arjun'); show('arjun', S.lock(S.arjunNotif(true)));
+    await say(my, 4, 3);
+    show('arjun', S.arjunView(false, true));
+    await say(my, 4, 4);
+  },
+  async (my) => {
+    setBasic(true); focus('meera'); show('arjun', S.lock()); show('asha', S.ashaIdle());
+    show('meera', S.basic([]));
+    const speech = say(my, 5, 0);
+    await typeInto('meera', (t) => S.basic(['&gt; ' + t]), U().basicSos, my);
+    await speech;
+    sfx.sms(); show('meera', S.basic(['&gt; ' + U().basicSos, U().basicReply]));
+    focus('arjun', 'meera'); shake('arjun'); show('arjun', S.lock(`<div class="notif"><b>${U().sms}</b>${U().basicAlert}</div>`));
+    await say(my, 5, 1);
+    await say(my, 5, 2);
+  },
+];
+
+function renderChrome() {
+  document.documentElement.lang = lang;
+  $('title').textContent = L().title; $('subtitle').textContent = L().subtitle;
+  $('play').textContent = playing ? L().stop : L().play;
+  $('snd').textContent = soundOn ? L().sndOn : L().sndOff;
+  $('lang').textContent = L().other;
+  for (const w of ['meera', 'arjun', 'asha']) $('who-' + w).innerHTML = `<b>${L().who[w][0]}</b>${L().who[w][1]}`;
+  $('chapters').innerHTML = L().chapters.map((c, i) => `<button class="${i === chapter && playing ? 'on' : ''}" onclick="playFrom(${i})">${i + 1}. ${c}</button>`).join('');
+  $('endnote').innerHTML = L().end;
+}
+function reset() {
+  setBasic(false); show('meera', S.meeraHome()); show('arjun', S.lock()); show('asha', S.ashaIdle()); focus('meera', 'arjun', 'asha');
+  $('cap').textContent = ''; $('chap-name').textContent = ''; $('bar').style.width = '0';
+}
+async function playFrom(start) {
+  run++; const my = run;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (soundOn) ctx().resume();
+  playing = true;
+  lineNo = L().lines.slice(0, start).reduce((n, c) => n + c.length, 0);
+  try {
+    for (chapter = start; chapter < CHAPTERS.length; chapter++) {
+      renderChrome(); $('chap-name').textContent = `${chapter + 1} / ${CHAPTERS.length} · ${L().chapters[chapter]}`;
+      await CHAPTERS[chapter](my);
+      await sleep(600, my);
+    }
+    playing = false; renderChrome(); $('bar').style.width = '100%';
+  } catch (e) {
+    if (!(e instanceof Stop)) throw e;
+  }
+}
+function stopAll() { run++; playing = false; if ('speechSynthesis' in window) speechSynthesis.cancel(); renderChrome(); }
+function togglePlay() { if (playing) stopAll(); else playFrom(0); }
+function toggleSound() {
+  soundOn = !soundOn; $('snd').setAttribute('aria-pressed', String(soundOn));
+  if (!soundOn && 'speechSynthesis' in window) speechSynthesis.cancel();
+  renderChrome();
+}
+function toggleLang() { const was = playing ? chapter : -1; stopAll(); lang = lang === 'en' ? 'hi' : 'en'; renderChrome(); if (was >= 0) playFrom(was); else reset(); }
+
+if ('speechSynthesis' in window) speechSynthesis.getVoices(); // warm the voice list
+if (/^hi/.test(navigator.language || '') || new URLSearchParams(location.search).get('lang') === 'hi') lang = 'hi';
+renderChrome(); reset();
+</script>
+</body>
+</html>

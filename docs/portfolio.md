@@ -4,7 +4,7 @@ Use this page to explain the project in an interview, on a portfolio, or on
 LinkedIn. Everything here is true today. The last section lists what is safe
 to share.
 
-Live demo: <https://aegira.onrender.com> · Code: <https://github.com/heyitsRahul/Aegira>
+Live demo: <https://aegira.onrender.com> · 1-minute walkthrough with sound: <https://aegira.onrender.com/demo> · Code: <https://github.com/heyitsRahul/Aegira>
 
 ---
 

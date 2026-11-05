@@ -158,6 +158,18 @@ describe('garbage input never crashes the server', () => {
   });
 });
 
+describe('the narrated demo page', () => {
+  it('is served to everyone, says it is simulated, and makes no network calls', async () => {
+    const res = await call('GET', '/demo');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(res.text).toContain('Simulated');
+    expect(res.text).toContain('112');
+    // A pure simulation: nothing in it can reach the server or send anything.
+    expect(res.text).not.toMatch(/fetch\(|XMLHttpRequest|sendBeacon|WebSocket/);
+  });
+});
+
 describe('browser protections on every page', () => {
   it('sets the security headers and hides the server type', async () => {
     for (const path of ['/', '/app', '/lite', '/guide', '/healthz']) {

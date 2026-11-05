@@ -51,6 +51,12 @@ export class DevController {
     res.sendFile(join(PUBLIC_DIR, 'app.html'));
   }
 
+  /** Narrated, simulated walkthrough. Makes no calls, so it is never demo-gated. */
+  @Get('demo')
+  demo(@Res() res: Response): void {
+    res.sendFile(join(PUBLIC_DIR, 'demo.html'));
+  }
+
   @Get('console')
   console(@Res() res: Response): void {
     this.demoOnly();
