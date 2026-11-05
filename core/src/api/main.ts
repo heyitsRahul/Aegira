@@ -36,6 +36,12 @@ async function bootstrap(): Promise<void> {
   }
 
   await app.listen(Number(process.env.PORT ?? 3000));
+  // Keep idle connections open longer than the hosting proxy does. Node's
+  // 5-second default lets the server close a connection just as the proxy
+  // reuses it, and that request is dropped (seen as ~1 in 60 resets live).
+  const server = app.getHttpServer() as import('node:http').Server;
+  server.keepAliveTimeout = 120_000;
+  server.headersTimeout = 121_000;
 
   // A real phone number via an Android SIM gateway: point its incoming texts
   // at us. Only over https (the gateway refuses plain http to the internet).
