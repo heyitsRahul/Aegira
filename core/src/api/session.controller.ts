@@ -95,8 +95,8 @@ export class SessionController {
     @Headers('authorization') auth?: string,
     @Query('t') contactToken?: string,
   ) {
-    this.sessions.authorizeSeekerOrContact(id, bearer(auth), contactToken ?? null);
-    return this.sessions.dispatch(id, this.responders.all());
+    const caller = this.sessions.authorizeSeekerOrContact(id, bearer(auth), contactToken ?? null);
+    return this.sessions.dispatch(id, this.responders.all(), caller);
   }
 
   @Get(':id/arrival-code')

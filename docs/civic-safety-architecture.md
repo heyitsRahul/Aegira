@@ -287,6 +287,18 @@ Two payload types, both closed shapes (no index signatures):
    (earlier, a location after a real cancel crashed with a 500 while a masked
    one was accepted: distinguishable). A location that still reaches a live
    emergency is kept for the contacts.
+   The same holds for every other request the device can make: confirm,
+   "I'm safe" (by app, basic page or SMS), ask for a helper, and the arrival
+   code. A masked session answers each exactly as a real session in the
+   shown state would, at every point of its timeline (the arrival code is
+   frozen at the moment of the mask). Before this was closed, a duress
+   cancel could be told apart by sending "I'm safe" with the same PIN: a
+   real cancel refused, a masked one answered "resolved". Two exceptions
+   are deliberate and invisible to the person holding the phone: the
+   person's real safe PIN still ends the live emergency for good, and a
+   repeated duress PIN quietly re-alerts the circle. Contacts still send
+   helpers on the real state. `test/duress-hand-made.test.ts` probes every
+   route over days of simulated time.
 10. **Recording turned against the helpseeker** — mitigated by: opt-in only,
    never outside a session, contacts chosen by the helpseeker alone, no
    responder access, destroyed at purge, and the "save a copy" button being the
@@ -309,6 +321,12 @@ Still open:
 
 * Evidence hold: keeping a recording past purge for a police complaint
   (§3.3). Needs a policy design before any code.
+* Helper arrival on a duress-cancelled session: the arrival code is shown
+  on the helpseeker's phone, which under a duress cancel shows "Cancelled"
+  and so never shows a code. A helper sent by a contact can reach the
+  person but cannot record ARRIVED, and is withdrawn on the arrival
+  timeout. Needs a way to confirm arrival that does not run through the
+  coerced phone (for example, through the contact who sent the helper).
 
 * Production KMS adapter and key-destruction attestation; production Postgres
   adapter for the SessionRepository port.

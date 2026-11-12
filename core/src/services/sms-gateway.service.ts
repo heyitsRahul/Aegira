@@ -6,6 +6,7 @@ import {
   LocationUnknownError,
   WatchActionNotAllowedError,
 } from '../domain/errors';
+import { IllegalTransitionError } from '../domain/state-machine';
 import { SessionCategory, SessionState } from '../domain/types';
 import { ResponderProfile } from './matching.service';
 import { normalizePhone, RegistrationService } from './registration.service';
@@ -361,6 +362,11 @@ export class SmsGatewayService {
       } catch (error) {
         if (error instanceof InvalidPinError) {
           return WRONG_PIN_REPLY;
+        }
+        // The phone already shows a benign ending: answer as a finished
+        // session would (invariant 4).
+        if (error instanceof IllegalTransitionError) {
+          return NO_SESSION_REPLY;
         }
         throw error;
       }

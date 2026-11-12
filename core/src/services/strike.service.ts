@@ -26,15 +26,30 @@ export class StrikeService {
     return record;
   }
 
-  /** Human review outcome: uphold or dismiss. */
+  /**
+   * Human review outcome: uphold or dismiss. Only an open strike is
+   * reviewed; a decision is never silently flipped (an upheld strike goes
+   * back to review only through an appeal).
+   */
   review(strikeId: string, decision: 'upheld' | 'dismissed'): StrikeRecord {
     const record = this.mustGet(strikeId);
+    if (record.status !== 'open') {
+      throw new Error(`strike ${strikeId} is ${record.status}, not open for review`);
+    }
     record.status = decision;
     return record;
   }
 
+  /**
+   * An appeal reopens an upheld strike for another review. A dismissed
+   * strike has nothing to appeal, and reopening it would wrongly take the
+   * responder off dispatch again.
+   */
   appeal(strikeId: string, note: string): StrikeRecord {
     const record = this.mustGet(strikeId);
+    if (record.status !== 'upheld') {
+      throw new Error(`strike ${strikeId} is ${record.status}; only an upheld strike can be appealed`);
+    }
     record.appealNote = note;
     record.status = 'open';
     return record;

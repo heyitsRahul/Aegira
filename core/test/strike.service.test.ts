@@ -29,6 +29,24 @@ describe('strikes, not scores (invariant 10)', () => {
     expect(service.hasOpenOrUpheldStrike('responder-a')).toBe(false);
   });
 
+  it('moves only open -> upheld/dismissed, and upheld -> open by appeal', () => {
+    const service = freshService();
+    const dismissed = service.file('responder-a', 'late');
+    service.review(dismissed.id, 'dismissed');
+    // A dismissed strike cannot be reopened (that would take them off dispatch again)...
+    expect(() => service.appeal(dismissed.id, 'please')).toThrow();
+    // ...or flipped to upheld without a new review.
+    expect(() => service.review(dismissed.id, 'upheld')).toThrow();
+    expect(service.hasOpenOrUpheldStrike('responder-a')).toBe(false);
+
+    const upheld = service.file('responder-b', 'rude');
+    service.review(upheld.id, 'upheld');
+    expect(() => service.review(upheld.id, 'dismissed')).toThrow();
+    // An open strike is already under review; there is nothing to appeal yet.
+    const open = service.file('responder-c', 'no-show');
+    expect(() => service.appeal(open.id, 'early')).toThrow();
+  });
+
   it('eligibility is a boolean rule over records, never a numeric score', () => {
     const service = freshService();
     service.file('responder-a', 'first incident');

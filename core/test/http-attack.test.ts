@@ -271,6 +271,42 @@ describe('location updates', () => {
   });
 });
 
+describe('hand-made requests after a secret-PIN cancel (invariant 4)', () => {
+  const same = (res: { status: number; text: string }, id: string) =>
+    `${res.status} ${res.text.replaceAll(id, 'ID').replace(/"\d{6}"/g, '"CODE"')}`;
+
+  it('the app routes answer exactly as after a real cancel', async () => {
+    const real = await startSession();
+    const forced = await startSession();
+    await call('POST', `/sessions/${real.id}/cancel`, { pin: '1234' }, seeker(real.token));
+    await call('POST', `/sessions/${forced.id}/cancel`, { pin: '9999' }, seeker(forced.token));
+    const ask = async (s: { id: string; token: string }) => [
+      same(await call('GET', `/sessions/${s.id}`, undefined, seeker(s.token)), s.id),
+      same(await call('POST', `/sessions/${s.id}/confirm`, {}, seeker(s.token)), s.id),
+      same(await call('POST', `/sessions/${s.id}/resolve`, { pin: '9999' }, seeker(s.token)), s.id),
+      same(await call('POST', `/sessions/${s.id}/resolve`, { pin: '0000' }, seeker(s.token)), s.id),
+      same(await call('POST', `/sessions/${s.id}/dispatch`, {}, seeker(s.token)), s.id),
+      same(await call('GET', `/sessions/${s.id}/arrival-code`, undefined, seeker(s.token)), s.id),
+    ];
+    expect(await ask(forced)).toEqual(await ask(real));
+  });
+
+  it('the basic-phone "I am safe" page answers exactly as after a real cancel', async () => {
+    const run = async (phone: string, pin: string) => {
+      const form = { phone, dial: '91' };
+      await call('POST', '/lite/register', { ...form, name: 'Asha', contact: '9123456789', pinSafe: '1234', pinDuress: '9999' });
+      await call('POST', '/lite/sos', { ...form, area: 'blr', category: 'personal_safety' });
+      await call('POST', '/lite/cancel', { ...form, pin });
+      return [
+        (await call('POST', '/lite/safe', { ...form, pin: '9999' })).text,
+        (await call('POST', '/lite/safe', { ...form, pin: '0000' })).text,
+        (await call('POST', '/lite/status', { ...form, pin: '9999' })).text,
+      ];
+    };
+    expect(await run('9000000101', '9999')).toEqual(await run('9000000102', '1234'));
+  });
+});
+
 describe('the narrated demo page', () => {
   it('is served to everyone, says it is simulated, and makes no network calls', async () => {
     const res = await call('GET', '/demo');

@@ -17,7 +17,7 @@ import { StubNotifier } from '../src/services/notification.service';
 import { InMemoryRegistrationStore, RegistrationService } from '../src/services/registration.service';
 import { CompositeNotifier, SmsNotifier, SmsTransport, StubSmsTransport } from '../src/services/sms';
 import { SmsGatewayService } from '../src/services/sms-gateway.service';
-import { GuardedSmsTransport, SmsGuard } from '../src/services/sms-guard';
+import { DEMO_SMS_LIMITS, GuardedSmsTransport, SmsGuard } from '../src/services/sms-guard';
 import { InMemorySmsOptInStore, SmsOptInService } from '../src/services/sms-optin.service';
 import { ManualClock } from './helpers/manual-clock';
 
@@ -207,6 +207,27 @@ describe('real-SMS guard for a public demo', () => {
     clock.advance(24 * 60 * 60 * 1000);
     await replies.send('+919000000004', 'x', 't');
     expect(sent.messages).toHaveLength(6);
+  });
+});
+
+describe('real-SMS guard keeps texts back for emergencies', () => {
+  it('replies to strangers cannot spend the alert reserve', async () => {
+    const clock = new ManualClock(new Date('2026-10-27T10:00:00Z'));
+    const guard = new SmsGuard(clock, { perNumberPerDay: 50, totalPerDay: 10, alertReservePerDay: 4 }, () => true);
+    const sent = new StubSmsTransport();
+    const replies = new GuardedSmsTransport(sent, guard, 'reply');
+    const alerts = new GuardedSmsTransport(sent, guard, 'alert');
+    // Someone texts us over and over from several numbers.
+    for (let i = 0; i < 30; i++) await replies.send(`+91900000${1000 + (i % 5)}`, 'x', 't');
+    expect(sent.messages).toHaveLength(6);
+    // A real emergency still gets its alerts out.
+    for (let i = 0; i < 4; i++) await alerts.send(`+91911111${1000 + i}`, 'ALERT', 't');
+    expect(sent.messages.filter((m) => m.text === 'ALERT')).toHaveLength(4);
+  });
+
+  it('the live demo keeps a reserve', () => {
+    expect(DEMO_SMS_LIMITS.alertReservePerDay ?? 0).toBeGreaterThan(0);
+    expect(DEMO_SMS_LIMITS.alertReservePerDay!).toBeLessThan(DEMO_SMS_LIMITS.totalPerDay);
   });
 });
 

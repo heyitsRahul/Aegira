@@ -22,6 +22,7 @@ import {
   NotAuthenticatedError,
   SessionNotFoundError,
 } from '../domain/errors';
+import { IllegalTransitionError } from '../domain/state-machine';
 import { EvidenceService } from '../services/evidence.service';
 import { RegistrationService } from '../services/registration.service';
 import { SessionService } from '../services/session.service';
@@ -333,6 +334,11 @@ export class LiteController {
     } catch (error) {
       if (error instanceof InvalidPinError) {
         return messagePage('Wrong PIN', 'That PIN is not right. Go back and try again.');
+      }
+      // A session whose phone already shows a benign ending refuses like a
+      // finished one, so it gets the finished page (invariant 4).
+      if (error instanceof IllegalTransitionError) {
+        return messagePage('Nothing running', 'Nothing is running right now.');
       }
       throw error;
     }

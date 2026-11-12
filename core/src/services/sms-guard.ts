@@ -20,13 +20,19 @@ import { SmsTransport } from './sms';
 export interface SmsLimits {
   perNumberPerDay: number;
   totalPerDay: number;
+  /**
+   * Texts each day that only alerts may use. Replies go to whoever texts
+   * us, so without this a stranger texting from a few numbers could spend
+   * the whole day's budget and leave nothing for a real emergency alert.
+   */
+  alertReservePerDay?: number;
 }
 
 /**
  * Indian prepaid "unlimited" SMS packs typically stop at 100 texts a day per
  * SIM, so the total stays within what one gateway phone can actually send.
  */
-export const DEMO_SMS_LIMITS: SmsLimits = { perNumberPerDay: 20, totalPerDay: 100 };
+export const DEMO_SMS_LIMITS: SmsLimits = { perNumberPerDay: 20, totalPerDay: 100, alertReservePerDay: 30 };
 
 export type SmsKind = 'alert' | 'reply';
 
@@ -58,7 +64,9 @@ export class SmsGuard {
     }
     const key = hashOf(to);
     const sentToNumber = this.perNumber.get(key) ?? 0;
-    if (this.total >= this.limits.totalPerDay || sentToNumber >= this.limits.perNumberPerDay) {
+    const budget =
+      kind === 'alert' ? this.limits.totalPerDay : this.limits.totalPerDay - (this.limits.alertReservePerDay ?? 0);
+    if (this.total >= budget || sentToNumber >= this.limits.perNumberPerDay) {
       this.metrics.increment('sms.blocked_daily_cap');
       return false;
     }

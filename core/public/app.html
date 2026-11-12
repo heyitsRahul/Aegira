@@ -349,6 +349,7 @@ const STR = {
     enter_pin_safe: 'Your PIN, to say you are safe',
     youre_safe_sub: 'Everything about this will be deleted soon.', done: 'Done',
     cancelled: 'Cancelled', nobody_notified: 'Nobody was told.', back: 'Back',
+    ended_title: 'It is over', ended_sub: 'This alert has ended. Its data is deleted on schedule.',
     watch_title: 'Going somewhere',
     watch_sub: 'Set a timer. When you reach, press “I have reached”. If you don’t, your people get a message.',
     watch_me_for: 'How long will it take?', minutes: 'minutes', start_watch: 'Start the timer',
@@ -420,6 +421,7 @@ const STR = {
     rs_withdraw: 'I cannot go', rs_taken: 'Another helper is going. Thank you.',
     rs_on_scene: 'You are with them. Stay until they say they are safe.',
     rs_done: 'They are safe. Thank you. You never learned who they were — that keeps them safe.',
+    rs_gone: 'This request is no longer yours. Someone else may be sent.',
     rs_not_available: 'This request is closed.', rs_back: '← Requests', rs_navigate: 'Open map ↗',
     // spoken
     v_sos: 'Sending help. Type your PIN to cancel.',
@@ -488,6 +490,7 @@ const STR = {
     enter_pin_safe: 'सुरक्षित होने के लिए अपना PIN डालें',
     youre_safe_sub: 'इससे जुड़ी हर जानकारी जल्द मिटा दी जाएगी।', done: 'ठीक है',
     cancelled: 'रद्द किया गया', nobody_notified: 'किसी को नहीं बताया गया।', back: 'वापस',
+    ended_title: 'यह खत्म हो गया', ended_sub: 'यह अलर्ट खत्म हो गया है। इसका डेटा तय समय पर मिटा दिया जाता है।',
     watch_title: 'कहीं जा रहे हैं',
     watch_sub: 'टाइमर लगाएँ। पहुँचकर “मैं पहुँच गया/गई” दबाएँ। नहीं दबाया तो आपके अपनों को संदेश जाएगा।',
     watch_me_for: 'कितना समय लगेगा?', minutes: 'मिनट', start_watch: 'टाइमर शुरू करें',
@@ -556,6 +559,7 @@ const STR = {
     rs_withdraw: 'मैं नहीं जा सकता/सकती', rs_taken: 'दूसरा सहायक जा रहा है। धन्यवाद।',
     rs_on_scene: 'आप उनके साथ हैं। जब तक वे सुरक्षित न कहें, रुकिए।',
     rs_done: 'वे सुरक्षित हैं। धन्यवाद। आपको नहीं पता चला वे कौन थे — इससे वे सुरक्षित रहते हैं।',
+    rs_gone: 'यह अनुरोध अब आपका नहीं है। किसी और को भेजा जा सकता है।',
     rs_not_available: 'यह अनुरोध बंद हो गया है।', rs_back: '← अनुरोध', rs_navigate: 'नक़्शा खोलें ↗',
     v_sos: 'मदद भेजी जा रही है। रद्द करने के लिए पिन डालें।',
     v_active: 'आपके अपनों को बता दिया गया है। मदद आ रही है।',
@@ -988,6 +992,7 @@ function deviceUserId() {
 
 async function trigger() {
   const profile = store.get('profile');
+  cancelPendingFakeCall();
   // Recording starts at the press itself (the browser needs that tap), and
   // pieces wait on the phone until the session exists.
   if (profile.recordSound && store.get('consent.audio', null) === 'v8') startRecording();
@@ -1058,13 +1063,22 @@ function renderSeekerSession() {
     let code = null;
     if (st.state === 'DISPATCHED') code = (await api(`/sessions/${sess.id}/arrival-code`, undefined, 'GET', seekerAuth()).catch(() => ({}))).code;
     if (st.watchDeadline) { sess.deadline = st.watchDeadline; store.set('session', sess); }
+    // Small facts the screen needs later. They follow the state this phone is
+    // shown, so a duress mask produces exactly the same facts (invariant 4).
+    // How it ended: CLOSED and PURGED look the same either way, but a
+    // resolved alert must not later read "Nobody was told".
+    if ((st.state === 'RESOLVED' || st.state === 'CANCELLED') && sess.ended !== st.state) { sess.ended = st.state; store.set('session', sess); }
+    // A helper was on the way; back to ACTIVE means they backed out or never
+    // arrived, so the person may ask again.
+    if (st.state === 'DISPATCHED' || st.state === 'ARRIVED') { if (!sess.helperSeen) { sess.helperSeen = true; store.set('session', sess); } }
+    else if (st.state === 'ACTIVE' && sess.helperSeen) { sess.helperSeen = false; sess.dispatched = false; sess.noHelpers = false; store.set('session', sess); }
     // Speak the big moments aloud, once per change (respects the duress mask,
     // since it reads the same masked client state the screen shows).
     if (st.state !== spokenState) {
       const live = (s) => ['ACTIVE', 'DISPATCHED', 'ARRIVED'].includes(s);
       if (live(st.state) && !live(spokenState || '')) speakKey('v_active');
       else if (st.state === 'RESOLVED') speakKey('v_safe');
-      else if (['CANCELLED', 'CLOSED', 'PURGED'].includes(st.state)) speakKey('v_cancelled');
+      else if (st.state === 'CANCELLED') speakKey('v_cancelled');
       spokenState = st.state;
     }
     sendPing(st.state);
@@ -1109,9 +1123,9 @@ function seekerScreen(state, sess, code) {
       <h1>${esc(t('help_in_motion'))} <span class="chip ${state}">${esc(t('state_' + state))}</span></h1>
       <div class="tl">${steps.map((s, i) => `<div class="step ${i < on ? 'on' : ''}">${esc(s)}</div>`).join('')}</div>
       ${sess.loc ? mapSvg(null, sess.loc, { dot: true, hideCell: true }) : ''}
-      ${state === 'ACTIVE' && !sess.dispatched && sess.loc ? `<button class="primary" onclick="requestResponder()">${esc(t('request_responder'))}</button>` : ''}
-      ${state === 'ACTIVE' && !sess.loc ? `<p class="lead center" style="margin-top:10px">${esc(t('no_loc_helper'))}</p>` : ''}
       ${state === 'ACTIVE' && sess.dispatched ? `<p class="lead center" style="margin-top:10px">${esc(t(sess.noHelpers ? 'no_helpers' : 'waiting_accept'))}</p>` : ''}
+      ${state === 'ACTIVE' && (!sess.dispatched || sess.noHelpers) && sess.loc ? `<button class="primary" onclick="requestResponder()">${esc(t('request_responder'))}</button>` : ''}
+      ${state === 'ACTIVE' && !sess.loc ? `<p class="lead center" style="margin-top:10px">${esc(t('no_loc_helper'))}</p>` : ''}
       ${state === 'DISPATCHED' && code ? `<p class="lead center" style="margin-top:12px">${esc(t('show_code'))}</p><div class="code">${code}</div>` : ''}
       ${state === 'ARRIVED' ? `<p class="lead center" style="margin-top:12px">🤝 ${esc(t('responder_here'))}</p>` : ''}
       ${recBar()}
@@ -1120,15 +1134,21 @@ function seekerScreen(state, sess, code) {
       <button onclick="resolveSession()">✅ ${esc(t('i_am_safe'))}</button>
       ${help}`;
   }
-  if (state === 'RESOLVED') {
+  if (state === 'RESOLVED' || (['CLOSED', 'PURGED'].includes(state) && sess.ended === 'RESOLVED')) {
     return `<div class="big-ico">✅</div><h1 class="center">${esc(t('youre_safe'))}</h1>
       <p class="lead center">${esc(t('youre_safe_sub'))}</p>
-      ${sess.recorded ? `<button class="primary" onclick="saveRecording()">💾 ${esc(t('rec_save'))}</button>
+      ${sess.recorded && state !== 'PURGED' ? `<button class="primary" onclick="saveRecording()">💾 ${esc(t('rec_save'))}</button>
         <p class="lead center" style="margin-top:6px">${esc(t('rec_saved_note'))}</p>` : ''}
       <button onclick="clearSession()">${esc(t('done'))}</button>`;
   }
-  return `<div class="big-ico">🌙</div><h1 class="center">${esc(t('cancelled'))}</h1>
+  if (state === 'CANCELLED' || sess.ended === 'CANCELLED') {
+    return `<div class="big-ico">🌙</div><h1 class="center">${esc(t('cancelled'))}</h1>
     <p class="lead center">${esc(t('nobody_notified'))}</p>
+    <button onclick="clearSession()">${esc(t('back'))}</button>`;
+  }
+  // Ended while this phone was not looking: say only that it is over.
+  return `<div class="big-ico">🌙</div><h1 class="center">${esc(t('ended_title'))}</h1>
+    <p class="lead center">${esc(t('ended_sub'))}</p>
     <button onclick="clearSession()">${esc(t('back'))}</button>`;
 }
 async function confirmNow() { try { await api(`/sessions/${store.get('session').id}/confirm`, {}, 'POST', seekerAuth()); } catch (e) { toast(friendlyError(e)); } routeTick(); }
@@ -1392,6 +1412,11 @@ function stopSiren() {
   siren.el.remove(); siren = null;
 }
 let fakeCall = null;
+// A call waiting to ring. Tracked so a second "Start" replaces it instead of
+// stacking, and so pressing SOS stops it: a ringtone and a full-screen call
+// must never land on top of an emergency the person just started.
+let fakeCallPending = null;
+function cancelPendingFakeCall() { if (fakeCallPending) { clearTimeout(fakeCallPending); fakeCallPending = null; } }
 function openFakeCall() {
   toolCtx(); // unlock sound now, while there is a tap
   const name = store.get('fakecall.name', '') || t('fake_default');
@@ -1414,7 +1439,8 @@ function scheduleFakeCall() {
   store.set('fakecall.name', name);
   sheet.remove();
   if (delay) toast(t('fake_when') + ': ' + t(delay === 10 ? 'fake_10' : 'fake_30'));
-  setTimeout(() => ringFakeCall(name), delay * 1000);
+  cancelPendingFakeCall();
+  fakeCallPending = setTimeout(() => { fakeCallPending = null; ringFakeCall(name); }, delay * 1000);
 }
 const PHONE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>';
 function ringFakeCall(name) {
@@ -1625,16 +1651,26 @@ function renderResponderJob(sid) {
   $m.innerHTML = `<div id="dyn"><p class="lead">…</p></div>`;
   let last = '';
   routeTick = async () => {
-    const v = await api(`/sessions/${sid}/responder-view/${rid}`, undefined, 'GET', responderAuth()).catch(() => null);
+    // The server decides whose job this is. A helper withdrawn behind the
+    // scenes (no arrival in time) loses access: say so, never a stale map.
+    const v = await api(`/sessions/${sid}/responder-view/${rid}`, undefined, 'GET', responderAuth())
+      .catch((e) => (/not authorized/i.test(e.message) ? { gone: true } : null));
     if (!v) return;
-    const accepted = (store.get('responder.accepted', [])).includes(sid);
+    if (v.gone) {
+      store.set('responder.accepted', store.get('responder.accepted', []).filter((x) => x !== sid));
+      const html = `<p class="lead" style="margin-top:24px">${esc(t('rs_gone'))}</p>
+        <button class="subtle" onclick="go('responder')">${esc(t('rs_back'))}</button>`;
+      document.getElementById('dyn').innerHTML = html;
+      routeTick = async () => {}; // nothing more to follow
+      return;
+    }
     let html = `<h1>${esc(t('rs_offer'))} <span class="chip ${v.state}">${esc(t('state_' + v.state))}</span></h1>
       <p class="lead">${esc(catLabel(v.category))} · ${esc(t('rs_area'))}</p>`;
     if (v.state === 'ACTIVE') {
       html += mapSvg(v.coarseCell, null, {}) + `
         <p class="lead center">${esc(t('rs_area_note'))}</p>
         <button class="primary" onclick="acceptJob('${sid}')">${esc(t('rs_accept'))}</button>`;
-    } else if (v.state === 'DISPATCHED' && accepted && v.location) {
+    } else if (v.state === 'DISPATCHED' && v.location) {
       html += mapSvg(v.coarseCell, v.location, { dot: true }) + `
         <p class="lead center"><a href="https://www.google.com/maps/search/?api=1&query=${v.location.lat},${v.location.lng}" target="_blank" rel="noopener">${esc(t('rs_navigate'))}</a></p>
         <label>${esc(t('rs_code_label'))}</label>

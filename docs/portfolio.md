@@ -32,7 +32,7 @@ helper close by can come too.
 
 **How do you know it works?**
 I tested it like an attacker would: thousands of random and broken actions.
-The tests found real problems, and I fixed them. It now has 449 automated
+The tests found real problems, and I fixed them. It now has 465 automated
 tests.
 
 **Who built it?**
@@ -208,7 +208,7 @@ privacy than they give back.
 
 ## How I tested it
 
-The project has 449 automated tests that run every time the code changes.
+The project has 465 automated tests that run every time the code changes.
 Some of them are deliberately hard:
 
 - **Chaos testing.** A program does 300 runs of 60 random actions each (press

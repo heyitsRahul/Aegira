@@ -117,8 +117,15 @@ async function step(rig: TestRig, sessions: Tracked[], rand: () => number, pick:
       'arrival',
       () => {
         const accepted = ['responder-a', 'responder-b', 'responder-c'];
+        // Half the time, the helper who really accepted (so arrival is
+        // reached often enough to test); otherwise anyone.
+        const real = service
+          .opsView(s.id)
+          .events.filter((e) => e.type === 'RESPONDER_ACCEPTED')
+          .at(-1)?.data.responderId;
+        const who = rand() < 0.5 && typeof real === 'string' ? real : pick(accepted);
         const code = rand() < 0.5 ? service.getArrivalCode(s.id) : pick(['000000', '', 'abcdef']);
-        return service.verifyArrival(s.id, pick(accepted), code);
+        return service.verifyArrival(s.id, who, code);
       },
     ],
     ['resolve-safe', () => service.resolve(s.id, TEST_CONFIG.pins.safe)],

@@ -221,6 +221,25 @@ describe('duress over SMS (invariant 4)', () => {
   });
 });
 
+describe('texts after a forced CANCEL (invariant 4)', () => {
+  it('SAFE, STATUS and CANCEL answer exactly as after a real cancel', async () => {
+    const cancelled = async (pin: string) => {
+      const rig = await registered();
+      await rig.gateway.handle(SEEKER, 'SOS', TOWER);
+      await rig.gateway.handle(SEEKER, `CANCEL ${pin}`);
+      return rig;
+    };
+    const real = await cancelled('1234');
+    const forced = await cancelled('9999');
+    for (const text of ['SAFE 9999', 'SAFE 0000', 'STATUS 9999', 'CANCEL 9999', 'SAFE 9999']) {
+      expect(await forced.gateway.handle(SEEKER, text)).toBe(await real.gateway.handle(SEEKER, text));
+    }
+    // Behind the scenes the emergency is still live.
+    const sessionId = forced.service.latestSessionIdForUser(forced.registrations.find(SEEKER)!.phoneRef)!;
+    expect(forced.service.opsView(sessionId).state).toBe('ACTIVE');
+  });
+});
+
 describe('the full feature-phone rescue', () => {
   it('SOS -> activation -> contact SEND -> responder offer, all by text', async () => {
     const rig = await registered();

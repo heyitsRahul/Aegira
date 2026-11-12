@@ -18,7 +18,14 @@ import { cellId, toCell } from '../domain/geo';
 import { normalizePhone } from '../domain/phone';
 import { SessionAggregate } from '../domain/session';
 import { IllegalTransitionError } from '../domain/state-machine';
-import { Clock, PreciseLocation, SessionCategory, SessionEvent, SessionState } from '../domain/types';
+import {
+  Clock,
+  PreciseLocation,
+  SessionCategory,
+  SessionEvent,
+  SessionEventType,
+  SessionState,
+} from '../domain/types';
 import { EncryptedBlob, SessionCrypto } from '../crypto/shredder';
 import {
   InMemorySessionRepository,
@@ -176,6 +183,13 @@ interface SessionPii {
 interface DuressMask {
   atIso: string;
   benign: 'CANCELLED' | 'RESOLVED';
+  /**
+   * The arrival code the device could see when the mask began. A real
+   * benign outcome freezes it there (a cancel never had one; a resolve keeps
+   * its last one until purge), so the masked device must too, whatever a
+   * helper does behind the scenes afterwards.
+   */
+  arrivalCode?: string | null;
 }
 
 interface StoredSession {
@@ -400,18 +414,20 @@ export class SessionService {
     }
   }
 
+  /** Returns who the caller is, so the duress mask can follow the seeker. */
   authorizeSeekerOrContact(
     sessionId: string,
     seekerToken: string | null,
     contactToken: string | null,
-  ): void {
+  ): 'seeker' | 'contact' {
     const record = this.mustGet(sessionId);
-    if (
-      !matchesHash(seekerToken, record.seekerTokenHash) &&
-      !matchesHash(contactToken, record.contactTokenHash)
-    ) {
-      throw new NotAuthenticatedError();
+    if (matchesHash(contactToken, record.contactTokenHash)) {
+      return 'contact';
     }
+    if (matchesHash(seekerToken, record.seekerTokenHash)) {
+      return 'seeker';
+    }
+    throw new NotAuthenticatedError();
   }
 
   /* --------------------------- lifecycle --------------------------- */
@@ -555,7 +571,7 @@ export class SessionService {
     }
     if (matchesHash(pin, record.pinDuressHash)) {
       record.aggregate.apply('WATCH_ESCALATED', at, { reason: 'duress' });
-      record.duressMask = { atIso: at, benign: 'RESOLVED' };
+      record.duressMask = { atIso: at, benign: 'RESOLVED', arrivalCode: null };
       record.watchDeadlineIso = null;
       this.persist(record);
       this.metrics.increment('watch.escalated');
@@ -584,6 +600,9 @@ export class SessionService {
   /** Explicit user confirmation: skip the countdown and activate now. */
   async confirm(sessionId: string): Promise<ClientStatus> {
     const record = this.mustGet(sessionId);
+    // Only the helpseeker's device confirms. Under a duress mask it gets the
+    // refusal its benign state would get (invariant 4).
+    this.refuseIfMasked(record, 'ACTIVATED');
     record.aggregate.apply('ACTIVATED', this.clock.now().toISOString(), {
       reason: 'confirmed',
     });
@@ -613,7 +632,7 @@ export class SessionService {
     }
     if (matchesHash(pin, record.pinDuressHash)) {
       record.aggregate.apply('ACTIVATED', at, { reason: 'duress' });
-      record.duressMask = { atIso: at, benign: 'CANCELLED' };
+      record.duressMask = { atIso: at, benign: 'CANCELLED', arrivalCode: null };
       this.persist(record);
       this.metrics.increment('session.activated');
       await this.notifyContacts(record, { duress: true, escalation: false, watchExpired: false });
@@ -641,6 +660,17 @@ export class SessionService {
       status.watchDeadline = record.watchDeadlineIso;
     }
     return status;
+  }
+
+  /**
+   * Seeker actions on a duress-masked session answer exactly as a real
+   * session in the state the device is shown would: that state has no live
+   * actions left, so the answer is always the same refusal (invariant 4).
+   */
+  private refuseIfMasked(record: StoredSession, event: SessionEventType): void {
+    if (record.duressMask !== null) {
+      throw new IllegalTransitionError(this.simulatedMaskedState(record.duressMask, this.clock.now()), event);
+    }
   }
 
   private simulatedMaskedState(mask: DuressMask, now: Date): SessionState {
@@ -818,8 +848,16 @@ export class SessionService {
    * Runs deterministic matching and sends identity-free offers to the top
    * candidates. Returns the candidates with their explanations.
    */
-  async dispatch(sessionId: string, roster: readonly ResponderProfile[]): Promise<MatchCandidate[]> {
+  async dispatch(
+    sessionId: string,
+    roster: readonly ResponderProfile[],
+    caller: 'seeker' | 'contact' = 'contact',
+  ): Promise<MatchCandidate[]> {
     const record = this.mustGet(sessionId);
+    // Contacts act on the real emergency; the coerced device sees its mask.
+    if (caller === 'seeker') {
+      this.refuseIfMasked(record, 'RESPONDER_ACCEPTED');
+    }
     if (record.aggregate.state !== 'ACTIVE') {
       throw new IllegalTransitionError(record.aggregate.state, 'RESPONDER_ACCEPTED');
     }
@@ -890,6 +928,15 @@ export class SessionService {
   /** Shown on the helpseeker's screen; the responder reads it in person. */
   getArrivalCode(sessionId: string): string {
     const record = this.mustGet(sessionId);
+    const mask = record.duressMask;
+    if (mask !== null) {
+      // Frozen at the moment of the mask, and gone at its simulated purge.
+      const code = mask.arrivalCode ?? null;
+      if (code === null || this.simulatedMaskedState(mask, this.clock.now()) === 'PURGED') {
+        throw new ResponderNotAuthorizedError();
+      }
+      return code;
+    }
     if (record.arrivalCode === null) {
       throw new ResponderNotAuthorizedError();
     }
@@ -939,6 +986,9 @@ export class SessionService {
   async resolve(sessionId: string, pin: string): Promise<ClientStatus> {
     const record = this.mustGet(sessionId);
     const state = record.aggregate.state;
+    if (record.duressMask !== null) {
+      return this.resolveMasked(record, pin);
+    }
     if (!RESOLVABLE_STATES.includes(state)) {
       throw new IllegalTransitionError(state, 'SESSION_RESOLVED');
     }
@@ -953,8 +1003,7 @@ export class SessionService {
       // Recorded as a re-alert of the circle (self-loop): the real state,
       // and any helper on the way, are untouched.
       record.aggregate.apply('ESCALATION_RAISED', at, { reason: 'duress_resolve' });
-      // A device already showing a benign timeline keeps it unchanged.
-      record.duressMask ??= { atIso: at, benign: 'RESOLVED' };
+      record.duressMask = { atIso: at, benign: 'RESOLVED', arrivalCode: record.arrivalCode };
       this.persist(record);
       // The public counters move exactly as for a real resolve.
       this.metrics.increment('session.resolved');
@@ -962,6 +1011,32 @@ export class SessionService {
       return { sessionId, state: 'RESOLVED' };
     }
     throw new InvalidPinError();
+  }
+
+  /**
+   * "I'm safe" on a session whose device already shows a benign outcome.
+   * A real session in that state refuses every PIN, so this answers the
+   * same refusal, with one exception only the real person can use: their
+   * safe PIN still ends a live emergency for good. A duress PIN still
+   * re-alerts the circle quietly, since someone is forcing the phone again.
+   */
+  private async resolveMasked(record: StoredSession, pin: string): Promise<ClientStatus> {
+    const mask = record.duressMask as DuressMask;
+    const visible = this.simulatedMaskedState(mask, this.clock.now());
+    const live = RESOLVABLE_STATES.includes(record.aggregate.state);
+    const at = this.clock.now().toISOString();
+    if (live && matchesHash(pin, record.pinSafeHash)) {
+      record.aggregate.apply('SESSION_RESOLVED', at, { reason: 'helpseeker_confirmed_safe' });
+      this.persist(record);
+      this.metrics.increment('session.resolved');
+      return { sessionId: record.aggregate.sessionId, state: visible };
+    }
+    if (live && matchesHash(pin, record.pinDuressHash)) {
+      record.aggregate.apply('ESCALATION_RAISED', at, { reason: 'duress_resolve' });
+      this.persist(record);
+      await this.notifyContacts(record, { duress: true, escalation: false, watchExpired: false });
+    }
+    throw new IllegalTransitionError(visible, 'SESSION_RESOLVED');
   }
 
   /**
