@@ -455,7 +455,7 @@ const STR = {
     fake_who: 'Who is calling?', fake_default: 'Maa', fake_when: 'Ring', fake_now: 'Now', fake_10: 'In 10 seconds', fake_30: 'In 30 seconds',
     fake_start: 'Start', fake_close: 'Close', fake_mobile: 'mobile', fake_accept: 'Accept', fake_decline: 'Decline', fake_end: 'End',
     fake_note: 'Nothing is sent. The call happens only on this phone.',
-    fake_lines: ['Hello? Where are you right now?', 'Okay. I am coming to get you. I will be there in five minutes.', 'Stay where there are people. Stay on the phone with me.', 'I am on the way. Keep talking to me.'],
+    fake_lines: ['Hello? Hey, where are you right now?', 'Okay, okay. I am leaving now. I will be there in five minutes.', 'Just stay where there are people, okay? Stay on the phone with me.', 'I am on the way. Keep talking to me.'],
     ct_battery: 'battery {p}%', ct_battery_low: 'Their phone battery is low ({p}%). It may switch off soon.',
     ct_sound: 'SOUND FROM THEIR PHONE', ct_sound_sub: 'Recorded during this emergency. Helpers cannot hear it.',
     ct_sound_clip: 'Recording {n}', ct_sound_len: 'about {s} so far', ct_sound_latest: 'New sound came in. Play the latest',
@@ -595,7 +595,7 @@ const STR = {
     fake_who: 'कौन कॉल कर रहा है?', fake_default: 'माँ', fake_when: 'कब बजे', fake_now: 'अभी', fake_10: '10 सेकंड में', fake_30: '30 सेकंड में',
     fake_start: 'शुरू करें', fake_close: 'बंद करें', fake_mobile: 'मोबाइल', fake_accept: 'उठाएँ', fake_decline: 'काटें', fake_end: 'काटें',
     fake_note: 'कुछ नहीं भेजा जाता। कॉल सिर्फ़ इसी फ़ोन पर होती है।',
-    fake_lines: ['हैलो? तुम अभी कहाँ हो?', 'ठीक है। मैं तुम्हें लेने आ रही हूँ। पाँच मिनट में पहुँचूँगी।', 'जहाँ लोग हों, वहीं रहो। फ़ोन पर मुझसे बात करती रहो।', 'मैं रास्ते में हूँ। बात करती रहो।'],
+    fake_lines: ['हैलो? हाँ, तुम अभी कहाँ हो?', 'अच्छा, ठीक है। मैं तुम्हें लेने आ रही हूँ। बस पाँच मिनट में पहुँचूँगी।', 'जहाँ लोग हों, वहीं रहना, ठीक है? फ़ोन पर मुझसे बात करती रहो।', 'मैं रास्ते में हूँ। बात करती रहो।'],
     ct_battery: 'बैटरी {p}%', ct_battery_low: 'उनके फ़ोन की बैटरी कम है ({p}%)। फ़ोन जल्द बंद हो सकता है।',
     ct_sound: 'उनके फ़ोन से आवाज़', ct_sound_sub: 'इस आपातकाल के दौरान रिकॉर्ड की गई। सहायक इसे नहीं सुन सकते।',
     ct_sound_clip: 'रिकॉर्डिंग {n}', ct_sound_len: 'अब तक लगभग {s}', ct_sound_latest: 'नई आवाज़ आई है। ताज़ा हिस्सा चलाएँ',
@@ -612,17 +612,70 @@ function t(key, vars) {
 function setLang(code) { store.set('lang', code); document.documentElement.lang = code; render(); }
 const soundOn = () => store.get('sound', true);
 function toggleSound() { store.set('sound', !soundOn()); if (soundOn()) speakKey('v_safe'); render(); }
-// Voice prompts: built-in speech, no dependency. Speaks the chosen language.
+// Voice: built-in speech, no dependency, works offline. Feedback was that it
+// sounded fast and robotic, so: pick the most human voice the phone has for
+// the chosen language, speak a little slower, and pause between sentences the
+// way a person does. No settings for the user to fiddle with.
+const VOICE_ROBOTIC = /espeak|compact|albert|bad news|bahh|bells|boing|bubbles|cellos|fred|good news|jester|junior|kathy|organ|ralph|superstar|trinoids|whisper|wobble|zarvox/i;
+const VOICE_NATURAL = /natural|neural|premium|enhanced|siri|google/i;
+const VOICE_FEMALE = /female|woman|lekha|veena|kajal|neerja|swara|heera|kalpana|aditi|raveena|isha|samantha|karen|moira|tessa|zira|aria|jenny|google/i;
+let voiceList = [];
+function loadVoices() { try { voiceList = window.speechSynthesis ? speechSynthesis.getVoices() || [] : []; } catch { voiceList = []; } }
+if (window.speechSynthesis) {
+  loadVoices();
+  try { speechSynthesis.addEventListener('voiceschanged', loadVoices); } catch { speechSynthesis.onvoiceschanged = loadVoices; }
+}
+function bestVoice(lang, wantFemale) {
+  const want = lang.toLowerCase(), base = want.split('-')[0];
+  let best = null, top = -1;
+  for (const v of voiceList) {
+    const vl = String(v.lang || '').replace('_', '-').toLowerCase();
+    if (vl.split('-')[0] !== base || VOICE_ROBOTIC.test(v.name)) continue;
+    let s = 0;
+    if (vl === want) s += 4;                 // Indian accent for English
+    if (VOICE_NATURAL.test(v.name)) s += 3;  // the human-sounding ones
+    if (v.localService) s += 2;              // works with weak or no data
+    if (wantFemale && VOICE_FEMALE.test(v.name)) s += 2;
+    if (v.default) s += 0.5;
+    if (s > top) { top = s; best = v; }
+  }
+  return best;
+}
+let speakToken = 0;
+function speak(text, opts = {}) {
+  const { female = false, rate = 0.85, gap = 380, onDone } = opts;
+  if (!window.speechSynthesis) { if (onDone) onDone(); return; }
+  const my = ++speakToken;
+  const l = langCode() || 'en';
+  const lang = (LANGS.find((x) => x.code === l) || LANGS[0]).voice;
+  const parts = (String(text).match(/[^.?!।]+[.?!।]*/g) || []).map((s) => s.trim()).filter(Boolean);
+  try { speechSynthesis.cancel(); } catch {}
+  let i = 0;
+  const next = (useVoice) => {
+    if (my !== speakToken) return;
+    if (i >= parts.length) { if (onDone) onDone(); return; }
+    try {
+      const u = new SpeechSynthesisUtterance(parts[i]);
+      u.lang = lang;
+      const v = useVoice ? bestVoice(lang, female) : null;
+      if (v) u.voice = v;
+      u.rate = l === 'hi' ? rate * 0.95 : rate; // Hindi voices tend to run faster
+      u.pitch = 1;
+      u.onend = () => { i++; setTimeout(() => next(true), gap); };
+      u.onerror = (e) => {
+        if (my !== speakToken || (e && (e.error === 'interrupted' || e.error === 'canceled'))) return;
+        if (v) next(false); // that voice failed (e.g. needs data): say it with the default voice
+        else { i++; setTimeout(() => next(true), gap); }
+      };
+      speechSynthesis.speak(u);
+    } catch { if (onDone) onDone(); }
+  };
+  next(true);
+}
+function stopSpeaking() { speakToken++; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch {} }
 function speakKey(key) {
-  if (!soundOn() || !window.speechSynthesis) return;
-  try {
-    const u = new SpeechSynthesisUtterance(t(key));
-    const l = langCode() || 'en';
-    u.lang = (LANGS.find((x) => x.code === l) || LANGS[0]).voice;
-    u.rate = 0.95;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  } catch {}
+  if (!soundOn()) return;
+  speak(t(key));
 }
 
 /* ------------------------------- map --------------------------------- */
@@ -1477,21 +1530,22 @@ function answerFakeCall() {
   tick(); fakeCall.timer = setInterval(tick, 1000);
   // The caller "speaks", with pauses for your replies.
   const lines = t('fake_lines'); let i = 0;
+  // Same caller voice every time, conversational pace, and uneven gaps
+  // (3.5 to 6 seconds) so it sounds like someone listening to your replies.
   const say = () => {
-    if (!fakeCall || i >= lines.length || !window.speechSynthesis) return;
-    const u = new SpeechSynthesisUtterance(lines[i++]);
-    const l = langCode() || 'en';
-    u.lang = (LANGS.find((x) => x.code === l) || LANGS[0]).voice; u.rate = 0.95;
-    u.onend = () => { if (fakeCall) fakeCall.talk = setTimeout(say, 4500); };
-    speechSynthesis.speak(u);
+    if (!fakeCall || i >= lines.length) return;
+    speak(lines[i++], {
+      female: true, rate: 0.9, gap: 450,
+      onDone: () => { if (fakeCall) fakeCall.talk = setTimeout(say, 3500 + Math.random() * 2500); },
+    });
   };
-  fakeCall.talk = setTimeout(say, 900);
+  fakeCall.talk = setTimeout(say, 1200);
 }
 function endFakeCall() {
   if (!fakeCall) return;
   clearInterval(fakeCall.ringer); clearInterval(fakeCall.timer); clearTimeout(fakeCall.talk);
   buzz(0);
-  if (window.speechSynthesis) speechSynthesis.cancel();
+  stopSpeaking();
   fakeCall.el.remove(); fakeCall = null;
 }
 
