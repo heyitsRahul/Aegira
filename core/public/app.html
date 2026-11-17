@@ -643,7 +643,8 @@ function bestVoice(lang, wantFemale) {
 }
 let speakToken = 0;
 function speak(text, opts = {}) {
-  const { female = false, rate = 0.85, gap = 380, onDone } = opts;
+  const { female = false, rate = 0.8, gap = 420, onDone } = opts;
+  try { if (clipEl) clipEl.pause(); } catch {}
   if (!window.speechSynthesis) { if (onDone) onDone(); return; }
   const my = ++speakToken;
   const l = langCode() || 'en';
@@ -672,10 +673,63 @@ function speak(text, opts = {}) {
   };
   next(true);
 }
-function stopSpeaking() { speakToken++; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch {} }
+// Recorded clips: real people reading each line. Used whenever a clip exists
+// for the chosen language; otherwise, or if it fails to load or play within
+// 2.5 seconds (weak network), the phone's voice says the line instead.
+let voiceClips = {};
+try {
+  fetch('/voice/manifest.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j) voiceClips = j; }).catch(() => {});
+} catch {}
+let clipEl = null;
+function clipPlayer() { if (!clipEl) { clipEl = new Audio(); clipEl.preload = 'auto'; } return clipEl; }
+// iPhones only let a page play sound after a tap, so unlock the one shared
+// player silently on the first tap anywhere.
+document.addEventListener('pointerdown', function unlockClips() {
+  document.removeEventListener('pointerdown', unlockClips, true);
+  try {
+    const a = clipPlayer(); a.muted = true;
+    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    const p = a.play();
+    // Only stop the silent sound, never a clip that a tap (like SOS) just started.
+    if (p && p.then) p.then(() => { if (String(a.src).startsWith('data:')) a.pause(); a.muted = false; }).catch(() => { a.muted = false; });
+  } catch {}
+}, true);
+function playClip(key, fallbackText, opts = {}) {
+  const l = langCode() || 'en';
+  if (!(Array.isArray(voiceClips[l]) && voiceClips[l].includes(key))) { speak(fallbackText, opts); return; }
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch {}
+  const my = ++speakToken;
+  const a = clipPlayer();
+  let playing = false, done = false, timer = null;
+  const clear = () => { clearTimeout(timer); a.onended = a.onerror = a.onplaying = null; };
+  const fallback = () => {
+    if (done || my !== speakToken) return;
+    done = true; clear(); try { a.pause(); } catch {}
+    speak(fallbackText, opts);
+  };
+  timer = setTimeout(() => { if (!playing) fallback(); }, 2500);
+  a.onplaying = () => { playing = true; };
+  a.onerror = fallback;
+  a.onended = () => {
+    if (done || my !== speakToken) return;
+    done = true; clear();
+    if (opts.onDone) opts.onDone();
+  };
+  try {
+    a.muted = false;
+    a.src = '/voice/' + l + '/' + key + '.m4a';
+    const p = a.play();
+    if (p && p.catch) p.catch(fallback);
+  } catch { fallback(); }
+}
+function stopSpeaking() {
+  speakToken++;
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch {}
+  try { if (clipEl) clipEl.pause(); } catch {}
+}
 function speakKey(key) {
   if (!soundOn()) return;
-  speak(t(key));
+  playClip(key, t(key));
 }
 
 /* ------------------------------- map --------------------------------- */
@@ -1534,7 +1588,8 @@ function answerFakeCall() {
   // (3.5 to 6 seconds) so it sounds like someone listening to your replies.
   const say = () => {
     if (!fakeCall || i >= lines.length) return;
-    speak(lines[i++], {
+    const n = i++;
+    playClip('fake_' + (n + 1), lines[n], {
       female: true, rate: 0.9, gap: 450,
       onDone: () => { if (fakeCall) fakeCall.talk = setTimeout(say, 3500 + Math.random() * 2500); },
     });

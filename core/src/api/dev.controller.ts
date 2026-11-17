@@ -6,6 +6,7 @@ import { SessionService } from '../services/session.service';
 import { StubSmsTransport } from '../services/sms';
 import { SmsGatewayService } from '../services/sms-gateway.service';
 import { SMS_GATEWAY } from './gateway.controller';
+import { isVoiceClip, listVoiceClips } from './voice-clips';
 import { ResponderRegistry } from './responder-registry';
 import { RESPONDER_REGISTRY, SESSION_SERVICE } from './session.controller';
 
@@ -105,6 +106,23 @@ export class DevController {
       res.setHeader('cache-control', 'no-cache');
     }
     res.sendFile(join(PUBLIC_DIR, file));
+  }
+
+  /** Which recorded voice clips exist, so the app knows when to use them. */
+  @Get('voice/manifest.json')
+  voiceManifest(@Res() res: Response): void {
+    res.setHeader('cache-control', 'no-cache');
+    res.json(listVoiceClips(join(PUBLIC_DIR, 'voice')));
+  }
+
+  /** One recorded clip. Only whitelisted names; anything else is a 404. */
+  @Get('voice/:lang/:file')
+  voiceClip(@Param('lang') lang: string, @Param('file') file: string, @Res() res: Response): void {
+    if (!isVoiceClip(lang, file)) throw new NotFoundException();
+    res.setHeader('cache-control', 'public, max-age=86400');
+    res.sendFile(join(PUBLIC_DIR, 'voice', lang, file), (err) => {
+      if (err && !res.headersSent) res.status(404).end();
+    });
   }
 
   /** Everything the stub notifier "sent" — the simulated phones read this. */
